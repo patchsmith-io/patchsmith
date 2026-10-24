@@ -1,10 +1,5 @@
 /** Static files use raw bytes from the same budget as bundles and logos. */
-export {
-  maxDeploymentBytes as maxStaticAssetBytes,
-  maxDeploymentBytes as maxStaticDeploymentBytes,
-} from "./deployment-limits";
-
-export const maxStaticAssets = 1000;
+export { maxDeploymentBytes, maxStaticAssets } from "./deployment-limits";
 
 const assetPathPattern =
   /^[a-zA-Z0-9][a-zA-Z0-9._-]*(?:\/[a-zA-Z0-9][a-zA-Z0-9._-]*)*$/u;

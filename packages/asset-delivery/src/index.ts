@@ -2,11 +2,7 @@ import { Effect } from "effect";
 import { catch as catchEffect } from "effect/Effect";
 
 import { maxDeploymentBytes } from "./deployment-limits";
-import {
-  isStaticAssetPath,
-  maxStaticAssetBytes,
-  staticAssetContentType,
-} from "./static-assets";
+import { isStaticAssetPath, staticAssetContentType } from "./static-assets";
 
 export { maxDeploymentBytes } from "./deployment-limits";
 
@@ -72,7 +68,7 @@ const createIdentity = (
       contentType: staticAssetContentType(assetPath),
       immutable: true,
       key: `projects/${projectShortId}/apps/${appShortId}/assets/${requireValue(checksumMatch)}/${assetPath}`,
-      maxBytes: maxStaticAssetBytes,
+      maxBytes: maxDeploymentBytes,
       projectShortId,
     };
   }

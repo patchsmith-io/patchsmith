@@ -11,7 +11,6 @@ import {
   parseHostedAssetRequest,
   parseNodeAssetRequest,
 } from "./index";
-import { maxStaticAssetBytes } from "./static-assets";
 
 const projectId = "proj00000001";
 const appId = "app000000001";
@@ -40,7 +39,7 @@ it("serves content-addressed static files through matching local and hosted rout
     contentType: "application/wasm",
     immutable: true,
     key: `projects/${projectId}/apps/${appId}/assets/${hash}/game/doom.wasm`,
-    maxBytes: maxStaticAssetBytes,
+    maxBytes: maxDeploymentBytes,
     projectShortId: projectId,
   });
   expect(
@@ -115,7 +114,7 @@ describe("asset delivery contract", () => {
       contentType: "image/webp",
       immutable: true,
       key: `projects/${projectId}/apps/${appId}/assets/${logoHash}/logo.webp`,
-      maxBytes: maxStaticAssetBytes,
+      maxBytes: maxDeploymentBytes,
       projectShortId: projectId,
     });
     expect(

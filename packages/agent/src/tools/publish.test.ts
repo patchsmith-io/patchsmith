@@ -3,7 +3,7 @@ import { gunzipSync, gzipSync } from "node:zlib";
 
 import { asyncFixture } from "@patchsmith/config/testing";
 import { maxDeploymentBytes } from "@patchsmith/vite/upload-manifest";
-import { expect, it } from "vite-plus/test";
+import { expect, it, vi } from "vite-plus/test";
 
 import { deploymentDirectory, publishDeployment } from "./publish";
 
@@ -27,6 +27,7 @@ const manifest = {
     server: "server/server.js",
     static: [logoArtifact],
   },
+  hooks: ["billing.updated"],
   version: 1,
   views: [{ path: "/", slot: "panel" }],
 };
@@ -217,6 +218,102 @@ it.each([false, true])(
   }
 );
 
+it.each([false, true])(
+  "limits concurrent agent static uploads (failure=%s)",
+  async (fail) => {
+    const content = Buffer.from("asset-data");
+    const checksum = createHash("sha256").update(content).digest("hex");
+
+    const assets = Array.from({ length: 9 }, (_, index) => ({
+      checksum,
+      contentLength: content.byteLength,
+      path: `asset-${index}.bin`,
+    }));
+
+    const gate = Promise.withResolvers<boolean>();
+    let active = 0;
+    let peak = 0;
+    let published = false;
+    const uploaded: string[] = [];
+
+    const send: typeof fetch = async (input, init) => {
+      const request = new Request(input, init);
+
+      if (request.url.endsWith("/deployments")) {
+        return Response.json({
+          assets: [{ uploadUrl: "https://storage.test/client" }],
+          deployment: { id: "created" },
+          staticAssets: assets.map((asset) => ({
+            file: asset,
+            uploadUrl: `https://storage.test/${asset.path}`,
+          })),
+        });
+      }
+
+      if (request.method === "PUT") {
+        if (request.url.endsWith(".bin")) {
+          active += 1;
+          peak = Math.max(peak, active);
+          await gate.promise;
+          active -= 1;
+          uploaded.push(request.url);
+
+          return new Response(null, { status: fail ? 500 : 200 });
+        }
+
+        return new Response(null, { status: 200 });
+      }
+
+      expect(active).toBe(0);
+      expect(uploaded).toHaveLength(assets.length);
+      published = true;
+
+      return Response.json({ id: "published" });
+    };
+
+    const publish = publishDeployment(
+      reader({
+        ...Object.fromEntries(
+          assets.map((asset) => [`assets/${asset.path}`, content])
+        ),
+        "patchsmith-upload.json": Buffer.from(
+          JSON.stringify({
+            assets: { client: "client/client.js", static: assets },
+            version: 1,
+          })
+        ),
+      }),
+      authorization,
+      undefined,
+      send
+    );
+
+    const outcome = fail
+      ? expect(publish).rejects.toThrow("Asset upload failed with 500.")
+      : expect(publish).resolves.toBe("Deployment: published");
+
+    try {
+      await vi.waitFor(() => {
+        expect(active).toBeGreaterThanOrEqual(4);
+      });
+      expect(active).toBe(4);
+      expect(published).toBe(false);
+    } finally {
+      gate.resolve(true);
+      await outcome;
+    }
+
+    expect(peak).toBe(4);
+    expect(published).toBe(!fail);
+
+    if (!fail) {
+      expect(uploaded.toSorted()).toEqual(
+        assets.map((asset) => `https://storage.test/${asset.path}`).toSorted()
+      );
+    }
+  }
+);
+
 it("uploads data on the host and keeps authorization out of signed asset requests", async () => {
   const requests: Request[] = [];
   const { signal } = new AbortController();
@@ -306,7 +403,7 @@ it("uploads data on the host and keeps authorization out of signed asset request
   );
   expect(Buffer.from(await logoUpload.arrayBuffer())).toEqual(logo);
   expect(await create.json()).toMatchObject({
-    appId: authorization.appId,
+    app: { id: authorization.appId },
     assets: [
       {
         checksum: createHash("sha256").update(clientBytes).digest("hex"),
@@ -314,6 +411,7 @@ it("uploads data on the host and keeps authorization out of signed asset request
         encoding: "gzip",
       },
     ],
+    hooks: manifest.hooks,
     scope,
     views: manifest.views,
   });

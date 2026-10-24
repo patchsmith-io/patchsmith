@@ -119,7 +119,7 @@ export const deploymentRouter = {
                 ),
               })
             ),
-            v.maxLength(1000)
+            v.maxLength(256)
           )
         ),
         views: v.optional(

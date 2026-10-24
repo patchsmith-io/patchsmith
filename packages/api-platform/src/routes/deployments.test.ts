@@ -14,6 +14,7 @@ import {
 import { organization } from "@patchsmith/db/schema/auth";
 import { project as projectTable } from "@patchsmith/db/schema/project";
 import { eq } from "drizzle-orm";
+import { Effect } from "effect";
 import {
   afterEach,
   beforeEach,
@@ -50,6 +51,24 @@ const { deploymentRouter, mapReturnedFilesByAssetPath } =
   await import("./deployments");
 
 const { canonicalizeScope } = await import("#scope");
+
+const { prepareStaticAssets, staticAssetsInput } =
+  await import("./static-assets");
+
+it.each([256, 257])(
+  "enforces the platform static asset cap for %i files",
+  (count) => {
+    expect(
+      staticAssetsInput.safeParse(
+        Array.from({ length: count }, (_, index) => ({
+          checksum: "a".repeat(64),
+          contentLength: 1,
+          path: `asset-${index}.bin`,
+        }))
+      ).success
+    ).toBe(count === 256);
+  }
+);
 
 const describeFile = (bytes: Buffer) => ({
   checksum: createHash("sha256").update(bytes).digest("hex"),
@@ -196,6 +215,170 @@ describe("platform deployment uploads", () => {
   };
 
   const publishContext = publishContextImplementation;
+
+  it.each([false, true])(
+    "bounds storage preparation and stops on failures (%s)",
+    async (fail) => {
+      const context = publishContext("https://storage.test/logo");
+      const currentApp = requireValue(await db.query.app.findFirst());
+      const gate = Promise.withResolvers<boolean>();
+      let active = 0;
+      let peak = 0;
+      context.storage.head = vi.fn(async () => {
+        active += 1;
+        peak = Math.max(peak, active);
+        await gate.promise;
+        active -= 1;
+
+        if (fail) {
+          throw new Error("Storage unavailable");
+        }
+
+        throw Object.assign(new Error("Not found"), { name: "NoSuchKey" });
+      });
+      context.storage.createUploadUrl = vi.fn<
+        typeof context.storage.createUploadUrl
+      >(
+        async ({ key }) =>
+          await Promise.resolve({
+            key,
+            uploadUrl: `https://storage.test/${key}`,
+          })
+      );
+
+      const assets = Array.from({ length: 9 }, (_, index) => ({
+        checksum: logoChecksum,
+        contentLength: 1,
+        path: `asset-${index}.bin`,
+      }));
+
+      const result = Effect.runPromise(
+        prepareStaticAssets({ ...context, app: currentApp }, assets)
+      );
+
+      const outcome = fail
+        ? expect(result).rejects.toMatchObject({
+            code: "INTERNAL_SERVER_ERROR",
+          })
+        : expect(result).resolves.toMatchObject(assets);
+
+      try {
+        await vi.waitFor(() => {
+          expect(active).toBeGreaterThanOrEqual(4);
+        });
+        expect(active).toBe(4);
+      } finally {
+        gate.resolve(true);
+        await outcome;
+      }
+
+      expect(peak).toBe(4);
+      expect(context.storage.head).toHaveBeenCalledTimes(fail ? 4 : 9);
+      expect(context.storage.createUploadUrl).toHaveBeenCalledTimes(
+        fail ? 0 : 9
+      );
+    }
+  );
+
+  it("publishes a batch with bounded verification and rolls back conflicting metadata", async () => {
+    const context = publishContext("https://storage.test/logo");
+    const currentApp = requireValue(await db.query.app.findFirst());
+    context.storage.head = vi.fn().mockRejectedValue({ name: "NoSuchKey" });
+    context.storage.createUploadUrl = vi.fn<
+      typeof context.storage.createUploadUrl
+    >(
+      async ({ key }) =>
+        await Promise.resolve({ key, uploadUrl: `https://storage.test/${key}` })
+    );
+
+    const assets = Array.from({ length: 9 }, (_, index) => ({
+      checksum: logoChecksum,
+      contentLength: 1,
+      path: `asset-${8 - index}.bin`,
+    }));
+
+    const create = async () =>
+      await call(
+        deploymentRouter.create,
+        {
+          body: {
+            app: { id: currentApp.id },
+            assets: [
+              {
+                checksum: logoChecksum,
+                contentLength: 11,
+                contentType: "application/javascript",
+                encoding: "utf-8",
+                objectKey: "client.js",
+              },
+            ],
+            scope: productionScope,
+            staticAssets: assets,
+          },
+        },
+        { context }
+      );
+
+    const created = await create();
+    expect(created.body.staticAssets?.map(({ file }) => file.path)).toEqual(
+      assets.map((asset) => asset.path)
+    );
+    expect(await db.select().from(appDeploymentAsset)).toHaveLength(9);
+    const gate = Promise.withResolvers<boolean>();
+    let active = 0;
+    let peak = 0;
+    context.storage.head = vi.fn<typeof context.storage.head>(
+      async ({ key }) => {
+        const isStatic = key.endsWith(".bin");
+
+        if (isStatic) {
+          active += 1;
+          peak = Math.max(peak, active);
+          await gate.promise;
+          active -= 1;
+        }
+
+        return {
+          checksumSha256: logoChecksumBase64,
+          contentLength: isStatic ? 1 : 11,
+          contentType: isStatic
+            ? "application/octet-stream"
+            : "application/javascript",
+          key,
+        };
+      }
+    );
+
+    const publish = call(
+      deploymentRouter.publish,
+      {
+        body: { rollout: false, scope: productionScope },
+        params: { deploymentId: created.body.deployment.id },
+      },
+      { context }
+    );
+
+    try {
+      await vi.waitFor(() => {
+        expect(active).toBeGreaterThanOrEqual(4);
+      });
+      expect(active).toBe(4);
+    } finally {
+      gate.resolve(true);
+      await publish;
+    }
+
+    expect(peak).toBe(4);
+    const verifiedAssets = await db.select().from(appAsset);
+    expect(verifiedAssets.every((asset) => asset.status === "verified")).toBe(
+      true
+    );
+    await db.update(appAsset).set({ contentLength: 2 });
+    context.storage.head = vi.fn().mockRejectedValue({ name: "NoSuchKey" });
+    await expect(create()).rejects.toThrow("Asset metadata conflicts");
+    expect(await db.select().from(appDeployment)).toHaveLength(1);
+    expect(await db.select().from(appDeploymentAsset)).toHaveLength(9);
+  });
 
   it.each([
     { extraBytes: 0, reuse: false },
@@ -1432,7 +1615,9 @@ describe("platform deployment uploads", () => {
         .mockRejectedValue(
           Object.assign(new Error("Not found"), { name: "NotFound" })
         );
-      context.storage.createUploadUrl = vi.fn(
+      context.storage.createUploadUrl = vi.fn<
+        typeof context.storage.createUploadUrl
+      >(
         asyncFixture(({ key }: { key: string }) => ({
           key,
           uploadUrl: `https://uploads.example/${key}`,
@@ -1715,29 +1900,19 @@ describe("platform deployment uploads", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(
-        asyncFixture((_url: URL, init?: RequestInit) => ({
-          arrayBuffer: async () =>
-            await (async () => {
-              inspectionStarted.resolve(true);
-
-              const {
-                promise: pendingPromise,
-                resolve: _resolve,
-                reject,
-              } = Promise.withResolvers<ArrayBuffer>();
-
-              try {
-                init?.signal?.addEventListener("abort", () => {
-                  reject(new DOMException("Aborted", "AbortError"));
-                });
-              } catch (error) {
-                reject(error);
-              }
-
-              return await pendingPromise;
-            })(),
-          ok: true,
-        }))
+        asyncFixture(
+          (_url: URL, init?: RequestInit) =>
+            new Response(
+              new ReadableStream<Uint8Array>({
+                start(controller) {
+                  inspectionStarted.resolve(true);
+                  init?.signal?.addEventListener("abort", () => {
+                    controller.error(new DOMException("Aborted", "AbortError"));
+                  });
+                },
+              })
+            )
+        )
       )
     );
 
@@ -1752,7 +1927,7 @@ describe("platform deployment uploads", () => {
 
     await inspectionStarted.promise;
     const advanceTimers = vi.advanceTimersByTimeAsync(10_000);
-    await expect(publish).rejects.toThrow("Aborted");
+    await expect(publish).rejects.toThrow("Logo inspection timed out.");
     await advanceTimers;
   });
 });

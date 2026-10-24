@@ -1,28 +1,35 @@
 import { ORPCError } from "@orpc/server";
+import { limitAssetBody } from "@patchsmith/asset-delivery";
 import {
   logoContentTypes,
+  maxLogoBytes,
   validateLogoAsset,
 } from "@patchsmith/asset-delivery/logo-validation";
 import {
   isStaticAssetPath,
-  maxStaticAssetBytes,
+  maxDeploymentBytes,
   maxStaticAssets,
-  maxStaticDeploymentBytes,
   staticAssetContentType,
 } from "@patchsmith/asset-delivery/static-assets";
 import { db } from "@patchsmith/db";
+import type { AppAsset } from "@patchsmith/db/schema/apps";
 import { appAsset, appDeploymentAsset } from "@patchsmith/db/schema/apps";
-import { eq } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
+import { Effect } from "effect";
 import { z } from "zod";
 
 import type { Context } from "#context";
-import { forEachSequential } from "#for-each-sequential";
+
+import {
+  deploymentOperation,
+  inspectUploadedAsset,
+} from "./deployment-effects";
 
 export const staticAssetsInput = z
   .array(
     z.object({
       checksum: z.string().regex(/^[a-f0-9]{64}$/u),
-      contentLength: z.number().int().min(1).max(maxStaticAssetBytes),
+      contentLength: z.number().int().min(1).max(maxDeploymentBytes),
       path: z.string().refine(isStaticAssetPath, "Invalid asset path"),
     })
   )
@@ -34,7 +41,7 @@ export const staticAssetsInput = z
   .refine(
     (assets) =>
       assets.reduce((size, asset) => size + asset.contentLength, 0) <=
-      maxStaticDeploymentBytes,
+      maxDeploymentBytes,
     "Static assets exceed the deployment size limit"
   );
 
@@ -61,178 +68,241 @@ const missingObject = (cause: unknown): boolean => {
   );
 };
 
-export const prepareStaticAssets = async (
+const matchesAssetMetadata = (
+  object: Awaited<ReturnType<Context["storage"]["head"]>>,
+  asset: { checksum: string; contentLength: number; contentType: string }
+) =>
+  object.checksumSha256 === checksumBase64(asset.checksum) &&
+  object.contentLength === asset.contentLength &&
+  object.contentType === asset.contentType &&
+  (object.contentEncoding === undefined || object.contentEncoding === "");
+
+export const prepareStaticAssets = (
   context: Context & { app: { id: string; shortId: string } },
   requested: StaticAssetInput[]
 ) =>
-  await Promise.all(
-    requested.map(async (asset) => {
-      const contentType = staticAssetContentType(asset.path);
-      const objectKey = `projects/${context.project.shortId}/apps/${context.app.shortId}/assets/${asset.checksum}/${asset.path}`;
-      let exists = false;
+  Effect.forEach(
+    requested,
+    (asset) =>
+      Effect.gen(function* prepareAsset() {
+        const contentType = staticAssetContentType(asset.path);
+        const objectKey = `projects/${context.project.shortId}/apps/${context.app.shortId}/assets/${asset.checksum}/${asset.path}`;
 
-      try {
-        const object = await context.storage.head({ key: objectKey });
+        const object = yield* deploymentOperation(async () => {
+          try {
+            return await context.storage.head({ key: objectKey });
+          } catch (error) {
+            if (!missingObject(error)) {
+              throw error;
+            }
+
+            return null;
+          }
+        });
 
         if (
-          object.checksumSha256 !== checksumBase64(asset.checksum) ||
-          object.contentLength !== asset.contentLength ||
-          object.contentType !== contentType ||
-          (object.contentEncoding !== undefined &&
-            object.contentEncoding !== "")
+          object &&
+          !matchesAssetMetadata(object, { ...asset, contentType })
         ) {
-          throw new ORPCError("BAD_REQUEST", {
-            message:
-              "Stored asset metadata does not match its content address.",
-          });
+          return yield* Effect.fail(
+            new ORPCError("BAD_REQUEST", {
+              message:
+                "Stored asset metadata does not match its content address.",
+            })
+          );
         }
 
-        exists = true;
-      } catch (error) {
-        if (!missingObject(error)) {
-          throw error;
-        }
-      }
+        const upload = object
+          ? undefined
+          : yield* deploymentOperation(
+              async () =>
+                await context.storage.createUploadUrl({
+                  checksumSha256: checksumBase64(asset.checksum),
+                  contentType,
+                  expiresInSeconds: 15 * 60,
+                  key: objectKey,
+                  metadata: { appId: context.app.id, checksum: asset.checksum },
+                })
+            );
 
-      const upload = exists
-        ? undefined
-        : await context.storage.createUploadUrl({
-            checksumSha256: checksumBase64(asset.checksum),
-            contentType,
-            expiresInSeconds: 15 * 60,
-            key: objectKey,
-            metadata: { appId: context.app.id, checksum: asset.checksum },
-          });
-
-      return { ...asset, contentType, objectKey, upload };
-    })
+        return { ...asset, contentType, objectKey, upload };
+      }),
+    { concurrency: 4 }
   );
 
-export const linkStaticAssets = async (
+type PreparedStaticAssets = Effect.Success<
+  ReturnType<typeof prepareStaticAssets>
+>;
+
+/** A transaction writes all files and references in two statements. */
+export const linkStaticAssets = (
   tx: Transaction,
   appId: string,
   deploymentId: string,
-  prepared: Awaited<ReturnType<typeof prepareStaticAssets>>
+  prepared: PreparedStaticAssets
 ) =>
-  await Promise.all(
-    prepared.map(async ({ upload, ...asset }) => {
-      const [file] = await tx
+  Effect.gen(function* linkAssets() {
+    if (prepared.length === 0) {
+      return [];
+    }
+
+    const files = yield* deploymentOperation(() =>
+      tx
         .insert(appAsset)
-        .values({ ...asset, appId })
+        .values(
+          prepared
+            .toSorted(
+              (left, right) =>
+                left.checksum.localeCompare(right.checksum) ||
+                left.path.localeCompare(right.path)
+            )
+            .map(({ upload: _upload, ...asset }) => ({ ...asset, appId }))
+        )
         .onConflictDoUpdate({
           set: { updatedAt: new Date() },
           target: [appAsset.appId, appAsset.checksum, appAsset.path],
         })
-        .returning();
+        .returning()
+    );
 
-      if (
-        !file ||
-        file.contentLength !== asset.contentLength ||
-        file.contentType !== asset.contentType
-      ) {
-        throw new ORPCError("BAD_REQUEST", {
-          message: "Asset metadata conflicts with the stored file.",
-        });
-      }
+    const byPath = new Map(files.map((file) => [file.path, file]));
 
-      await tx
-        .insert(appDeploymentAsset)
-        .values({ appAssetId: file.id, appDeploymentId: deploymentId, appId });
-
-      return { file, headers: upload?.headers, uploadUrl: upload?.uploadUrl };
-    })
-  );
-
-export const deploymentStaticAssets = async (deploymentId: string) => {
-  const references = await db.query.appDeploymentAsset.findMany({
-    where: { appDeploymentId: deploymentId },
-    with: { asset: true },
-  });
-
-  return references
-    .flatMap(({ asset }) => (asset ? [asset] : []))
-    .toSorted((a, b) => a.path.localeCompare(b.path));
-};
-
-/** Signed uploads bind SHA-256 to the bytes; publication also verifies R2 metadata. */
-export const verifyStaticAssets = async (
-  storage: Context["storage"],
-  deploymentId: string,
-  logoPaths: (string | null)[] = []
-) => {
-  await forEachSequential(
-    await deploymentStaticAssets(deploymentId),
-    async (asset) => {
-      try {
-        const object = await storage.head({ key: asset.objectKey });
+    const uploads = yield* Effect.forEach(
+      prepared,
+      (asset) => {
+        const file = byPath.get(asset.path);
 
         if (
-          object.checksumSha256 !== checksumBase64(asset.checksum) ||
-          object.contentLength !== asset.contentLength ||
-          object.contentType !== asset.contentType ||
-          (object.contentEncoding !== undefined &&
-            object.contentEncoding !== "")
+          !file ||
+          file.checksum !== asset.checksum ||
+          file.contentLength !== asset.contentLength ||
+          file.contentType !== asset.contentType
         ) {
-          throw new Error(
-            `Uploaded asset does not match its deployment record: ${asset.path}`
+          return Effect.fail(
+            new ORPCError("BAD_REQUEST", {
+              message: "Asset metadata conflicts with the stored file.",
+            })
           );
         }
 
-        if (logoPaths.includes(`assets/${asset.checksum}/${asset.path}`)) {
-          const contentType = logoContentTypes.find(
-            (value) => value === asset.contentType
+        return Effect.succeed({
+          file,
+          headers: asset.upload?.headers,
+          uploadUrl: asset.upload?.uploadUrl,
+        });
+      },
+      { concurrency: 1 }
+    );
+
+    yield* deploymentOperation(() =>
+      tx.insert(appDeploymentAsset).values(
+        files.map((file) => ({
+          appAssetId: file.id,
+          appDeploymentId: deploymentId,
+          appId,
+        }))
+      )
+    );
+
+    return uploads;
+  });
+
+export const deploymentStaticAssets = (deploymentId: string) =>
+  Effect.gen(function* readAssets() {
+    const references = yield* deploymentOperation(() =>
+      db.query.appDeploymentAsset.findMany({
+        where: { appDeploymentId: deploymentId },
+        with: { asset: true },
+      })
+    );
+
+    const assets = yield* Effect.forEach(
+      references,
+      ({ asset }) =>
+        asset
+          ? Effect.succeed(asset)
+          : Effect.fail(
+              new ORPCError("INTERNAL_SERVER_ERROR", {
+                message: "Missing deployment asset reference.",
+              })
+            ),
+      { concurrency: 1 }
+    );
+
+    return assets.toSorted((a, b) => a.path.localeCompare(b.path));
+  });
+
+/** Signed uploads bind SHA-256 to the bytes; publication also verifies R2 metadata. */
+export const verifyStaticAssets = (
+  storage: Context["storage"],
+  assets: AppAsset[],
+  logoPaths: (string | null)[]
+) =>
+  Effect.gen(function* verifyAssets() {
+    const verifiedIds = yield* Effect.forEach(
+      assets,
+      (asset) =>
+        Effect.gen(function* verifyAsset() {
+          const object = yield* deploymentOperation(
+            async () => await storage.head({ key: asset.objectKey })
           );
 
-          if (!contentType) {
-            throw new Error("Unsupported logo format.");
+          if (!matchesAssetMetadata(object, asset)) {
+            return yield* Effect.fail(
+              new ORPCError("BAD_REQUEST", {
+                message: `Uploaded asset does not match its deployment record: ${asset.path}`,
+              })
+            );
           }
 
-          const download = await storage.createDownloadUrl({
-            expiresInSeconds: 60,
-            key: asset.objectKey,
-          });
+          if (logoPaths.includes(`assets/${asset.checksum}/${asset.path}`)) {
+            const contentType = logoContentTypes.find(
+              (value) => value === asset.contentType
+            );
 
-          const url = new URL(download.url);
-
-          if (url.protocol !== "https:") {
-            throw new Error("Logo download URL must use HTTPS.");
-          }
-
-          const controller = new AbortController();
-
-          const timeout = setTimeout(() => {
-            controller.abort();
-          }, 10_000);
-
-          try {
-            const response = await fetch(url, {
-              redirect: "error",
-              signal: controller.signal,
-            });
-
-            if (!response.ok) {
-              throw new Error("Failed to inspect uploaded logo.");
+            if (!contentType || asset.contentLength > maxLogoBytes) {
+              return yield* Effect.fail(
+                new ORPCError("BAD_REQUEST", {
+                  message: "Unsupported logo format or size.",
+                })
+              );
             }
 
-            validateLogoAsset(
-              new Uint8Array(await response.arrayBuffer()),
-              contentType
-            );
-          } finally {
-            clearTimeout(timeout);
-          }
-        }
+            yield* inspectUploadedAsset(
+              storage,
+              asset.objectKey,
+              "Logo",
+              async (body) => {
+                const content = new Uint8Array(
+                  await new Response(
+                    limitAssetBody(body, maxLogoBytes)
+                  ).arrayBuffer()
+                );
 
-        await db
+                validateLogoAsset(content, contentType);
+              }
+            );
+          }
+
+          return asset.id;
+        }).pipe(
+          Effect.mapError(
+            (cause) =>
+              new ORPCError("BAD_REQUEST", {
+                cause,
+                message: `Failed to verify asset ${asset.path}. ${cause.message}`,
+              })
+          )
+        ),
+      { concurrency: 4 }
+    );
+
+    if (verifiedIds.length > 0) {
+      yield* deploymentOperation(() =>
+        db
           .update(appAsset)
           .set({ status: "verified" })
-          .where(eq(appAsset.id, asset.id));
-      } catch (error) {
-        throw new ORPCError("BAD_REQUEST", {
-          cause: error,
-          message: `Failed to verify asset ${asset.path}.${error instanceof Error ? ` ${error.message}` : ""}`,
-        });
-      }
+          .where(inArray(appAsset.id, verifiedIds))
+      );
     }
-  );
-};
+  });

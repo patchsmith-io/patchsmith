@@ -4502,7 +4502,7 @@
                     ]
                   },
                   "staticAssets": {
-                    "maxItems": 1000,
+                    "maxItems": 256,
                     "type": "array",
                     "items": {
                       "type": "object",

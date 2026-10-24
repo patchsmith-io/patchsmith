@@ -202,13 +202,16 @@ describe("project asset gateway", () => {
 
     const response = await fetchAsset(
       new Request(
-        url.replace("client/client.js", `logos/${"a".repeat(64)}.svg`)
+        url.replace(
+          `/d/${deploymentId}/client/client.js`,
+          `/assets/${"a".repeat(64)}/logo.svg`
+        )
       )
     );
 
     expect(response.headers.get("Content-Type")).toBe("image/svg+xml");
     expect(get).toHaveBeenCalledWith(
-      `projects/${projectId}/apps/${appId}/logos/${"a".repeat(64)}.svg`
+      `projects/${projectId}/apps/${appId}/assets/${"a".repeat(64)}/logo.svg`
     );
   });
 

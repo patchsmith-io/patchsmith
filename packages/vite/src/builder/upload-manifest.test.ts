@@ -6,6 +6,22 @@ import {
   patchsmithUploadManifestSchema,
 } from "./upload-manifest";
 
+it.each([256, 257])("enforces the static asset cap for %i files", (count) => {
+  expect(
+    v.safeParse(patchsmithUploadManifestSchema, {
+      assets: {
+        client: "client/client.js",
+        static: Array.from({ length: count }, (_, index) => ({
+          checksum: "a".repeat(64),
+          contentLength: 1,
+          path: `asset-${index}.bin`,
+        })),
+      },
+      version: 1,
+    }).success
+  ).toBe(count === 256);
+});
+
 it("defaults older manifests to no hooks and retains dotted hook names", () => {
   expect(
     v.parse(patchsmithUploadManifestSchema, {

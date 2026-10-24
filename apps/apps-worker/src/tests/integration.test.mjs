@@ -1061,12 +1061,20 @@ export const migrations = ${JSON.stringify(history)};`;
     );
     const logoHash = "a".repeat(64);
     await assets.put(
-      `projects/${projectShortId}/apps/${appShortId}/logos/${logoHash}.svg`,
+      `projects/${projectShortId}/apps/${appShortId}/assets/${logoHash}/logo.svg`,
       "<svg/>"
     );
-    const logo = await mf.dispatchFetch(`${assetBase}/logos/${logoHash}.svg`);
+
+    const logo = await mf.dispatchFetch(
+      `https://${projectShortId}.tailorkit.app/a/${appShortId}/assets/${logoHash}/logo.svg`
+    );
+
     assert.equal(logo.status, 200);
     assert.equal(logo.headers.get("content-type"), "image/svg+xml");
+    assert.equal(
+      (await mf.dispatchFetch(`${assetBase}/logos/${logoHash}.svg`)).status,
+      404
+    );
     assert.equal(
       (await mf.dispatchFetch(`${assetBase}/server/server.js`)).status,
       404

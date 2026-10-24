@@ -1,4 +1,7 @@
-import { maxDeploymentBytes } from "@patchsmith/asset-delivery/deployment-limits";
+import {
+  maxDeploymentBytes,
+  maxStaticAssets,
+} from "@patchsmith/asset-delivery/deployment-limits";
 import * as v from "valibot";
 
 import { logosConfigSchema } from "#config/config";
@@ -50,7 +53,7 @@ export const patchsmithUploadManifestSchema = v.pipe(
               ),
             })
           ),
-          v.maxLength(1000),
+          v.maxLength(maxStaticAssets),
           v.check(
             (assets) =>
               new Set(assets.map((asset) => asset.path)).size === assets.length,

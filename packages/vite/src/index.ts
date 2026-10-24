@@ -2,8 +2,11 @@ import { realpath, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 
-import { validateLogoAsset } from "@patchsmith/asset-delivery/logo-validation";
-import type { LogoContentType } from "@patchsmith/asset-delivery/logo-validation";
+import {
+  logoContentTypes,
+  validateLogoAsset,
+} from "@patchsmith/asset-delivery/logo-validation";
+import { staticAssetContentType } from "@patchsmith/asset-delivery/static-assets";
 import * as v from "valibot";
 import type { Plugin, PluginOption, ResolvedConfig } from "vite";
 
@@ -210,13 +213,6 @@ export const patchsmith = (options: PatchsmithPluginOptions = {}): Plugin[] => {
       viteConfig
     );
 
-    interface LogoManifest {
-      dark?: string;
-      light?: string;
-    }
-
-    const logoManifest: LogoManifest = {};
-
     for (const variant of ["light", "dark"] as const) {
       const configuredPath = loaded.config.logos?.[variant];
 
@@ -230,13 +226,9 @@ export const patchsmith = (options: PatchsmithPluginOptions = {}): Plugin[] => {
         continue;
       }
 
-      const extension = path.extname(configuredPath).toLowerCase().slice(1);
-
-      const contentType = new Map<string, LogoContentType>([
-        ["png", "image/png"],
-        ["svg", "image/svg+xml"],
-        ["webp", "image/webp"],
-      ]).get(extension);
+      const contentType = logoContentTypes.find(
+        (type) => type === staticAssetContentType(configuredPath)
+      );
 
       if (!contentType) {
         throw new Error(
@@ -253,7 +245,6 @@ export const patchsmith = (options: PatchsmithPluginOptions = {}): Plugin[] => {
       }
 
       validateLogoAsset(asset.content, contentType);
-      logoManifest[variant] = configuredPath;
     }
 
     await writeFile(
@@ -264,7 +255,7 @@ export const patchsmith = (options: PatchsmithPluginOptions = {}): Plugin[] => {
       path.join(resolvedOutDir, "patchsmith-upload.json"),
       `${JSON.stringify(
         createPatchsmithUploadManifest(
-          logoManifest,
+          loaded.config.logos,
           true,
           views,
           loaded.config.appId,

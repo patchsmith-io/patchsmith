@@ -4,9 +4,8 @@ import path from "node:path";
 
 import {
   isStaticAssetPath,
-  maxStaticAssetBytes,
+  maxDeploymentBytes,
   maxStaticAssets,
-  maxStaticDeploymentBytes,
 } from "@patchsmith/asset-delivery/static-assets";
 
 import { forEachSequential } from "#for-each-sequential";
@@ -69,8 +68,8 @@ export const readStaticAssets = async (
 
           if (
             info.size < 1 ||
-            info.size > maxStaticAssetBytes ||
-            totalBytes + info.size > maxStaticDeploymentBytes ||
+            info.size > maxDeploymentBytes ||
+            totalBytes + info.size > maxDeploymentBytes ||
             assets.length >= maxStaticAssets
           ) {
             throw new Error(
@@ -83,8 +82,8 @@ export const readStaticAssets = async (
 
           if (
             content.byteLength < 1 ||
-            content.byteLength > maxStaticAssetBytes ||
-            totalBytes > maxStaticDeploymentBytes ||
+            content.byteLength > maxDeploymentBytes ||
+            totalBytes > maxDeploymentBytes ||
             assets.length >= maxStaticAssets
           ) {
             throw new Error(

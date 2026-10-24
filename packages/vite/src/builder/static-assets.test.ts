@@ -14,6 +14,26 @@ import { expect, it } from "vite-plus/test";
 
 import { readStaticAssets, writeStaticAssets } from "./static-assets";
 
+it("accepts 256 static files and rejects a 257th file", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "patchsmith-static-count-"));
+
+  try {
+    await mkdir(path.join(root, "assets"));
+    await Promise.all(
+      Array.from({ length: 256 }, async (_, index) => {
+        await writeFile(path.join(root, "assets", `asset-${index}.txt`), "x");
+      })
+    );
+    expect(await readStaticAssets(root)).toHaveLength(256);
+    await writeFile(path.join(root, "assets/extra.txt"), "x");
+    await expect(readStaticAssets(root)).rejects.toThrow(
+      "Static asset size or count limit exceeded"
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
 it("snapshots binary files, uses stable hashes, and copies the exact hashed bytes", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "patchsmith-static-assets-"));
 
