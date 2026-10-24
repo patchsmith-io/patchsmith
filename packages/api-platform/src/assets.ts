@@ -53,12 +53,16 @@ const loadAsset = (
       try: async () => await storage.head({ key }),
     });
 
-    const contentLength = yield* assetSize(object.contentLength);
+    const contentLength = yield* assetSize(
+      object.contentLength,
+      identity.maxBytes
+    );
 
     const headers = assetHeaders({
       contentLength,
       contentType: identity.contentType,
       etag: object.etag,
+      immutable: identity.immutable,
     });
 
     // Node fetch decodes Content-Encoding automatically. The local adapter serves

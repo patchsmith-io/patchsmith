@@ -1168,16 +1168,8 @@ export type DeploymentsCreateData = {
     ];
     hooks?: Array<string>;
     logos?: {
-      dark?: {
-        checksum: string;
-        contentLength: number;
-        contentType: 'image/svg+xml' | 'image/png' | 'image/webp';
-      };
-      light?: {
-        checksum: string;
-        contentLength: number;
-        contentType: 'image/svg+xml' | 'image/png' | 'image/webp';
-      };
+      dark?: string;
+      light?: string;
     };
     scope: {
       name: string;
@@ -1192,6 +1184,11 @@ export type DeploymentsCreateData = {
       encoding: 'utf-8' | 'gzip';
       objectKey: 'server.js';
     };
+    staticAssets?: Array<{
+      checksum: string;
+      contentLength: number;
+      path: string;
+    }>;
     views?: Array<{
       disabled?: true;
       instances?: true;
@@ -1261,44 +1258,6 @@ export type DeploymentsCreateResponses = {
         }>;
       }>;
     };
-    logos?: {
-      dark?: {
-        file: {
-          appDeploymentId: string;
-          checksum: string | null;
-          contentLength: number;
-          contentType: 'image/svg+xml' | 'image/png' | 'image/webp';
-          createdAt: string;
-          encoding: 'utf-8' | 'gzip' | null;
-          id: string;
-          objectKey: string;
-          status: 'uploading' | 'verifying' | 'verified' | 'failed';
-          updatedAt: string;
-        };
-        headers?: {
-          [key: string]: string;
-        };
-        uploadUrl?: string;
-      };
-      light?: {
-        file: {
-          appDeploymentId: string;
-          checksum: string | null;
-          contentLength: number;
-          contentType: 'image/svg+xml' | 'image/png' | 'image/webp';
-          createdAt: string;
-          encoding: 'utf-8' | 'gzip' | null;
-          id: string;
-          objectKey: string;
-          status: 'uploading' | 'verifying' | 'verified' | 'failed';
-          updatedAt: string;
-        };
-        headers?: {
-          [key: string]: string;
-        };
-        uploadUrl?: string;
-      };
-    };
     server?: {
       file: {
         appDeploymentId: string;
@@ -1317,6 +1276,24 @@ export type DeploymentsCreateResponses = {
       };
       uploadUrl: string;
     };
+    staticAssets?: Array<{
+      file: {
+        appId: string;
+        checksum: string;
+        contentLength: number;
+        contentType: string;
+        createdAt: string;
+        id: string;
+        objectKey: string;
+        path: string;
+        status: 'uploading' | 'verifying' | 'verified' | 'failed';
+        updatedAt: string;
+      };
+      headers?: {
+        [key: string]: string;
+      };
+      uploadUrl?: string;
+    }>;
   };
 };
 
@@ -1367,6 +1344,18 @@ export type DeploymentsGetResponses = {
           [key: string]: unknown;
         };
       }>;
+    }>;
+    staticAssets: Array<{
+      appId: string;
+      checksum: string;
+      contentLength: number;
+      contentType: string;
+      createdAt: string;
+      id: string;
+      objectKey: string;
+      path: string;
+      status: 'uploading' | 'verifying' | 'verified' | 'failed';
+      updatedAt: string;
     }>;
   };
 };

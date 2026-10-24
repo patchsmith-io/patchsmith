@@ -20,6 +20,51 @@ const logoHash = "b".repeat(64);
 const localUrl = `http://localhost:3000/api/assets/p/${projectId}${assetPath}`;
 const hostedUrl = `https://${projectId}.tailorkit.app${assetPath}`;
 
+it("serves content-addressed static files through matching local and hosted routes", () => {
+  const hash = "a".repeat(64);
+  const pathname = `/a/${appId}/assets/${hash}/game/doom.wasm`;
+
+  const hosted = parseHostedAssetRequest(
+    new Request(`https://${projectId}.tailorkit.app${pathname}`),
+    "tailorkit.app"
+  );
+
+  const local = parseNodeAssetRequest(
+    new Request(`http://localhost:3000/api/assets/p/${projectId}${pathname}`)
+  );
+
+  expect(hosted).toEqual(local);
+  expect(hosted).toEqual({
+    appShortId: appId,
+    contentType: "application/wasm",
+    immutable: true,
+    key: `projects/${projectId}/apps/${appId}/assets/${hash}/game/doom.wasm`,
+    maxBytes: maxDeploymentBytes,
+    projectShortId: projectId,
+  });
+  expect(
+    assetHeaders({
+      contentLength: 5,
+      contentType: hosted?.contentType,
+      immutable: hosted?.immutable,
+    }).get("Cache-Control")
+  ).toBe("public, max-age=31536000, immutable");
+  expect(
+    parseHostedAssetRequest(
+      new Request(`https://${projectId}.tailorkit.app${pathname}?other=1`),
+      "tailorkit.app"
+    )
+  ).toBeUndefined();
+  expect(
+    parseHostedAssetRequest(
+      new Request(
+        `https://${projectId}.tailorkit.app/a/${appId}/assets/${hash}/%2e%2e/secret`
+      ),
+      "tailorkit.app"
+    )
+  ).toBeUndefined();
+});
+
 describe("gzip content negotiation", () => {
   it.each([
     ["gzip ;q=0, *;q=1", false],
@@ -57,7 +102,7 @@ describe("asset delivery contract", () => {
   });
 
   it("maps content-addressed app logos to shared storage keys", () => {
-    const logoPath = `/a/${appId}/d/${deploymentId}/logos/${logoHash}.webp`;
+    const logoPath = `/a/${appId}/assets/${logoHash}/logo.webp`;
     expect(
       parseNodeAssetRequest(
         new Request(
@@ -67,8 +112,9 @@ describe("asset delivery contract", () => {
     ).toEqual({
       appShortId: appId,
       contentType: "image/webp",
-      deploymentShortId: deploymentId,
-      key: `projects/${projectId}/apps/${appId}/logos/${logoHash}.webp`,
+      immutable: true,
+      key: `projects/${projectId}/apps/${appId}/assets/${logoHash}/logo.webp`,
+      maxBytes: maxDeploymentBytes,
       projectShortId: projectId,
     });
     expect(
@@ -78,7 +124,7 @@ describe("asset delivery contract", () => {
       )
     ).toEqual(
       expect.objectContaining({
-        key: `projects/${projectId}/apps/${appId}/logos/${logoHash}.webp`,
+        key: `projects/${projectId}/apps/${appId}/assets/${logoHash}/logo.webp`,
       })
     );
   });

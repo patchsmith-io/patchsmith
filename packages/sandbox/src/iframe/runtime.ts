@@ -193,6 +193,8 @@ export const startIframeRuntime = (options: {
     }
 
     if (loadedAppUrl !== appUrl) {
+      backendGlobal.__patchsmithAppUrl = appUrl;
+
       const module = await importModule(
         `data:text/javascript;charset=utf-8,${encodeURIComponent(appSource)}`
       );
@@ -375,6 +377,8 @@ export const startIframeRuntime = (options: {
     }
 
     destroyed = true;
+    delete backendGlobal.__patchsmithAppUrl;
+    delete backendGlobal.__patchsmithAssets;
     observer.disconnect();
     window.removeEventListener("message", handleMessage);
     nodes.clear();

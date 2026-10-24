@@ -43,6 +43,23 @@ const storage = (): Storage => ({
 afterEach(() => vi.restoreAllMocks());
 
 describe("Node asset delivery", () => {
+  it("serves hashed binary files with immutable caching and their MIME type", async () => {
+    const hash = "a".repeat(64);
+    const assetUrl = `http://localhost:3000/api/assets/p/${projectId}/a/${appId}/assets/${hash}/engine.wasm`;
+    const backend = storage();
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(bundle));
+    const response = await handleAssetRequest(new Request(assetUrl), backend);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe(
+      "public, max-age=31536000, immutable"
+    );
+    expect(response.headers.get("Content-Type")).toBe("application/wasm");
+    expect(await response.text()).toBe(bundle);
+    expect(backend.head).toHaveBeenCalledWith({
+      key: `projects/${projectId}/apps/${appId}/assets/${hash}/engine.wasm`,
+    });
+  });
+
   it("rejects every server bundle URL before accessing private storage", async () => {
     const backend = storage();
     const fetch = vi.spyOn(globalThis, "fetch");

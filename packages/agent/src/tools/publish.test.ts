@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
-import { gunzipSync } from "node:zlib";
+import { gunzipSync, gzipSync } from "node:zlib";
 
 import { asyncFixture } from "@patchsmith/config/testing";
 import { maxDeploymentBytes } from "@patchsmith/vite/upload-manifest";
-import { expect, it } from "vite-plus/test";
+import { expect, it, vi } from "vite-plus/test";
 
 import { deploymentDirectory, publishDeployment } from "./publish";
 
@@ -14,12 +14,20 @@ const clientCode = Buffer.from("export const client = true;");
 const serverCode = Buffer.from("export const server = true;");
 const logo = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>');
 
+const logoArtifact = {
+  checksum: createHash("sha256").update(logo).digest("hex"),
+  contentLength: logo.byteLength,
+  path: "logo.svg",
+};
+
 const manifest = {
   assets: {
     client: "client/client.js",
-    logos: { dark: "client/logo-dark.svg" },
+    logos: { dark: "logo.svg" },
     server: "server/server.js",
+    static: [logoArtifact],
   },
+  hooks: ["billing.updated"],
   version: 1,
   views: [{ path: "/", slot: "panel" }],
 };
@@ -27,8 +35,8 @@ const manifest = {
 const reader = (overrides: Record<string, Buffer> = {}) => {
   const files = new Map<string, Buffer>(
     Object.entries({
+      "assets/logo.svg": logo,
       "client/client.js": clientCode,
-      "client/logo-dark.svg": logo,
       "patchsmith-upload.json": Buffer.from(JSON.stringify(manifest)),
       "server/server.js": serverCode,
       ...overrides,
@@ -42,6 +50,269 @@ const reader = (overrides: Record<string, Buffer> = {}) => {
       ),
   };
 };
+
+it.each([
+  { budget: "compressed", extraBytes: 0, reuse: false },
+  { budget: "compressed", extraBytes: 1, reuse: false },
+  { budget: "compressed", extraBytes: 0, reuse: true },
+  { budget: "compressed", extraBytes: 1, reuse: true },
+  { budget: "raw", extraBytes: 0, reuse: true },
+  { budget: "raw", extraBytes: 1, reuse: true },
+])(
+  "counts static files in the agent's combined $budget budget ($extraBytes bytes over, reused=$reuse)",
+  async ({ budget, extraBytes, reuse }) => {
+    const clientContent =
+      budget === "raw" ? Buffer.alloc(6 * 1024 * 1024, "x") : clientCode;
+
+    const serverContent =
+      budget === "raw" ? Buffer.alloc(1024 * 1024, "y") : serverCode;
+
+    const bundleBytes =
+      budget === "raw"
+        ? clientContent.byteLength + serverContent.byteLength
+        : gzipSync(clientContent).byteLength +
+          gzipSync(serverContent).byteLength;
+
+    const content = Buffer.alloc(
+      maxDeploymentBytes - bundleBytes + extraBytes,
+      3
+    );
+
+    const checksum = createHash("sha256").update(content).digest("hex");
+
+    const artifact = {
+      checksum,
+      contentLength: content.byteLength,
+      path: "doom.wad",
+    };
+
+    let requests = 0;
+
+    const send: typeof fetch = async (input, init) => {
+      requests += 1;
+      const request = new Request(input, init);
+
+      if (request.url.endsWith("/deployments")) {
+        expect(await request.json()).toMatchObject({
+          staticAssets: [artifact],
+        });
+
+        return Response.json({
+          assets: [{ uploadUrl: "https://storage.test/client" }],
+          deployment: { id: "created" },
+          server: { uploadUrl: "https://storage.test/server" },
+          staticAssets: [
+            {
+              file: { checksum, path: "doom.wad" },
+              uploadUrl: reuse ? undefined : "https://storage.test/doom.wad",
+            },
+          ],
+        });
+      }
+
+      return request.method === "PUT"
+        ? new Response(null, { status: 200 })
+        : Response.json({ id: "published" });
+    };
+
+    const publish = publishDeployment(
+      reader({
+        "assets/doom.wad": content,
+        "client/client.js": clientContent,
+        "patchsmith-upload.json": Buffer.from(
+          JSON.stringify({
+            assets: {
+              client: "client/client.js",
+              server: "server/server.js",
+              static: [artifact],
+            },
+            version: 1,
+          })
+        ),
+        "server/server.js": serverContent,
+      }),
+      authorization,
+      undefined,
+      send
+    );
+
+    if (extraBytes > 0) {
+      await expect(publish).rejects.toThrow(
+        "Combined deployment assets cannot exceed"
+      );
+      expect(requests).toBe(0);
+    } else {
+      await expect(publish).resolves.toBe("Deployment: published");
+    }
+  }
+);
+
+it.each([false, true])(
+  "publishes hashed static files from sandbox output and reuses existing uploads: %s",
+  async (reuse) => {
+    const content = Buffer.alloc(4 * 1024 * 1024, 2);
+    const checksum = createHash("sha256").update(content).digest("hex");
+
+    const artifact = {
+      checksum,
+      contentLength: content.byteLength,
+      path: "doom.wad",
+    };
+
+    const uploads: string[] = [];
+
+    const send: typeof fetch = async (input, init) => {
+      const request = new Request(input, init);
+
+      if (request.url.endsWith("/deployments")) {
+        expect(await request.json()).toMatchObject({
+          staticAssets: [artifact],
+        });
+
+        return Response.json({
+          assets: [{ uploadUrl: "https://storage.test/client" }],
+          deployment: { id: "created" },
+          staticAssets: [
+            {
+              file: { checksum, path: "doom.wad" },
+              headers: { "content-type": "application/octet-stream" },
+              uploadUrl: reuse ? undefined : "https://storage.test/doom.wad",
+            },
+          ],
+        });
+      }
+
+      if (request.method === "PUT") {
+        uploads.push(request.url);
+        expect(request.headers.has("authorization")).toBe(false);
+
+        if (request.url.endsWith("doom.wad")) {
+          const uploadedContent = Buffer.from(await request.arrayBuffer());
+          expect(uploadedContent.equals(content)).toBe(true);
+          expect(request.headers.has("content-encoding")).toBe(false);
+        }
+
+        return new Response(null, { status: 200 });
+      }
+
+      return Response.json({ id: "published" });
+    };
+
+    expect(
+      await publishDeployment(
+        reader({
+          "assets/doom.wad": content,
+          "patchsmith-upload.json": Buffer.from(
+            JSON.stringify({
+              assets: { client: "client/client.js", static: [artifact] },
+              version: 1,
+            })
+          ),
+        }),
+        authorization,
+        undefined,
+        send
+      )
+    ).toBe("Deployment: published");
+    expect(uploads).toHaveLength(reuse ? 1 : 2);
+  }
+);
+
+it.each([false, true])(
+  "limits concurrent agent static uploads (failure=%s)",
+  async (fail) => {
+    const content = Buffer.from("asset-data");
+    const checksum = createHash("sha256").update(content).digest("hex");
+
+    const assets = Array.from({ length: 9 }, (_, index) => ({
+      checksum,
+      contentLength: content.byteLength,
+      path: `asset-${index}.bin`,
+    }));
+
+    const gate = Promise.withResolvers<boolean>();
+    let active = 0;
+    let peak = 0;
+    let published = false;
+    const uploaded: string[] = [];
+
+    const send: typeof fetch = async (input, init) => {
+      const request = new Request(input, init);
+
+      if (request.url.endsWith("/deployments")) {
+        return Response.json({
+          assets: [{ uploadUrl: "https://storage.test/client" }],
+          deployment: { id: "created" },
+          staticAssets: assets.map((asset) => ({
+            file: asset,
+            uploadUrl: `https://storage.test/${asset.path}`,
+          })),
+        });
+      }
+
+      if (request.method === "PUT") {
+        if (request.url.endsWith(".bin")) {
+          active += 1;
+          peak = Math.max(peak, active);
+          await gate.promise;
+          active -= 1;
+          uploaded.push(request.url);
+
+          return new Response(null, { status: fail ? 500 : 200 });
+        }
+
+        return new Response(null, { status: 200 });
+      }
+
+      expect(active).toBe(0);
+      expect(uploaded).toHaveLength(assets.length);
+      published = true;
+
+      return Response.json({ id: "published" });
+    };
+
+    const publish = publishDeployment(
+      reader({
+        ...Object.fromEntries(
+          assets.map((asset) => [`assets/${asset.path}`, content])
+        ),
+        "patchsmith-upload.json": Buffer.from(
+          JSON.stringify({
+            assets: { client: "client/client.js", static: assets },
+            version: 1,
+          })
+        ),
+      }),
+      authorization,
+      undefined,
+      send
+    );
+
+    const outcome = fail
+      ? expect(publish).rejects.toThrow("Asset upload failed with 500.")
+      : expect(publish).resolves.toBe("Deployment: published");
+
+    try {
+      await vi.waitFor(() => {
+        expect(active).toBeGreaterThanOrEqual(4);
+      });
+      expect(active).toBe(4);
+      expect(published).toBe(false);
+    } finally {
+      gate.resolve(true);
+      await outcome;
+    }
+
+    expect(peak).toBe(4);
+    expect(published).toBe(!fail);
+
+    if (!fail) {
+      expect(uploaded.toSorted()).toEqual(
+        assets.map((asset) => `https://storage.test/${asset.path}`).toSorted()
+      );
+    }
+  }
+);
 
 it("uploads data on the host and keeps authorization out of signed asset requests", async () => {
   const requests: Request[] = [];
@@ -62,13 +333,14 @@ it("uploads data on the host and keeps authorization out of signed asset request
             },
           ],
           deployment: { id: "created-deployment" },
-          logos: {
-            dark: {
+          server: { uploadUrl: "https://storage.test/server" },
+          staticAssets: [
+            {
+              file: logoArtifact,
               headers: { "content-type": "image/svg+xml" },
               uploadUrl: "https://storage.test/logo",
             },
-          },
-          server: { uploadUrl: "https://storage.test/server" },
+          ],
         })
       );
     }
@@ -104,12 +376,12 @@ it("uploads data on the host and keeps authorization out of signed asset request
   ).toBe("Deployment: published-deployment");
   expect(requests.map((request) => request.url)).toEqual([
     "https://platform.test/api/platform/deployments",
+    "https://storage.test/logo",
     "https://storage.test/client",
     "https://storage.test/server",
-    "https://storage.test/logo",
     "https://platform.test/api/platform/deployments/created-deployment",
   ]);
-  const [create, clientUpload, serverUpload, logoUpload, publish] = requests;
+  const [create, logoUpload, clientUpload, serverUpload, publish] = requests;
 
   if (!create || !clientUpload || !serverUpload || !logoUpload || !publish) {
     throw new Error("Expected create, uploads, and publication.");
@@ -131,7 +403,7 @@ it("uploads data on the host and keeps authorization out of signed asset request
   );
   expect(Buffer.from(await logoUpload.arrayBuffer())).toEqual(logo);
   expect(await create.json()).toMatchObject({
-    appId: authorization.appId,
+    app: { id: authorization.appId },
     assets: [
       {
         checksum: createHash("sha256").update(clientBytes).digest("hex"),
@@ -139,6 +411,7 @@ it("uploads data on the host and keeps authorization out of signed asset request
         encoding: "gzip",
       },
     ],
+    hooks: manifest.hooks,
     scope,
     views: manifest.views,
   });
@@ -226,8 +499,8 @@ it.each([0, 1])(
         return Response.json({
           assets: [{ uploadUrl: "https://storage.test/client" }],
           deployment: { id: "created" },
-          logos: { dark: {}, light: {} },
           server: { uploadUrl: "https://storage.test/server" },
+          staticAssets: [{ file: logoArtifact }],
         });
       }
 
@@ -241,21 +514,20 @@ it.each([0, 1])(
     const publish = publishDeployment(
       reader({
         "client/client.js": Buffer.alloc(6 * 1024 * 1024, 120),
-        "client/logo-light.svg": logo,
         "patchsmith-upload.json": Buffer.from(
           JSON.stringify({
             ...manifest,
             assets: {
               ...manifest.assets,
               logos: {
-                dark: "client/logo-dark.svg",
-                light: "client/logo-light.svg",
+                dark: "logo.svg",
+                light: "logo.svg",
               },
             },
           })
         ),
         "server/server.js": Buffer.alloc(
-          4 * 1024 * 1024 - 2 * logo.byteLength + extraBytes,
+          4 * 1024 * 1024 - logo.byteLength + extraBytes,
           121
         ),
       }),

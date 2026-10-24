@@ -32,8 +32,8 @@ describe("hosted asset URLs", () => {
         createdAt: new Date(),
         errorMessage: null,
         id: deploymentId,
-        logoDarkPath: `logos/${"a".repeat(64)}.svg`,
-        logoLightPath: `logos/${"b".repeat(64)}.webp`,
+        logoDarkPath: `assets/${"a".repeat(64)}/logo.svg`,
+        logoLightPath: `assets/${"b".repeat(64)}/logo.webp`,
         publishedAt: new Date(),
         shortId: deploymentShortId,
         status: "published" as const,
@@ -47,8 +47,8 @@ describe("hosted asset URLs", () => {
       `https://${projectShortId}.tailorkit.app/a/${appShortId}/d/${deploymentShortId}/client/client.js`
     );
     expect(withAppAssetUrl(app, projectShortId).logoPaths).toEqual({
-      dark: `https://${projectShortId}.tailorkit.app/a/${appShortId}/d/${deploymentShortId}/logos/${"a".repeat(64)}.svg`,
-      light: `https://${projectShortId}.tailorkit.app/a/${appShortId}/d/${deploymentShortId}/logos/${"b".repeat(64)}.webp`,
+      dark: `https://${projectShortId}.tailorkit.app/a/${appShortId}/assets/${"a".repeat(64)}/logo.svg`,
+      light: `https://${projectShortId}.tailorkit.app/a/${appShortId}/assets/${"b".repeat(64)}/logo.webp`,
     });
   });
 
@@ -58,7 +58,7 @@ describe("hosted asset URLs", () => {
     const app = {
       currentDeployment: {
         clientEntryFileId: "55555555-5555-4555-8555-555555555555",
-        logoDarkPath: `logos/${logoHash}.svg`,
+        logoDarkPath: `assets/${logoHash}/logo.svg`,
         logoLightPath: null,
         shortId: deploymentShortId,
         status: "published" as const,
@@ -67,7 +67,7 @@ describe("hosted asset URLs", () => {
     };
 
     expect(withAppAssetUrl(app, projectShortId).logoPaths).toEqual({
-      dark: `https://${projectShortId}.tailorkit.app/a/${appShortId}/d/${deploymentShortId}/logos/${logoHash}.svg`,
+      dark: `https://${projectShortId}.tailorkit.app/a/${appShortId}/assets/${logoHash}/logo.svg`,
     });
   });
 

@@ -4647,42 +4647,10 @@
                     "type": "object",
                     "properties": {
                       "dark": {
-                        "type": "object",
-                        "properties": {
-                          "checksum": {
-                            "type": "string",
-                            "pattern": "^[a-f0-9]{64}$"
-                          },
-                          "contentLength": {
-                            "type": "integer",
-                            "minimum": 1,
-                            "maximum": 262144
-                          },
-                          "contentType": {
-                            "type": "string",
-                            "enum": ["image/svg+xml", "image/png", "image/webp"]
-                          }
-                        },
-                        "required": ["checksum", "contentLength", "contentType"]
+                        "type": "string"
                       },
                       "light": {
-                        "type": "object",
-                        "properties": {
-                          "checksum": {
-                            "type": "string",
-                            "pattern": "^[a-f0-9]{64}$"
-                          },
-                          "contentLength": {
-                            "type": "integer",
-                            "minimum": 1,
-                            "maximum": 262144
-                          },
-                          "contentType": {
-                            "type": "string",
-                            "enum": ["image/svg+xml", "image/png", "image/webp"]
-                          }
-                        },
-                        "required": ["checksum", "contentLength", "contentType"]
+                        "type": "string"
                       }
                     }
                   },
@@ -4740,6 +4708,28 @@
                       "encoding",
                       "objectKey"
                     ]
+                  },
+                  "staticAssets": {
+                    "maxItems": 256,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "checksum": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "contentLength": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 10485760
+                        },
+                        "path": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["checksum", "contentLength", "path"]
+                    }
                   },
                   "views": {
                     "maxItems": 1000,
@@ -5076,226 +5066,6 @@
                       ],
                       "additionalProperties": false
                     },
-                    "logos": {
-                      "type": "object",
-                      "properties": {
-                        "dark": {
-                          "type": "object",
-                          "properties": {
-                            "file": {
-                              "type": "object",
-                              "properties": {
-                                "appDeploymentId": {
-                                  "type": "string",
-                                  "format": "uuid",
-                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                                },
-                                "checksum": {
-                                  "anyOf": [
-                                    {
-                                      "type": "string",
-                                      "maxLength": 64
-                                    },
-                                    {
-                                      "type": "null"
-                                    }
-                                  ]
-                                },
-                                "contentLength": {
-                                  "type": "integer",
-                                  "minimum": -2147483648,
-                                  "maximum": 2147483647
-                                },
-                                "contentType": {
-                                  "type": "string",
-                                  "enum": [
-                                    "image/svg+xml",
-                                    "image/png",
-                                    "image/webp"
-                                  ]
-                                },
-                                "createdAt": {
-                                  "type": "string",
-                                  "format": "date-time",
-                                  "x-native-type": "date"
-                                },
-                                "encoding": {
-                                  "anyOf": [
-                                    {
-                                      "type": "string",
-                                      "enum": ["utf-8", "gzip"]
-                                    },
-                                    {
-                                      "type": "null"
-                                    }
-                                  ]
-                                },
-                                "id": {
-                                  "type": "string",
-                                  "format": "uuid",
-                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                                },
-                                "objectKey": {
-                                  "type": "string",
-                                  "maxLength": 512,
-                                  "pattern": "^(?:[a-zA-Z0-9._-]+\\/)*[a-zA-Z0-9._-]+\\.[a-zA-Z0-9]+$"
-                                },
-                                "status": {
-                                  "type": "string",
-                                  "enum": [
-                                    "uploading",
-                                    "verifying",
-                                    "verified",
-                                    "failed"
-                                  ]
-                                },
-                                "updatedAt": {
-                                  "type": "string",
-                                  "format": "date-time",
-                                  "x-native-type": "date"
-                                }
-                              },
-                              "required": [
-                                "appDeploymentId",
-                                "checksum",
-                                "contentLength",
-                                "contentType",
-                                "createdAt",
-                                "encoding",
-                                "id",
-                                "objectKey",
-                                "status",
-                                "updatedAt"
-                              ],
-                              "additionalProperties": false
-                            },
-                            "headers": {
-                              "type": "object",
-                              "propertyNames": {
-                                "type": "string"
-                              },
-                              "additionalProperties": {
-                                "type": "string"
-                              }
-                            },
-                            "uploadUrl": {
-                              "type": "string",
-                              "format": "uri"
-                            }
-                          },
-                          "required": ["file"],
-                          "additionalProperties": false
-                        },
-                        "light": {
-                          "type": "object",
-                          "properties": {
-                            "file": {
-                              "type": "object",
-                              "properties": {
-                                "appDeploymentId": {
-                                  "type": "string",
-                                  "format": "uuid",
-                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                                },
-                                "checksum": {
-                                  "anyOf": [
-                                    {
-                                      "type": "string",
-                                      "maxLength": 64
-                                    },
-                                    {
-                                      "type": "null"
-                                    }
-                                  ]
-                                },
-                                "contentLength": {
-                                  "type": "integer",
-                                  "minimum": -2147483648,
-                                  "maximum": 2147483647
-                                },
-                                "contentType": {
-                                  "type": "string",
-                                  "enum": [
-                                    "image/svg+xml",
-                                    "image/png",
-                                    "image/webp"
-                                  ]
-                                },
-                                "createdAt": {
-                                  "type": "string",
-                                  "format": "date-time",
-                                  "x-native-type": "date"
-                                },
-                                "encoding": {
-                                  "anyOf": [
-                                    {
-                                      "type": "string",
-                                      "enum": ["utf-8", "gzip"]
-                                    },
-                                    {
-                                      "type": "null"
-                                    }
-                                  ]
-                                },
-                                "id": {
-                                  "type": "string",
-                                  "format": "uuid",
-                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                                },
-                                "objectKey": {
-                                  "type": "string",
-                                  "maxLength": 512,
-                                  "pattern": "^(?:[a-zA-Z0-9._-]+\\/)*[a-zA-Z0-9._-]+\\.[a-zA-Z0-9]+$"
-                                },
-                                "status": {
-                                  "type": "string",
-                                  "enum": [
-                                    "uploading",
-                                    "verifying",
-                                    "verified",
-                                    "failed"
-                                  ]
-                                },
-                                "updatedAt": {
-                                  "type": "string",
-                                  "format": "date-time",
-                                  "x-native-type": "date"
-                                }
-                              },
-                              "required": [
-                                "appDeploymentId",
-                                "checksum",
-                                "contentLength",
-                                "contentType",
-                                "createdAt",
-                                "encoding",
-                                "id",
-                                "objectKey",
-                                "status",
-                                "updatedAt"
-                              ],
-                              "additionalProperties": false
-                            },
-                            "headers": {
-                              "type": "object",
-                              "propertyNames": {
-                                "type": "string"
-                              },
-                              "additionalProperties": {
-                                "type": "string"
-                              }
-                            },
-                            "uploadUrl": {
-                              "type": "string",
-                              "format": "uri"
-                            }
-                          },
-                          "required": ["file"],
-                          "additionalProperties": false
-                        }
-                      },
-                      "additionalProperties": false
-                    },
                     "server": {
                       "type": "object",
                       "properties": {
@@ -5403,6 +5173,94 @@
                       },
                       "required": ["file", "uploadUrl"],
                       "additionalProperties": false
+                    },
+                    "staticAssets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "file": {
+                            "type": "object",
+                            "properties": {
+                              "appId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "checksum": {
+                                "type": "string",
+                                "maxLength": 64
+                              },
+                              "contentLength": {
+                                "type": "integer",
+                                "minimum": -2147483648,
+                                "maximum": 2147483647
+                              },
+                              "contentType": {
+                                "type": "string"
+                              },
+                              "createdAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "x-native-type": "date"
+                              },
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "objectKey": {
+                                "type": "string"
+                              },
+                              "path": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "uploading",
+                                  "verifying",
+                                  "verified",
+                                  "failed"
+                                ]
+                              },
+                              "updatedAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "x-native-type": "date"
+                              }
+                            },
+                            "required": [
+                              "appId",
+                              "checksum",
+                              "contentLength",
+                              "contentType",
+                              "createdAt",
+                              "id",
+                              "objectKey",
+                              "path",
+                              "status",
+                              "updatedAt"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "headers": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {
+                              "type": "string"
+                            }
+                          },
+                          "uploadUrl": {
+                            "type": "string",
+                            "format": "uri"
+                          }
+                        },
+                        "required": ["file"],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": ["assets", "deployment"],
@@ -5612,6 +5470,74 @@
                         "required": ["path", "slot"],
                         "additionalProperties": false
                       }
+                    },
+                    "staticAssets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "appId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "checksum": {
+                            "type": "string",
+                            "maxLength": 64
+                          },
+                          "contentLength": {
+                            "type": "integer",
+                            "minimum": -2147483648,
+                            "maximum": 2147483647
+                          },
+                          "contentType": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "x-native-type": "date"
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "objectKey": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "uploading",
+                              "verifying",
+                              "verified",
+                              "failed"
+                            ]
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "x-native-type": "date"
+                          }
+                        },
+                        "required": [
+                          "appId",
+                          "checksum",
+                          "contentLength",
+                          "contentType",
+                          "createdAt",
+                          "id",
+                          "objectKey",
+                          "path",
+                          "status",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
@@ -5627,7 +5553,8 @@
                     "shortId",
                     "status",
                     "updatedAt",
-                    "views"
+                    "views",
+                    "staticAssets"
                   ],
                   "additionalProperties": false
                 }

@@ -41,23 +41,12 @@ const serverAssetInput = v.object({
   objectKey: v.literal("server.js"),
 });
 
-const logoAssetInput = v.object({
-  checksum: v.string(),
-  contentLength: v.pipe(
-    v.number(),
-    v.integer(),
-    v.minValue(1),
-    v.maxValue(256 * 1024)
-  ),
-  contentType: v.picklist(["image/svg+xml", "image/png", "image/webp"]),
-});
-
 const deploymentAssetsInput = v.tuple([clientAssetInput]);
 
 const deploymentLogosInput = v.optional(
   v.object({
-    dark: v.optional(logoAssetInput),
-    light: v.optional(logoAssetInput),
+    dark: v.optional(v.pipe(v.string(), v.minLength(1), v.maxLength(512))),
+    light: v.optional(v.pipe(v.string(), v.minLength(1), v.maxLength(512))),
   })
 );
 
@@ -115,6 +104,24 @@ export const deploymentRouter = {
         ),
         logos: deploymentLogosInput,
         server: v.optional(serverAssetInput),
+        staticAssets: v.optional(
+          v.pipe(
+            v.array(
+              v.object({
+                checksum: v.pipe(v.string(), v.regex(/^[a-f0-9]{64}$/u)),
+                contentLength: v.pipe(v.number(), v.integer(), v.minValue(1)),
+                path: v.pipe(
+                  v.string(),
+                  v.maxLength(512),
+                  v.regex(
+                    /^[a-zA-Z0-9][a-zA-Z0-9._-]*(?:\/[a-zA-Z0-9][a-zA-Z0-9._-]*)*$/u
+                  )
+                ),
+              })
+            ),
+            v.maxLength(256)
+          )
+        ),
         views: v.optional(
           v.pipe(
             v.array(
@@ -149,6 +156,7 @@ export const deploymentRouter = {
             logos: input.logos,
             scope: getPatchsmithScope(context),
             server: input.server,
+            staticAssets: input.staticAssets,
             views: input.views,
           },
           client: context.platform,

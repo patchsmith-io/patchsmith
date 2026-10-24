@@ -1,8 +1,16 @@
 import * as v from "valibot";
 
-const logosConfigSchema = v.object({
-  dark: v.optional(v.pipe(v.string(), v.minLength(1))),
-  light: v.optional(v.pipe(v.string(), v.minLength(1))),
+export const logoPathSchema = v.pipe(
+  v.string(),
+  v.maxLength(512),
+  v.regex(
+    /^[a-zA-Z0-9][a-zA-Z0-9._-]*(?:\/[a-zA-Z0-9][a-zA-Z0-9._-]*)*\.(?:png|svg|webp)$/u
+  )
+);
+
+export const logosConfigSchema = v.object({
+  dark: v.optional(logoPathSchema),
+  light: v.optional(logoPathSchema),
 });
 
 const patchsmithConfigSchema = v.strictObject({
@@ -28,7 +36,7 @@ const patchsmithConfigSchema = v.strictObject({
 
 /**
  * App configuration exported from `patchsmith.config.ts`.
- * Relative paths resolve from the app root: the Vite config directory when building.
+ * Logo paths resolve from the app’s assets/ directory; other paths resolve from the app root.
  */
 export interface PatchsmithConfig extends v.InferInput<
   typeof patchsmithConfigSchema
@@ -59,12 +67,12 @@ export interface PatchsmithConfig extends v.InferInput<
    */
   logos?: {
     /**
-     * Path to the app logo for dark mode. Omit to upload no dark-mode logo.
+     * Path relative to assets/ for the app logo in dark mode. Omit to upload no dark-mode logo.
      * @default undefined
      */
     dark?: string;
     /**
-     * Path to the app logo for light mode. Omit to upload no light-mode logo.
+     * Path relative to assets/ for the app logo in light mode. Omit to upload no light-mode logo.
      * @default undefined
      */
     light?: string;

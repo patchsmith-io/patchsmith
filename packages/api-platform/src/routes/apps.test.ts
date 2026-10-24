@@ -779,7 +779,7 @@ describe("platform appRouter", () => {
       .values({
         appId: source.id,
         hooks: ["sync"],
-        logoLightPath: `logos/${"a".repeat(64)}.svg`,
+        logoLightPath: `assets/${"a".repeat(64)}/logo.svg`,
         shortId: "published001",
         status: "published",
         views: [{ path: "/", slot: "page" }],
@@ -883,7 +883,7 @@ describe("platform appRouter", () => {
       `/a/${source.shortId}/d/${deployment.shortId}/client/client.js`
     );
     expect(listed.items[0]?.logoPaths?.light).toContain(
-      `/a/${source.shortId}/d/${deployment.shortId}/logos/`
+      `/a/${source.shortId}/assets/`
     );
 
     const lookup = await call(

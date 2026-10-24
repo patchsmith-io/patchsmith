@@ -21,10 +21,16 @@ it("builds the app's Vite config with custom plugins, aliases, constants and out
     await linkTestDependencies(root);
     await mkdir(path.join(root, "src/functions"), { recursive: true });
     await mkdir(path.join(root, "config"));
+    await mkdir(path.join(root, "assets"));
+
+    const logo =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M0 0h24v24z"/></svg>';
+
+    await writeFile(path.join(root, "assets/logo.svg"), logo);
     await writeFile(path.join(root, "package.json"), '{"type":"module"}');
     await writeFile(
       path.join(root, "config/patchsmith.config.mjs"),
-      'export default { name: "Test App", slug: "test-app", host: "https://host.test" };'
+      'export default { name: "Test App", slug: "test-app", host: "https://host.test", logos: { dark: "logo.svg", light: "logo.svg" } };'
     );
     await writeFile(
       path.join(root, "src/message.ts"),
@@ -79,8 +85,19 @@ it("builds the app's Vite config with custom plugins, aliases, constants and out
         await readFile(path.join(outDir, "patchsmith-upload.json"), "utf-8")
       )
     ).toMatchObject({
-      assets: { client: "client/client.js", server: "server/server.js" },
+      assets: {
+        client: "client/client.js",
+        logos: { dark: "logo.svg", light: "logo.svg" },
+        server: "server/server.js",
+        static: [{ contentLength: Buffer.byteLength(logo), path: "logo.svg" }],
+      },
     });
+    expect(await readFile(path.join(outDir, "assets/logo.svg"), "utf-8")).toBe(
+      logo
+    );
+    await expect(
+      readFile(path.join(outDir, "client/logo-light.svg"))
+    ).rejects.toThrow();
     expect(
       await readFile(path.join(outDir, "client/client.js.map"), "utf-8")
     ).toBeTruthy();

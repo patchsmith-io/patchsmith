@@ -6,12 +6,15 @@ import { maxDeploymentBytes } from "@patchsmith/asset-delivery";
 import { asyncFixture } from "@patchsmith/config/testing";
 import {
   app as appTable,
+  appAsset,
   appDeployment,
+  appDeploymentAsset,
   appDeploymentFile,
 } from "@patchsmith/db/schema/apps";
 import { organization } from "@patchsmith/db/schema/auth";
 import { project as projectTable } from "@patchsmith/db/schema/project";
 import { eq } from "drizzle-orm";
+import { Effect } from "effect";
 import {
   afterEach,
   beforeEach,
@@ -48,6 +51,24 @@ const { deploymentRouter, mapReturnedFilesByAssetPath } =
   await import("./deployments");
 
 const { canonicalizeScope } = await import("#scope");
+
+const { prepareStaticAssets, staticAssetsInput } =
+  await import("./static-assets");
+
+it.each([256, 257])(
+  "enforces the platform static asset cap for %i files",
+  (count) => {
+    expect(
+      staticAssetsInput.safeParse(
+        Array.from({ length: count }, (_, index) => ({
+          checksum: "a".repeat(64),
+          contentLength: 1,
+          path: `asset-${index}.bin`,
+        }))
+      ).success
+    ).toBe(count === 256);
+  }
+);
 
 const describeFile = (bytes: Buffer) => ({
   checksum: createHash("sha256").update(bytes).digest("hex"),
@@ -87,11 +108,16 @@ const publishContextImplementation = (downloadUrl: string): Context => ({
     createDownloadUrl: vi.fn().mockResolvedValue({ url: downloadUrl }),
     createUploadUrl: vi.fn(),
     delete: vi.fn(),
-    head: vi.fn().mockResolvedValue({
-      checksumSha256: logoChecksumBase64,
-      contentLength: 11,
-      contentType: "image/svg+xml",
-    }),
+    head: vi.fn(
+      asyncFixture(({ key }: { key: string }) => ({
+        checksumSha256: logoChecksumBase64,
+        contentLength: 11,
+        contentType: key.endsWith(".svg")
+          ? "image/svg+xml"
+          : "application/javascript",
+        key,
+      }))
+    ),
     type: "s3",
   },
 });
@@ -147,6 +173,7 @@ describe("platform deployment uploads", () => {
       .insert(appDeployment)
       .values({
         appId: currentApp.id,
+        logoDarkPath: `assets/${logoChecksum}/logo.svg`,
         shortId: "dep000000001",
         status: "uploading",
       })
@@ -160,15 +187,434 @@ describe("platform deployment uploads", () => {
       appDeploymentId: deployment.id,
       checksum: logoChecksum,
       contentLength: 11,
-      contentType: "image/svg+xml",
+      contentType: "application/javascript",
       encoding: null,
-      objectKey: "projects/proj00000001/apps/app000000001/logos/legacy.svg",
+      objectKey:
+        "projects/proj00000001/apps/app000000001/deployments/dep000000001/client/client.js",
+    });
+
+    const [asset] = await db
+      .insert(appAsset)
+      .values({
+        appId: currentApp.id,
+        checksum: logoChecksum,
+        contentLength: 11,
+        contentType: "image/svg+xml",
+        objectKey: `projects/proj00000001/apps/app000000001/assets/${logoChecksum}/logo.svg`,
+        path: "logo.svg",
+      })
+      .returning();
+
+    await db.insert(appDeploymentAsset).values({
+      appAssetId: requireValue(asset).id,
+      appDeploymentId: deployment.id,
+      appId: currentApp.id,
     });
 
     return deployment;
   };
 
   const publishContext = publishContextImplementation;
+
+  it.each([false, true])(
+    "bounds storage preparation and stops on failures (%s)",
+    async (fail) => {
+      const context = publishContext("https://storage.test/logo");
+      const currentApp = requireValue(await db.query.app.findFirst());
+      const gate = Promise.withResolvers<boolean>();
+      let active = 0;
+      let peak = 0;
+      context.storage.head = vi.fn(async () => {
+        active += 1;
+        peak = Math.max(peak, active);
+        await gate.promise;
+        active -= 1;
+
+        if (fail) {
+          throw new Error("Storage unavailable");
+        }
+
+        throw Object.assign(new Error("Not found"), { name: "NoSuchKey" });
+      });
+      context.storage.createUploadUrl = vi.fn<
+        typeof context.storage.createUploadUrl
+      >(
+        async ({ key }) =>
+          await Promise.resolve({
+            key,
+            uploadUrl: `https://storage.test/${key}`,
+          })
+      );
+
+      const assets = Array.from({ length: 9 }, (_, index) => ({
+        checksum: logoChecksum,
+        contentLength: 1,
+        path: `asset-${index}.bin`,
+      }));
+
+      const result = Effect.runPromise(
+        prepareStaticAssets({ ...context, app: currentApp }, assets)
+      );
+
+      const outcome = fail
+        ? expect(result).rejects.toMatchObject({
+            code: "INTERNAL_SERVER_ERROR",
+          })
+        : expect(result).resolves.toMatchObject(assets);
+
+      try {
+        await vi.waitFor(() => {
+          expect(active).toBeGreaterThanOrEqual(4);
+        });
+        expect(active).toBe(4);
+      } finally {
+        gate.resolve(true);
+        await outcome;
+      }
+
+      expect(peak).toBe(4);
+      expect(context.storage.head).toHaveBeenCalledTimes(fail ? 4 : 9);
+      expect(context.storage.createUploadUrl).toHaveBeenCalledTimes(
+        fail ? 0 : 9
+      );
+    }
+  );
+
+  it("publishes a batch with bounded verification and rolls back conflicting metadata", async () => {
+    const context = publishContext("https://storage.test/logo");
+    const currentApp = requireValue(await db.query.app.findFirst());
+    context.storage.head = vi.fn().mockRejectedValue({ name: "NoSuchKey" });
+    context.storage.createUploadUrl = vi.fn<
+      typeof context.storage.createUploadUrl
+    >(
+      async ({ key }) =>
+        await Promise.resolve({ key, uploadUrl: `https://storage.test/${key}` })
+    );
+
+    const assets = Array.from({ length: 9 }, (_, index) => ({
+      checksum: logoChecksum,
+      contentLength: 1,
+      path: `asset-${8 - index}.bin`,
+    }));
+
+    const create = async () =>
+      await call(
+        deploymentRouter.create,
+        {
+          body: {
+            app: { id: currentApp.id },
+            assets: [
+              {
+                checksum: logoChecksum,
+                contentLength: 11,
+                contentType: "application/javascript",
+                encoding: "utf-8",
+                objectKey: "client.js",
+              },
+            ],
+            scope: productionScope,
+            staticAssets: assets,
+          },
+        },
+        { context }
+      );
+
+    const created = await create();
+    expect(created.body.staticAssets?.map(({ file }) => file.path)).toEqual(
+      assets.map((asset) => asset.path)
+    );
+    expect(await db.select().from(appDeploymentAsset)).toHaveLength(9);
+    const gate = Promise.withResolvers<boolean>();
+    let active = 0;
+    let peak = 0;
+    context.storage.head = vi.fn<typeof context.storage.head>(
+      async ({ key }) => {
+        const isStatic = key.endsWith(".bin");
+
+        if (isStatic) {
+          active += 1;
+          peak = Math.max(peak, active);
+          await gate.promise;
+          active -= 1;
+        }
+
+        return {
+          checksumSha256: logoChecksumBase64,
+          contentLength: isStatic ? 1 : 11,
+          contentType: isStatic
+            ? "application/octet-stream"
+            : "application/javascript",
+          key,
+        };
+      }
+    );
+
+    const publish = call(
+      deploymentRouter.publish,
+      {
+        body: { rollout: false, scope: productionScope },
+        params: { deploymentId: created.body.deployment.id },
+      },
+      { context }
+    );
+
+    try {
+      await vi.waitFor(() => {
+        expect(active).toBeGreaterThanOrEqual(4);
+      });
+      expect(active).toBe(4);
+    } finally {
+      gate.resolve(true);
+      await publish;
+    }
+
+    expect(peak).toBe(4);
+    const verifiedAssets = await db.select().from(appAsset);
+    expect(verifiedAssets.every((asset) => asset.status === "verified")).toBe(
+      true
+    );
+    await db.update(appAsset).set({ contentLength: 2 });
+    context.storage.head = vi.fn().mockRejectedValue({ name: "NoSuchKey" });
+    await expect(create()).rejects.toThrow("Asset metadata conflicts");
+    expect(await db.select().from(appDeployment)).toHaveLength(1);
+    expect(await db.select().from(appDeploymentAsset)).toHaveLength(9);
+  });
+
+  it.each([
+    { extraBytes: 0, reuse: false },
+    { extraBytes: 1, reuse: false },
+    { extraBytes: 0, reuse: true },
+    { extraBytes: 1, reuse: true },
+  ])(
+    "counts static assets with bundles and logos at creation ($extraBytes bytes over, reused=$reuse)",
+    async ({ extraBytes, reuse }) => {
+      const currentApp = requireValue(await db.query.app.findFirst());
+      const context = publishContext("https://uploads.example/bundle");
+      const checksum = "a".repeat(64);
+      const contentLength = 3 * 1024 * 1024 + extraBytes;
+      const objectKey = `projects/${context.project.shortId}/apps/${currentApp.shortId}/assets/${checksum}/doom.wad`;
+      context.storage.createUploadUrl = vi.fn<
+        typeof context.storage.createUploadUrl
+      >(
+        asyncFixture(({ key }) => ({
+          key,
+          uploadUrl: `https://uploads.example/${key}`,
+        }))
+      );
+      context.storage.head = asyncFixture(({ key }) => {
+        if (key === objectKey && reuse) {
+          return {
+            checksumSha256: Buffer.from(checksum, "hex").toString("base64"),
+            contentLength,
+            contentType: "application/octet-stream",
+            key,
+          };
+        }
+
+        throw Object.assign(new Error("Not found"), { name: "NotFound" });
+      });
+
+      if (reuse) {
+        await db.insert(appAsset).values({
+          appId: currentApp.id,
+          checksum,
+          contentLength,
+          contentType: "application/octet-stream",
+          objectKey,
+          path: "doom.wad",
+          status: "verified",
+        });
+      }
+
+      const metadata = {
+        checksum: logoChecksum,
+        contentType: "application/javascript" as const,
+        encoding: "utf-8" as const,
+      };
+
+      const logo = {
+        checksum: logoChecksum,
+        contentLength: 11,
+        contentType: "image/svg+xml" as const,
+      };
+
+      const create = call(
+        deploymentRouter.create,
+        {
+          body: {
+            app: { id: currentApp.id },
+            assets: [
+              {
+                ...metadata,
+                contentLength: 6 * 1024 * 1024,
+                objectKey: "client.js",
+              },
+            ],
+            logos: { dark: "logo.svg", light: "logo.svg" },
+            scope: productionScope,
+            server: {
+              ...metadata,
+              contentLength: 1024 * 1024 - 11,
+              objectKey: "server.js",
+            },
+            staticAssets: [
+              { checksum, contentLength, path: "doom.wad" },
+              { ...logo, path: "logo.svg" },
+            ],
+          },
+        },
+        { context }
+      );
+
+      if (extraBytes > 0) {
+        await expect(create).rejects.toThrow("Input validation failed");
+        expect(context.storage.createUploadUrl).not.toHaveBeenCalled();
+      } else {
+        const created = await create;
+        expect(created.body.staticAssets?.[0]?.uploadUrl !== undefined).toBe(
+          !reuse
+        );
+      }
+    }
+  );
+
+  it.each([0, 1])(
+    "reserves reused static bytes while verifying decompressed bundles (%i bytes over)",
+    async (extraBytes) => {
+      const currentApp = requireValue(await db.query.app.findFirst());
+      const context = publishContext("https://uploads.example/bundle");
+      const staticBytes = 3 * 1024 * 1024;
+      const checksum = "a".repeat(64);
+      const objectKey = `projects/${context.project.shortId}/apps/${currentApp.shortId}/assets/${checksum}/doom.wad`;
+      await db.insert(appAsset).values({
+        appId: currentApp.id,
+        checksum,
+        contentLength: staticBytes,
+        contentType: "application/octet-stream",
+        objectKey,
+        path: "doom.wad",
+        status: "verified",
+      });
+
+      const decoded = Buffer.alloc(
+        maxDeploymentBytes - staticBytes + extraBytes,
+        "x"
+      );
+
+      const compressed = gzipSync(decoded);
+
+      const clientChecksum = createHash("sha256")
+        .update(compressed)
+        .digest("hex");
+
+      context.storage.createUploadUrl = vi.fn<
+        typeof context.storage.createUploadUrl
+      >(
+        asyncFixture(({ key }) => ({
+          key,
+          uploadUrl: `https://uploads.example/${key}`,
+        }))
+      );
+      context.storage.head = asyncFixture(({ key }) =>
+        key === objectKey
+          ? {
+              checksumSha256: Buffer.from(checksum, "hex").toString("base64"),
+              contentLength: staticBytes,
+              contentType: "application/octet-stream",
+              key,
+            }
+          : {
+              checksumSha256: Buffer.from(clientChecksum, "hex").toString(
+                "base64"
+              ),
+              contentEncoding: "gzip",
+              contentLength: compressed.byteLength,
+              contentType: "application/javascript",
+              key,
+            }
+      );
+
+      const created = await call(
+        deploymentRouter.create,
+        {
+          body: {
+            app: { id: currentApp.id },
+            assets: [
+              {
+                checksum: clientChecksum,
+                contentLength: compressed.byteLength,
+                contentType: "application/javascript",
+                encoding: "gzip",
+                objectKey: "client.js",
+              },
+            ],
+            scope: productionScope,
+            staticAssets: [
+              { checksum, contentLength: staticBytes, path: "doom.wad" },
+            ],
+          },
+        },
+        { context }
+      );
+
+      expect(created.body.staticAssets?.[0]?.uploadUrl).toBeUndefined();
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(decoded));
+
+      const publish = call(
+        deploymentRouter.publish,
+        {
+          body: { rollout: false, scope: productionScope },
+          params: { deploymentId: created.body.deployment.id },
+        },
+        { context }
+      );
+
+      if (extraBytes > 0) {
+        await expect(publish).rejects.toThrow("after decompression");
+
+        return;
+      }
+
+      await expect(publish).resolves.toMatchObject({
+        body: { status: "published" },
+      });
+    }
+  );
+
+  it("rechecks stored static references against the budget before publication", async () => {
+    const deployment = await createLogoDeployment();
+
+    const [asset] = await db
+      .insert(appAsset)
+      .values({
+        appId: deployment.appId,
+        checksum: "a".repeat(64),
+        contentLength: maxDeploymentBytes,
+        contentType: "application/octet-stream",
+        objectKey: "stored/static/file",
+        path: "doom.wad",
+        status: "verified",
+      })
+      .returning();
+
+    await db.insert(appDeploymentAsset).values({
+      appAssetId: requireValue(asset).id,
+      appDeploymentId: deployment.id,
+      appId: deployment.appId,
+    });
+    const context = publishContext("https://uploads.example/bundle");
+    await expect(
+      call(
+        deploymentRouter.publish,
+        {
+          body: { rollout: false, scope: productionScope },
+          params: { deploymentId: deployment.id },
+        },
+        { context }
+      )
+    ).rejects.toThrow("Combined deployment assets cannot exceed");
+    expect(context.storage.head).not.toHaveBeenCalled();
+  });
 
   it.each([0, 1])(
     "checks the combined upload budget with %i bytes over the limit",
@@ -183,6 +629,12 @@ describe("platform deployment uploads", () => {
           uploadUrl: `https://uploads.example/${key}`,
         }))
       );
+
+      context.storage.head = vi
+        .fn()
+        .mockRejectedValue(
+          Object.assign(new Error("Not found"), { name: "NotFound" })
+        );
 
       const metadata = {
         checksum: "a".repeat(64),
@@ -208,13 +660,14 @@ describe("platform deployment uploads", () => {
                 objectKey: "client.js",
               },
             ],
-            logos: { dark: logo, light: logo },
+            logos: { dark: "logo.svg", light: "logo.svg" },
             scope: productionScope,
             server: {
               ...metadata,
-              contentLength: 4 * 1024 * 1024 - 22 + extraBytes,
+              contentLength: 4 * 1024 * 1024 - 11 + extraBytes,
               objectKey: "server.js",
             },
+            staticAssets: [{ ...logo, path: "logo.svg" }],
           },
         },
         { context }
@@ -248,7 +701,7 @@ describe("platform deployment uploads", () => {
       const server = Buffer.alloc(
         maxDeploymentBytes -
           clientBundle.byteLength -
-          2 * logo.byteLength +
+          logo.byteLength +
           extraBytes,
         121
       );
@@ -264,6 +717,12 @@ describe("platform deployment uploads", () => {
           uploadUrl: `https://uploads.example/${key}`,
         }))
       );
+
+      context.storage.head = vi
+        .fn()
+        .mockRejectedValue(
+          Object.assign(new Error("Not found"), { name: "NotFound" })
+        );
 
       const logoMetadata = {
         ...describeFile(logo),
@@ -283,7 +742,7 @@ describe("platform deployment uploads", () => {
                 objectKey: "client.js",
               },
             ],
-            logos: { dark: logoMetadata, light: logoMetadata },
+            logos: { dark: "logo.svg", light: "logo.svg" },
             scope: productionScope,
             server: {
               ...describeFile(uploadedServer),
@@ -291,6 +750,7 @@ describe("platform deployment uploads", () => {
               encoding,
               objectKey: "server.js",
             },
+            staticAssets: [{ ...logoMetadata, path: "logo.svg" }],
           },
         },
         { context }
@@ -300,10 +760,16 @@ describe("platform deployment uploads", () => {
         where: { appDeploymentId: created.body.deployment.id },
       });
 
+      const staticFiles =
+        created.body.staticAssets?.map(({ file }) => ({
+          ...file,
+          encoding: null,
+        })) ?? [];
+
       context.storage.head = vi.fn<typeof context.storage.head>(
         asyncFixture(({ key }) => {
           const file = requireValue(
-            files.find((entry) => entry.objectKey === key)
+            [...files, ...staticFiles].find((entry) => entry.objectKey === key)
           );
 
           return {
@@ -371,6 +837,242 @@ describe("platform deployment uploads", () => {
       expect(fetchMock).toHaveBeenCalledTimes(encoding === "gzip" ? 3 : 2);
     }
   );
+
+  it("rejects cross-app asset links and ownership changes in the database", async () => {
+    const deployment = await createLogoDeployment();
+
+    const [otherApp] = await db
+      .insert(appTable)
+      .values({
+        name: "Other app",
+        projectId,
+        shortId: "app000000002",
+        ...canonicalizeScope(productionScope),
+      })
+      .returning();
+
+    const otherAppId = requireValue(otherApp).id;
+
+    const [otherDeployment] = await db
+      .insert(appDeployment)
+      .values({ appId: otherAppId, shortId: "dep000000002" })
+      .returning();
+
+    const [asset] = await db
+      .insert(appAsset)
+      .values({
+        appId: deployment.appId,
+        checksum: "a".repeat(64),
+        contentLength: 11,
+        contentType: "application/octet-stream",
+        objectKey: "stored/static/file",
+        path: "doom.wad",
+      })
+      .returning();
+
+    const appAssetId = requireValue(asset).id;
+    const foreignKeyViolation = { cause: { code: "23503" } };
+
+    await expect(
+      db.insert(appDeploymentAsset).values({
+        appAssetId,
+        appDeploymentId: requireValue(otherDeployment).id,
+        appId: deployment.appId,
+      })
+    ).rejects.toMatchObject(foreignKeyViolation);
+    await expect(
+      db.insert(appDeploymentAsset).values({
+        appAssetId,
+        appDeploymentId: requireValue(otherDeployment).id,
+        appId: otherAppId,
+      })
+    ).rejects.toMatchObject(foreignKeyViolation);
+    expect(
+      await db
+        .select()
+        .from(appDeploymentAsset)
+        .where(eq(appDeploymentAsset.appAssetId, appAssetId))
+    ).toHaveLength(0);
+
+    await db.insert(appDeploymentAsset).values({
+      appAssetId,
+      appDeploymentId: deployment.id,
+      appId: deployment.appId,
+    });
+    await expect(
+      db.update(appDeploymentAsset).set({ appId: otherAppId })
+    ).rejects.toMatchObject(foreignKeyViolation);
+    await expect(
+      db
+        .update(appAsset)
+        .set({ appId: otherAppId })
+        .where(eq(appAsset.id, appAssetId))
+    ).rejects.toMatchObject(foreignKeyViolation);
+    await expect(
+      db
+        .update(appDeployment)
+        .set({ appId: otherAppId })
+        .where(eq(appDeployment.id, deployment.id))
+    ).rejects.toMatchObject(foreignKeyViolation);
+  });
+
+  it("reuses hashed files between deployments, lists their references, and preserves shared files on deletion", async () => {
+    const context = publishContext("https://private.example/file");
+    const currentApp = requireValue(await db.query.app.findFirst());
+    const checksum = "a".repeat(64);
+
+    const stored = new Map<
+      string,
+      {
+        key: string;
+        contentLength: number;
+        contentType: string;
+        checksumSha256: string;
+      }
+    >();
+
+    const uploads: string[] = [];
+    context.storage.head = async ({ key }) => {
+      const object = stored.get(key);
+
+      if (!object) {
+        throw Object.assign(new Error("Not found"), { name: "NotFound" });
+      }
+
+      return await Promise.resolve(object);
+    };
+
+    context.storage.createUploadUrl = async (input) => {
+      uploads.push(input.key);
+
+      return await Promise.resolve({
+        headers: {
+          "content-type": input.contentType ?? "application/octet-stream",
+        },
+        key: input.key,
+        uploadUrl: `https://uploads.example/${input.key}`,
+      });
+    };
+
+    const create = async (hash: string) =>
+      await call(
+        deploymentRouter.create,
+        {
+          body: {
+            app: { id: currentApp.id },
+            assets: [
+              {
+                checksum: logoChecksum,
+                contentLength: 11,
+                contentType: "application/javascript",
+                encoding: "utf-8",
+                objectKey: "client.js",
+              },
+            ],
+            scope: productionScope,
+            staticAssets: [
+              { checksum: hash, contentLength: 11, path: "game/doom.wad" },
+            ],
+          },
+        },
+        { context }
+      );
+
+    const first = await create(checksum);
+    const firstAsset = requireValue(first.body.staticAssets?.[0]);
+    expect(firstAsset.uploadUrl).toBeDefined();
+    stored.set(firstAsset.file.objectKey, {
+      checksumSha256: Buffer.from(checksum, "hex").toString("base64"),
+      contentLength: 11,
+      contentType: "application/octet-stream",
+      key: firstAsset.file.objectKey,
+    });
+    const second = await create(checksum);
+    expect(second.body.staticAssets?.[0]?.file.id).toBe(firstAsset.file.id);
+    expect(second.body.staticAssets?.[0]?.uploadUrl).toBeUndefined();
+    expect(uploads.filter((key) => key.includes("/assets/"))).toHaveLength(1);
+    expect(await db.select().from(appAsset)).toHaveLength(1);
+    expect(await db.select().from(appDeploymentAsset)).toHaveLength(2);
+
+    const listed = await call(
+      deploymentRouter.get,
+      {
+        body: { scopes: [productionScope] },
+        params: { deploymentId: second.body.deployment.id },
+      },
+      { context }
+    );
+
+    expect(listed.body.staticAssets[0]?.checksum).toBe(checksum);
+    await expect(
+      db.delete(appAsset).where(eq(appAsset.id, firstAsset.file.id))
+    ).rejects.toThrow();
+    await db
+      .delete(appDeployment)
+      .where(eq(appDeployment.id, first.body.deployment.id));
+    expect(await db.select().from(appAsset)).toHaveLength(1);
+    expect(await db.select().from(appDeploymentAsset)).toHaveLength(1);
+    const changed = await create("c".repeat(64));
+    expect(changed.body.staticAssets?.[0]?.file.objectKey).not.toBe(
+      firstAsset.file.objectKey
+    );
+
+    await expect(
+      call(
+        deploymentRouter.publish,
+        {
+          body: { rollout: false, scope: productionScope },
+          params: { deploymentId: second.body.deployment.id },
+        },
+        { context }
+      )
+    ).rejects.toThrow();
+    stored.set(requireValue(second.body.assets[0]).file.objectKey, {
+      checksumSha256: logoChecksumBase64,
+      contentLength: 11,
+      contentType: "application/javascript",
+      key: requireValue(second.body.assets[0]).file.objectKey,
+    });
+    stored.set(firstAsset.file.objectKey, {
+      checksumSha256: logoChecksumBase64,
+      contentLength: 11,
+      contentType: "application/octet-stream",
+      key: firstAsset.file.objectKey,
+    });
+    await expect(
+      call(
+        deploymentRouter.publish,
+        {
+          body: { rollout: false, scope: productionScope },
+          params: { deploymentId: second.body.deployment.id },
+        },
+        { context }
+      )
+    ).rejects.toThrow("Failed to verify asset");
+    stored.set(firstAsset.file.objectKey, {
+      checksumSha256: Buffer.from(checksum, "hex").toString("base64"),
+      contentLength: 11,
+      contentType: "application/octet-stream",
+      key: firstAsset.file.objectKey,
+    });
+
+    const published = await call(
+      deploymentRouter.publish,
+      {
+        body: { rollout: false, scope: productionScope },
+        params: { deploymentId: second.body.deployment.id },
+      },
+      { context }
+    );
+
+    expect(published.body.status).toBe("published");
+
+    const verified = await db.query.appAsset.findFirst({
+      where: { id: firstAsset.file.id },
+    });
+
+    expect(verified?.status).toBe("verified");
+  });
 
   it("hides a deployment when its app has a malformed stored scope", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -899,6 +1601,57 @@ describe("platform deployment uploads", () => {
     );
   });
 
+  it.each([
+    { assetPath: "logo.svg", contentLength: 11, path: "missing.svg" },
+    { assetPath: "logo.js", contentLength: 11, path: "logo.js" },
+    { assetPath: "logo.svg", contentLength: 262_145, path: "logo.svg" },
+  ])(
+    "rejects invalid logo asset references: $path ($contentLength bytes)",
+    async ({ path, assetPath, contentLength }) => {
+      const currentApp = requireValue(await db.query.app.findFirst());
+      const context = publishContext("https://uploads.example/logo.svg");
+      context.storage.head = vi
+        .fn()
+        .mockRejectedValue(
+          Object.assign(new Error("Not found"), { name: "NotFound" })
+        );
+      context.storage.createUploadUrl = vi.fn<
+        typeof context.storage.createUploadUrl
+      >(
+        asyncFixture(({ key }: { key: string }) => ({
+          key,
+          uploadUrl: `https://uploads.example/${key}`,
+        }))
+      );
+      await expect(
+        call(
+          deploymentRouter.create,
+          {
+            body: {
+              app: { id: currentApp.id },
+              assets: [
+                {
+                  checksum: "a".repeat(64),
+                  contentLength: 1,
+                  contentType: "application/javascript",
+                  encoding: "utf-8",
+                  objectKey: "client.js",
+                },
+              ],
+              logos: { dark: path },
+              scope: productionScope,
+              staticAssets: [
+                { checksum: logoChecksum, contentLength, path: assetPath },
+              ],
+            },
+          },
+          { context }
+        )
+      ).rejects.toThrow("Logos must reference SVG, PNG, or WebP assets");
+      expect(await db.select().from(appDeployment)).toHaveLength(0);
+    }
+  );
+
   it("creates optional logo assets alongside the client bundle", async () => {
     const createUploadUrl = vi.fn(
       asyncFixture(({ key }: { key: string }) => ({
@@ -949,45 +1702,34 @@ describe("platform deployment uploads", () => {
           assets: [
             {
               checksum: "a".repeat(64),
-              contentLength: maxDeploymentBytes - 2 * 262_144,
+              contentLength: maxDeploymentBytes - 262_144,
               contentType: "application/javascript",
               encoding: "utf-8",
               objectKey: "client.js",
             },
           ],
-          logos: {
-            dark: {
-              checksum: "b".repeat(64),
-              contentLength: 262_144,
-              contentType: "image/svg+xml",
-            },
-            light: {
-              checksum: "b".repeat(64),
-              contentLength: 262_144,
-              contentType: "image/svg+xml",
-            },
-          },
+          logos: { dark: "logo.svg", light: "logo.svg" },
           scope: productionScope,
+          staticAssets: [
+            {
+              checksum: logoChecksum,
+              contentLength: 262_144,
+              path: "logo.svg",
+            },
+          ],
         },
       },
       { context }
     );
 
     expect(result.body.assets).toHaveLength(1);
-    expect(result.body.logos?.dark?.file.objectKey).toMatch(
-      new RegExp(`/logos/${"b".repeat(64)}\\.svg$`, "u")
-    );
-    expect(result.body.logos?.light?.file.id).toBe(
-      result.body.logos?.dark?.file.id
-    );
-    const publishedDeployment = result.body.deployment;
-    expect(publishedDeployment).toMatchObject({
-      logoDarkPath: `logos/${"b".repeat(64)}.svg`,
-      logoLightPath: `logos/${"b".repeat(64)}.svg`,
+    expect(result.body.staticAssets).toHaveLength(1);
+    expect(result.body.staticAssets?.[0]?.file.path).toBe("logo.svg");
+    expect(result.body.deployment).toMatchObject({
+      logoDarkPath: `assets/${logoChecksum}/logo.svg`,
+      logoLightPath: `assets/${logoChecksum}/logo.svg`,
     });
-    expect(publishedDeployment.clientEntryFileId).toBeTypeOf("string");
-    expect(publishedDeployment.logoDarkFileId).toBeTypeOf("string");
-    expect(publishedDeployment.logoLightFileId).toBeTypeOf("string");
+    expect(result.body.deployment.clientEntryFileId).toBeTypeOf("string");
     expect(createUploadUrl).toHaveBeenCalledTimes(2);
   });
 
@@ -1051,23 +1793,24 @@ describe("platform deployment uploads", () => {
               objectKey: "client.js",
             },
           ],
-          logos: {
-            dark: {
+          logos: { dark: "logo.svg" },
+          scope: productionScope,
+          staticAssets: [
+            {
               checksum: logoChecksum,
               contentLength: 262_144,
-              contentType: "image/svg+xml",
+              path: "logo.svg",
             },
-          },
-          scope: productionScope,
+          ],
         },
       },
       { context }
     );
 
-    expect(result.body.logos?.dark?.uploadUrl).toBeUndefined();
+    expect(result.body.staticAssets?.[0]?.uploadUrl).toBeUndefined();
     expect(createUploadUrl).toHaveBeenCalledTimes(1);
     expect(context.storage.head).toHaveBeenCalledWith({
-      key: `projects/proj00000001/apps/app000000001/logos/${logoChecksum}.svg`,
+      key: `projects/proj00000001/apps/app000000001/assets/${logoChecksum}/logo.svg`,
     });
   });
 
@@ -1153,30 +1896,23 @@ describe("platform deployment uploads", () => {
   it("aborts logo inspection while reading the response body", async () => {
     const deployment = await createLogoDeployment();
     vi.useFakeTimers();
+    const inspectionStarted = Promise.withResolvers<boolean>();
     vi.stubGlobal(
       "fetch",
       vi.fn(
-        asyncFixture((_url: URL, init?: RequestInit) => ({
-          arrayBuffer: async () =>
-            await (async () => {
-              const {
-                promise: pendingPromise,
-                resolve: _resolve,
-                reject,
-              } = Promise.withResolvers<ArrayBuffer>();
-
-              try {
-                init?.signal?.addEventListener("abort", () => {
-                  reject(new DOMException("Aborted", "AbortError"));
-                });
-              } catch (error) {
-                reject(error);
-              }
-
-              return await pendingPromise;
-            })(),
-          ok: true,
-        }))
+        asyncFixture(
+          (_url: URL, init?: RequestInit) =>
+            new Response(
+              new ReadableStream<Uint8Array>({
+                start(controller) {
+                  inspectionStarted.resolve(true);
+                  init?.signal?.addEventListener("abort", () => {
+                    controller.error(new DOMException("Aborted", "AbortError"));
+                  });
+                },
+              })
+            )
+        )
       )
     );
 
@@ -1189,8 +1925,9 @@ describe("platform deployment uploads", () => {
       { context: publishContext("https://uploads.example/logo-dark.svg") }
     );
 
+    await inspectionStarted.promise;
     const advanceTimers = vi.advanceTimersByTimeAsync(10_000);
-    await expect(publish).rejects.toThrow("Aborted");
+    await expect(publish).rejects.toThrow("Logo inspection timed out.");
     await advanceTimers;
   });
 });
