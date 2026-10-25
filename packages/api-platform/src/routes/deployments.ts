@@ -34,7 +34,10 @@ import {
   scopesSchema,
 } from "#scope";
 
-import { deploymentOperation } from "./deployment-effects";
+import {
+  deploymentOperation,
+  verificationUnavailableMessage,
+} from "./deployment-effects";
 import { getRuntimeBundle, publishRuntimeMetadata } from "./runtime";
 import {
   deploymentStaticAssets,
@@ -508,6 +511,14 @@ const publishAppDeployment = cliRouter
       path: "/deployments/{deploymentId}",
     })
   )
+  .errors({
+    BAD_REQUEST: {
+      message:
+        "Invalid deployment upload. Correct the upload before publishing again.",
+    },
+    CONFLICT: { message: "Deployment publication is already in progress." },
+    SERVICE_UNAVAILABLE: { message: verificationUnavailableMessage },
+  })
   .input(
     z.object({
       body: z.object({
@@ -518,9 +529,6 @@ const publishAppDeployment = cliRouter
     })
   )
   .output(z.object({ body: AppDeployment }))
-  .errors({
-    CONFLICT: { message: "Deployment publication is already in progress." },
-  })
   .use(
     requireDeployment.adaptInput(
       ({ body: { scope }, params: { deploymentId } }) => ({

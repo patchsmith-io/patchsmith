@@ -1,5 +1,4 @@
 import { ORPCError } from "@orpc/server";
-import { limitAssetBody } from "@patchsmith/asset-delivery";
 import {
   logoContentTypes,
   maxLogoBytes,
@@ -26,6 +25,9 @@ import type { Context } from "#context";
 import {
   deploymentOperation,
   inspectUploadedAsset,
+  missingUploadObject,
+  uploadedAssetMetadata,
+  UploadValidationError,
 } from "./deployment-effects";
 
 export const staticAssetsInput = z
@@ -55,22 +57,6 @@ type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 const checksumBase64 = (checksum: string) =>
   Buffer.from(checksum, "hex").toString("base64");
 
-const missingObject = (cause: unknown): boolean => {
-  const parsed = z
-    .object({
-      $metadata: z.object({ httpStatusCode: z.number().optional() }).optional(),
-      name: z.string().optional(),
-    })
-    .safeParse(cause);
-
-  return (
-    parsed.success &&
-    (parsed.data.name === "NoSuchKey" ||
-      parsed.data.name === "NotFound" ||
-      parsed.data.$metadata?.httpStatusCode === 404)
-  );
-};
-
 const matchesAssetMetadata = (
   object: Awaited<ReturnType<Context["storage"]["head"]>>,
   asset: { checksum: string; contentLength: number; contentType: string }
@@ -95,7 +81,7 @@ export const prepareStaticAssets = (
           try {
             return await context.storage.head({ key: objectKey });
           } catch (error) {
-            if (!missingObject(error)) {
+            if (!missingUploadObject(error)) {
               throw error;
             }
 
@@ -250,15 +236,13 @@ export const verifyStaticAssets = <TResult extends PgQueryResultHKT>(
       assets,
       (asset) =>
         Effect.gen(function* verifyAsset() {
-          const object = yield* deploymentOperation(
-            async () => await storage.head({ key: asset.objectKey })
-          );
+          const object = yield* uploadedAssetMetadata(storage, asset.objectKey);
 
           if (!matchesAssetMetadata(object, asset)) {
             return yield* Effect.fail(
-              new ORPCError("BAD_REQUEST", {
-                message: `Uploaded asset does not match its deployment record: ${asset.path}`,
-              })
+              new UploadValidationError(
+                `Failed to verify asset ${asset.path}. Uploaded asset does not match its deployment record.`
+              )
             );
           }
 
@@ -269,9 +253,7 @@ export const verifyStaticAssets = <TResult extends PgQueryResultHKT>(
 
             if (!contentType || asset.contentLength > maxLogoBytes) {
               return yield* Effect.fail(
-                new ORPCError("BAD_REQUEST", {
-                  message: "Unsupported logo format or size.",
-                })
+                new UploadValidationError("Unsupported logo format or size.")
               );
             }
 
@@ -280,31 +262,45 @@ export const verifyStaticAssets = <TResult extends PgQueryResultHKT>(
               asset.objectKey,
               "Logo",
               async (body) => {
-                const content = new Uint8Array(
-                  await new Response(
-                    limitAssetBody(body, maxLogoBytes)
-                  ).arrayBuffer()
-                );
+                const chunks: Uint8Array[] = [];
+                let length = 0;
 
-                validateLogoAsset(content, contentType);
+                for await (const chunk of body) {
+                  length += chunk.byteLength;
+
+                  if (length > maxLogoBytes) {
+                    throw new UploadValidationError(
+                      `Logo cannot exceed ${maxLogoBytes} bytes.`
+                    );
+                  }
+
+                  chunks.push(chunk);
+                }
+
+                const content = Buffer.concat(chunks, length);
+
+                try {
+                  validateLogoAsset(content, contentType);
+                } catch (error) {
+                  // This synchronous validator only inspects uploaded bytes.
+                  throw new UploadValidationError(
+                    error instanceof Error
+                      ? error.message
+                      : "Invalid logo content.",
+                    error
+                  );
+                }
               }
             );
           }
 
           return asset.id;
-        }).pipe(
-          Effect.mapError(
-            (cause) =>
-              new ORPCError("BAD_REQUEST", {
-                cause,
-                message: `Failed to verify asset ${asset.path}. ${cause.message}`,
-              })
-          )
-        ),
+        }),
       { concurrency: 4 }
     );
 
     if (verifiedIds.length > 0) {
+      // Do not leave a database write running after cancellation has returned.
       yield* deploymentOperation(() =>
         database
           .update(appAsset)

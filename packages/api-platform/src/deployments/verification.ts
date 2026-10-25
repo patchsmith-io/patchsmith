@@ -12,11 +12,15 @@ import { and, eq, inArray } from "drizzle-orm";
 import type { PgQueryResultHKT } from "drizzle-orm/pg-core";
 import type { PgAsyncDatabase } from "drizzle-orm/pg-core/async";
 import { Effect } from "effect";
+import { z } from "zod";
 
 import type { Context } from "#context";
 import {
   deploymentOperation,
   inspectUploadedAsset,
+  uploadedAssetMetadata,
+  UploadValidationError,
+  verificationFailure,
 } from "#routes/deployment-effects";
 import {
   deploymentStaticAssets,
@@ -35,18 +39,37 @@ const inspectCompressedBundle = (
     // Node fetch decodes R2's Content-Encoding before exposing the response body.
     let contentLength = 0;
 
-    for await (const value of body) {
-      contentLength += value.byteLength;
+    try {
+      for await (const value of body) {
+        contentLength += value.byteLength;
 
-      if (contentLength > remainingBytes) {
-        throw new Error(
-          `Combined deployment assets cannot exceed ${maxDeploymentBytes} bytes after decompression.`
+        if (contentLength > remainingBytes) {
+          throw new UploadValidationError(
+            `Combined deployment assets cannot exceed ${maxDeploymentBytes} bytes after decompression.`
+          );
+        }
+      }
+    } catch (error) {
+      // Node fetch wraps decompression failures in a TypeError. Stream/network
+      // errors without a known zlib code remain retryable infrastructure errors.
+      const invalidGzip = z.object({
+        code: z.enum(["Z_DATA_ERROR", "Z_BUF_ERROR"]),
+      });
+
+      const wrapped = z.object({ cause: invalidGzip }).safeParse(error);
+
+      if (invalidGzip.safeParse(error).success || wrapped.success) {
+        throw new UploadValidationError(
+          "Uploaded bundle is not valid gzip content.",
+          error
         );
       }
+
+      throw error;
     }
 
     if (contentLength === 0) {
-      throw new Error("Failed to inspect uploaded bundle.");
+      throw new UploadValidationError("Uploaded bundle is empty.");
     }
 
     return contentLength;
@@ -126,25 +149,24 @@ const publishClaimedDeployment = <TResult extends PgQueryResultHKT>(
             );
 
             const verification = Effect.gen(function* inspectBundle() {
-              const object = yield* deploymentOperation(
-                async () => await context.storage.head({ key: file.objectKey })
+              const object = yield* uploadedAssetMetadata(
+                context.storage,
+                file.objectKey
               );
 
               if (object.contentLength !== file.contentLength) {
                 return yield* Effect.fail(
-                  new ORPCError("BAD_REQUEST", {
-                    message:
-                      "Uploaded file content length does not match deployment record.",
-                  })
+                  new UploadValidationError(
+                    "Uploaded file content length does not match deployment record."
+                  )
                 );
               }
 
               if (object.contentType !== file.contentType) {
                 return yield* Effect.fail(
-                  new ORPCError("BAD_REQUEST", {
-                    message:
-                      "Uploaded file content type does not match deployment record.",
-                  })
+                  new UploadValidationError(
+                    "Uploaded file content type does not match deployment record."
+                  )
                 );
               }
 
@@ -153,10 +175,9 @@ const publishClaimedDeployment = <TResult extends PgQueryResultHKT>(
                 (file.encoding === "gzip" ? "gzip" : undefined)
               ) {
                 return yield* Effect.fail(
-                  new ORPCError("BAD_REQUEST", {
-                    message:
-                      "Uploaded file content encoding does not match deployment record.",
-                  })
+                  new UploadValidationError(
+                    "Uploaded file content encoding does not match deployment record."
+                  )
                 );
               }
 
@@ -166,10 +187,9 @@ const publishClaimedDeployment = <TResult extends PgQueryResultHKT>(
                 object.checksumSha256 !== hexToBase64(file.checksum)
               ) {
                 return yield* Effect.fail(
-                  new ORPCError("BAD_REQUEST", {
-                    message:
-                      "Uploaded file checksum does not match deployment record.",
-                  })
+                  new UploadValidationError(
+                    "Uploaded file checksum does not match deployment record."
+                  )
                 );
               }
 
@@ -186,30 +206,14 @@ const publishClaimedDeployment = <TResult extends PgQueryResultHKT>(
 
               if (deploymentBytes > maxDeploymentBytes) {
                 return yield* Effect.fail(
-                  new ORPCError("BAD_REQUEST", {
-                    message: `Combined deployment assets cannot exceed ${maxDeploymentBytes} bytes after decompression.`,
-                  })
+                  new UploadValidationError(
+                    `Combined deployment assets cannot exceed ${maxDeploymentBytes} bytes after decompression.`
+                  )
                 );
               }
 
               return decodedBytes;
-            }).pipe(
-              Effect.mapError(
-                (cause) =>
-                  new ORPCError("BAD_REQUEST", {
-                    cause,
-                    message: cause.message,
-                  })
-              ),
-              Effect.tapError(() =>
-                publicationWrite(() =>
-                  database
-                    .update(appDeploymentFile)
-                    .set({ status: "failed" })
-                    .where(eq(appDeploymentFile.id, file.id))
-                )
-              )
-            );
+            });
 
             yield* verification;
             yield* publicationWrite(() =>
@@ -218,7 +222,16 @@ const publishClaimedDeployment = <TResult extends PgQueryResultHKT>(
                 .set({ status: "verified" })
                 .where(eq(appDeploymentFile.id, file.id))
             );
-          }),
+          }).pipe(
+            Effect.onError(() =>
+              publicationWrite(() =>
+                database
+                  .update(appDeploymentFile)
+                  .set({ status: "failed" })
+                  .where(eq(appDeploymentFile.id, file.id))
+              ).pipe(Effect.orDie)
+            )
+          ),
         { discard: true }
       );
       yield* verifyStaticAssets(
@@ -227,7 +240,7 @@ const publishClaimedDeployment = <TResult extends PgQueryResultHKT>(
         [deployment.logoDarkPath, deployment.logoLightPath],
         database
       );
-    });
+    }).pipe(Effect.mapError(verificationFailure));
 
     // Once commit begins, finish selection and enqueueing even if the caller disconnects.
     return yield* Effect.gen(function* commitPublication() {

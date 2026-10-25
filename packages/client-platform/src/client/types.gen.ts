@@ -29,11 +29,31 @@ export type GatewayTimeout = {
 };
 
 /**
+ * BAD_REQUEST
+ */
+export type BadRequest = {
+  defined: true;
+  code: 'BAD_REQUEST';
+  message: string;
+  data?: unknown;
+};
+
+/**
  * CONFLICT
  */
 export type Conflict = {
   defined: true;
   code: 'CONFLICT';
+  message: string;
+  data?: unknown;
+};
+
+/**
+ * SERVICE_UNAVAILABLE
+ */
+export type ServiceUnavailable = {
+  defined: true;
+  code: 'SERVICE_UNAVAILABLE';
   message: string;
   data?: unknown;
 };
@@ -163,9 +183,7 @@ export type AppAgentCreateResponses = {
       createdAt: string;
       hooks: Array<string>;
       id: string;
-      logoDarkFileId: string | null;
       logoDarkPath: string | null;
-      logoLightFileId: string | null;
       logoLightPath: string | null;
       shortId: string;
       status: 'uploading' | 'deploying' | 'verifying' | 'published';
@@ -257,9 +275,7 @@ export type AppsCreateResponses = {
       createdAt: string;
       hooks: Array<string>;
       id: string;
-      logoDarkFileId: string | null;
       logoDarkPath: string | null;
-      logoLightFileId: string | null;
       logoLightPath: string | null;
       shortId: string;
       status: 'uploading' | 'deploying' | 'verifying' | 'published';
@@ -391,9 +407,7 @@ export type AppsDeployResponses = {
       createdAt: string;
       hooks: Array<string>;
       id: string;
-      logoDarkFileId: string | null;
       logoDarkPath: string | null;
-      logoLightFileId: string | null;
       logoLightPath: string | null;
       shortId: string;
       status: 'uploading' | 'deploying' | 'verifying' | 'published';
@@ -489,9 +503,7 @@ export type AppsGetResponses = {
       createdAt: string;
       hooks: Array<string>;
       id: string;
-      logoDarkFileId: string | null;
       logoDarkPath: string | null;
-      logoLightFileId: string | null;
       logoLightPath: string | null;
       shortId: string;
       status: 'uploading' | 'deploying' | 'verifying' | 'published';
@@ -591,9 +603,7 @@ export type AppsInstallResponses = {
       createdAt: string;
       hooks: Array<string>;
       id: string;
-      logoDarkFileId: string | null;
       logoDarkPath: string | null;
-      logoLightFileId: string | null;
       logoLightPath: string | null;
       shortId: string;
       status: 'uploading' | 'deploying' | 'verifying' | 'published';
@@ -682,9 +692,7 @@ export type AppsListResponses = {
         createdAt: string;
         hooks: Array<string>;
         id: string;
-        logoDarkFileId: string | null;
         logoDarkPath: string | null;
-        logoLightFileId: string | null;
         logoLightPath: string | null;
         shortId: string;
         status: 'uploading' | 'deploying' | 'verifying' | 'published';
@@ -814,9 +822,7 @@ export type AppsRuntimeResolveResponses = {
           createdAt: string;
           hooks: Array<string>;
           id: string;
-          logoDarkFileId: string | null;
           logoDarkPath: string | null;
-          logoLightFileId: string | null;
           logoLightPath: string | null;
           shortId: string;
           status: 'uploading' | 'deploying' | 'verifying' | 'published';
@@ -986,9 +992,7 @@ export type AppsUpdateResponses = {
       createdAt: string;
       hooks: Array<string>;
       id: string;
-      logoDarkFileId: string | null;
       logoDarkPath: string | null;
-      logoLightFileId: string | null;
       logoLightPath: string | null;
       shortId: string;
       status: 'uploading' | 'deploying' | 'verifying' | 'published';
@@ -1247,9 +1251,7 @@ export type DeploymentsCreateResponses = {
       createdAt: string;
       hooks: Array<string>;
       id: string;
-      logoDarkFileId: string | null;
       logoDarkPath: string | null;
-      logoLightFileId: string | null;
       logoLightPath: string | null;
       shortId: string;
       status: 'uploading' | 'deploying' | 'verifying' | 'published';
@@ -1335,9 +1337,7 @@ export type DeploymentsGetResponses = {
     createdAt: string;
     hooks: Array<string>;
     id: string;
-    logoDarkFileId: string | null;
     logoDarkPath: string | null;
-    logoLightFileId: string | null;
     logoLightPath: string | null;
     shortId: string;
     status: 'uploading' | 'deploying' | 'verifying' | 'published';
@@ -1409,9 +1409,7 @@ export type DeploymentsListResponses = {
       createdAt: string;
       hooks: Array<string>;
       id: string;
-      logoDarkFileId: string | null;
       logoDarkPath: string | null;
-      logoLightFileId: string | null;
       logoLightPath: string | null;
       shortId: string;
       status: 'uploading' | 'deploying' | 'verifying' | 'published';
@@ -1459,9 +1457,17 @@ export type DeploymentsPublishData = {
 
 export type DeploymentsPublishErrors = {
   /**
+   * Invalid deployment upload. Correct the upload before publishing again.
+   */
+  400: BadRequest | UndefinedError;
+  /**
    * Deployment publication is already in progress.
    */
   409: Conflict | UndefinedError;
+  /**
+   * Deployment verification is temporarily unavailable. Retry publishing this deployment.
+   */
+  503: ServiceUnavailable | UndefinedError;
 };
 
 export type DeploymentsPublishError = DeploymentsPublishErrors[keyof DeploymentsPublishErrors];
@@ -1476,9 +1482,7 @@ export type DeploymentsPublishResponses = {
     createdAt: string;
     hooks: Array<string>;
     id: string;
-    logoDarkFileId: string | null;
     logoDarkPath: string | null;
-    logoLightFileId: string | null;
     logoLightPath: string | null;
     shortId: string;
     status: 'uploading' | 'deploying' | 'verifying' | 'published';
