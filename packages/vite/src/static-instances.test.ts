@@ -3,7 +3,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import * as v from "valibot";
-import { build } from "vite";
+import { build, createLogger } from "vite";
+import type { UserConfig } from "vite";
 import { expect, it } from "vite-plus/test";
 
 import { patchsmith } from "#index";
@@ -65,15 +66,23 @@ export default defineView({ component: () => "DYNAMIC_COMPONENT", instances: {
   }
 };
 
-const buildApp = async (root: string, watch = false) => {
+const buildApp = async (
+  root: string,
+  watch = false,
+  overrides: Pick<UserConfig, "plugins" | "resolve"> = {}
+) => {
   const result = await build({
     build: { watch: watch ? {} : null },
     configFile: false,
     define: { BUILD_LABEL: JSON.stringify("production") },
     plugins: [
       patchsmith({ configPath: path.join(root, "patchsmith.config.mjs") }),
+      ...(overrides.plugins ?? []),
     ],
-    resolve: { alias: { "#labels": path.join(root, "src/labels.ts") } },
+    resolve: {
+      ...overrides.resolve,
+      alias: { "#labels": path.join(root, "src/labels.ts") },
+    },
     root,
   });
 
@@ -104,6 +113,166 @@ const readManifest = async (root: string) =>
       )
     )
   );
+
+it("preserves aliases supplied by a later client-only post config hook", async () => {
+  await withApp(async (root) => {
+    const filename = path.join(root, "src/slots/page/index.view.tsx");
+    const source = await readFile(filename, "utf-8");
+    await writeFile(
+      filename,
+      source
+        .replace("#labels", "#late-labels")
+        .replace('"STATIC_COMPONENT"', "label")
+    );
+    await writeFile(
+      path.join(root, "src/labels.ts"),
+      'export const label = "LATE_ALIAS_CLIENT_AND_STATIC";'
+    );
+    await buildApp(root, false, {
+      plugins: [
+        {
+          apply: (_config, env) => env.isSsrBuild !== true,
+          config: {
+            handler: () => ({
+              resolve: {
+                alias: { "#late-labels": path.join(root, "src/labels.ts") },
+              },
+            }),
+            order: "post",
+          },
+          enforce: "post",
+          name: "late-client-alias",
+        },
+      ],
+    });
+    expect(
+      await readFile(path.join(root, ".patchsmith/client/client.js"), "utf-8")
+    ).toContain("LATE_ALIAS_CLIENT_AND_STATIC");
+    const manifest = await readManifest(root);
+    expect(
+      manifest.views?.find((view) => view.slot === "page" && view.path === "/")
+        ?.staticInstances?.[0]?.metadata.label
+    ).toBe("LATE_ALIAS_CLIENT_AND_STATIC");
+  });
+});
+
+it.each([
+  { name: "defaults", resolve: undefined },
+  {
+    name: "explicit client options",
+    resolve: {
+      builtins: [/^node:/u],
+      conditions: ["custom"],
+      mainFields: ["custom"],
+    },
+  },
+])(
+  "uses server resolver $name for static instances and backend builds",
+  async ({ resolve }) => {
+    await withApp(async (root) => {
+      await Promise.all(
+        ["conditional", "legacy"].map(async (name) => {
+          const directory = path.join(root, "node_modules", name);
+          await mkdir(directory);
+          await writeFile(
+            path.join(directory, "package.json"),
+            JSON.stringify({
+              type: "module",
+              ...(name === "conditional"
+                ? {
+                    exports: Object.fromEntries([
+                      ["custom", "./custom.js"],
+                      ["browser", "./browser.js"],
+                      ["node", "./node.js"],
+                      ["default", "./main.js"],
+                    ]),
+                  }
+                : {
+                    browser: "./browser.js",
+                    custom: "./custom.js",
+                    main: "./main.js",
+                    module: "./module.js",
+                  }),
+            })
+          );
+
+          await Promise.all(
+            ["browser", "node", "custom", "module", "main"].map(
+              async (entry) => {
+                await writeFile(
+                  path.join(directory, `${entry}.js`),
+                  `export default ${JSON.stringify(entry.toUpperCase())};`
+                );
+              }
+            )
+          );
+        })
+      );
+
+      await writeFile(
+        path.join(root, "src/labels.ts"),
+        'import conditional from "conditional"; import legacy from "legacy"; export const label = conditional + ":" + legacy;'
+      );
+      await mkdir(path.join(root, "src/functions"));
+      await writeFile(
+        path.join(root, "src/functions/example.router.ts"),
+        'import { defineRouter, fn } from "patchsmith/server"; import { label } from "#labels"; export default defineRouter({ read: fn.query.handler(() => label) });'
+      );
+      const warnings: string[] = [];
+      const serverResolvers: NonNullable<UserConfig["resolve"]>[] = [];
+      const logger = createLogger("silent");
+      logger.warn = (message) => {
+        warnings.push(message);
+      };
+
+      await buildApp(root, false, {
+        plugins: [
+          {
+            config: (config) => {
+              const isServerBuild =
+                config.build?.ssr !== undefined &&
+                config.build.ssr !== false &&
+                config.build.ssr !== "";
+
+              if (isServerBuild) {
+                serverResolvers.push({ ...config.resolve });
+              }
+
+              return isServerBuild ? { customLogger: logger } : undefined;
+            },
+            name: "capture-server-warnings",
+          },
+        ],
+        resolve,
+      });
+      expect(serverResolvers).toHaveLength(2);
+
+      for (const serverResolver of serverResolvers) {
+        expect(serverResolver.conditions).toBeUndefined();
+        expect(serverResolver.mainFields).toBeUndefined();
+        expect(serverResolver.builtins).toEqual(resolve?.builtins);
+        expect(serverResolver.alias).toEqual({
+          "#labels": path.join(root, "src/labels.ts"),
+        });
+      }
+
+      expect(
+        warnings.filter((message) =>
+          message.includes("Automatically externalized")
+        )
+      ).toEqual([]);
+      const manifest = await readManifest(root);
+      expect(
+        manifest.views?.find(
+          (view) => view.path === "/" && view.slot === "page"
+        )?.staticInstances?.[0]?.metadata.label
+      ).toBe("NODE:MODULE");
+      expect(
+        await readFile(path.join(root, ".patchsmith/server/server.js"), "utf-8")
+      ).toContain("NODE:MODULE");
+    });
+  }
+);
 
 it("builds transformed snapshots once per resolver and keeps implementations out of deployed bundles", async () => {
   await withApp(async (root) => {

@@ -8,7 +8,7 @@ import {
 } from "@patchsmith/asset-delivery/logo-validation";
 import { staticAssetContentType } from "@patchsmith/asset-delivery/static-assets";
 import * as v from "valibot";
-import type { Plugin, PluginOption, ResolvedConfig } from "vite";
+import type { Plugin, PluginOption, ResolvedConfig, UserConfig } from "vite";
 
 import { readClientManifest } from "./builder/client-views";
 import { getBuildEnvironment } from "./builder/env";
@@ -170,6 +170,7 @@ export const patchsmith = (options: PatchsmithPluginOptions = {}): Plugin[] => {
 
   let serverWatcher: Awaited<ReturnType<typeof buildServer>> | undefined;
   let resolved: ResolvedConfig;
+  let serverResolve: UserConfig["resolve"];
   let customPlugins: Plugin[] = [];
   const instanceModules = new Map<string, InstanceModule>();
   let staticAssets: StaticAsset[] = [];
@@ -225,7 +226,7 @@ export const patchsmith = (options: PatchsmithPluginOptions = {}): Plugin[] => {
       define: resolved.define,
       mode: resolved.mode,
       plugins: customPlugins,
-      resolve: resolved.resolve,
+      resolve: serverResolve,
     };
 
     const staticRegistrations = instanceResolvers.filter(
@@ -341,6 +342,20 @@ export const patchsmith = (options: PatchsmithPluginOptions = {}): Plugin[] => {
   };
 
   const plugins: Plugin[] = [
+    {
+      configEnvironment: {
+        handler: (name, config) => {
+          if (name === "client") {
+            // Capture all config hooks before Vite adds client-only resolver defaults.
+            serverResolve = { ...config.resolve };
+            delete serverResolve.conditions;
+            delete serverResolve.mainFields;
+          }
+        },
+        order: "post",
+      },
+      name: "patchsmith-server-config",
+    },
     {
       buildEnd: async (error) => {
         if (error && !watching) {
