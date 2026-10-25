@@ -1,0 +1,29 @@
+packages/vite/src/builder/file-routes.test.ts
+  s_627ed0361772ed::t_a490db686286ca 460-461
+packages/vite/src/builder/server.test.ts
+  s_627ed0361772ed::t_52357a2b01aa6f 824-826,830-834,836-843,845-847
+  s_627ed0361772ed::t_a490db686286ca 518,820-823,827-829,835,844,848-856,870-872
+packages/vite/src/index.ts
+  s_627ed0361772ed::t_5d7599414da62f 47-53,61,63-66
+  s_627ed0361772ed::t_a490db686286ca 54-60,62,67-68,418,424
+  s_627ed0361772ed::t_ca076b2166e30d 39-43,160,372
+  s_627ed0361772ed::t_ef6dfc4ca34aba 44-46,371,419-423
+.changeset/fresh-upload-manifest.md
+  s_627ed0361772ed::t_d56b251daa88fa 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "500f05ef93ed8a704a6189d9ea6f33caba744a18",
+  "prompts": {},
+  "sessions": {
+    "s_627ed0361772ed": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17090-d82a-7bf1-81b8-84d1e5a7ec2d",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
