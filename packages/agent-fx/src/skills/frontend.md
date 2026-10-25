@@ -6,6 +6,14 @@ Import UI components and host tools from `#patchsmith`. The generated capability
 
 When the user hasn't specified a style and you're unsure about details such as button size or text color, use the host components' defaults. Focus on the simplest design that solves the user's problem.
 
+## Choosing controls and loading options
+
+Choose controls from the host's declared capabilities to match the interaction. For predefined options that users need to search, prefer an available searchable picker, such as a Combobox, over composing separate search and selection controls. A short fixed list may suit an ordinary Select; free-form entry needs a control that supports it. Follow explicit user requirements and the host's documented behavior rather than assuming a particular component name or API exists.
+
+Choose local or remote filtering based on option-set completeness, size, fetch cost, latency, and freshness requirements. If the complete list is small and economical to load, load it when needed and let the host control filter locally where supported. Reuse results and refresh them when relevant data changes. When loading the full list is impractical or cannot meet freshness requirements, use remote filtering, pagination, or reactive data through the available APIs and callbacks. Do not treat the first page as a complete list, or assume a local-only picker can perform remote search. Preserve valid selections across result refreshes and pagination.
+
+Keep controls and surrounding content stable during asynchronous work. Prefer built-in pending, empty, and error states when available; otherwise provide feedback near the affected control without repeatedly resizing the surrounding content. Distinguish initial loading, background refresh, successful empty results, and failures. Retain usable results during refresh when appropriate, and show no-results feedback only after a successful load.
+
 ## Forms and callbacks
 
 Host callbacks send serialized payloads back to the app's Preact code in the iframe; UI updates travel back to the host. This messaging is asynchronous and adds latency, even with synchronous handlers.
