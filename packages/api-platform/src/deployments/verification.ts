@@ -316,6 +316,8 @@ const publishClaimedDeployment = <TResult extends PgQueryResultHKT>(
  * Only the atomic transition into verifying grants ownership. Failed and cancelled
  * owners release after all writes settle. Published deployments are immutable:
  * repeats return the stored result and retain the first successful rollout choice.
+ * Crashed workers require the manual recovery procedure in api-platform/README.md;
+ * never reclaim by age alone without fencing the old owner's writes and cleanup.
  */
 export const publishDeployment = <TResult extends PgQueryResultHKT>(
   database: PgAsyncDatabase<TResult, typeof relations>,
