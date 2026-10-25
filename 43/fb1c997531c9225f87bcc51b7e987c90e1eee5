@@ -1,0 +1,43 @@
+packages/api-platform/openapi.json
+  s_a4ab864e2ae698::t_038cc2b5596c8f 5770-5786,5803-5819,5978-5994,6011-6021,6024
+  s_a4ab864e2ae698::t_47331feecba91c 6022-6023,6025-6027
+packages/api-platform/src/routes/static-assets.ts
+  s_a4ab864e2ae698::t_038cc2b5596c8f 28-30,84,239,243-245,256,265-292,298,303
+packages/api-platform/src/routes/deployments.test.ts
+  s_a4ab864e2ae698::t_038cc2b5596c8f 2,5,32-33,1546-1666,1671-1716,1719-1725,1727-1832,1838,1842-1844,1846-1879,1884-1909,2220-2223,2261-2264,2266-2274
+packages/db/src/migrations/20261024091448_careless_viper/migration.sql
+  s_a4ab864e2ae698::t_038cc2b5596c8f 1-4
+packages/db/src/migrations/20261024091448_careless_viper/snapshot.json
+  s_a4ab864e2ae698::t_038cc2b5596c8f 1-4273
+packages/api-platform/src/routes/deployments.ts
+  s_a4ab864e2ae698::t_038cc2b5596c8f 37-40,514-521
+packages/api-platform/src/routes/deployment-effects.ts
+  s_a4ab864e2ae698::t_038cc2b5596c8f 3,11-61,82-83,86,93-94,101-113,116,120-161,168-170
+packages/api-platform/src/routes/deployment-effects.test.ts
+  s_a4ab864e2ae698::t_038cc2b5596c8f 1-3,6,10-15,17-25,28-81,83-150,152-195,197-199,202,208,211-213,216-225,228,232-308
+.changeset/clean-deployment-verification.md
+  s_a4ab864e2ae698::t_038cc2b5596c8f 1-5
+packages/client-platform/src/client/index.ts
+  s_a4ab864e2ae698::t_815d61221280f4 4
+packages/client-platform/src/client/types.gen.ts
+  s_a4ab864e2ae698::t_038cc2b5596c8f 31-36,51-60,1459-1462,1467-1470
+  s_a4ab864e2ae698::t_815d61221280f4 37-40
+packages/api-platform/src/deployments/verification.ts
+  s_a4ab864e2ae698::t_782efea9fd02bd 15,21-23,42-44,46-64,67-68,72,152-154,159-161,167-169,178-180,190-192,209-211,216,225-234,243
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "43fb1c997531c9225f87bcc51b7e987c90e1eee5",
+  "prompts": {},
+  "sessions": {
+    "s_a4ab864e2ae698": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1707e-286e-79f2-aad6-1a5078b54092",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
