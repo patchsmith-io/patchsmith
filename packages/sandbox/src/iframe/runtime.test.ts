@@ -83,6 +83,26 @@ const requestImplementation = (name: string): ViewRequest => ({
   view: "/",
 });
 
+it("installs the source app URL before evaluating asset references in the client", async () => {
+  const client = createFileClient({
+    layouts: [],
+    root: undefined,
+    roots: [],
+    views: [],
+  });
+
+  const runtime = setup({ default: client });
+  runtime.importModule.mockImplementation(async () => {
+    expect(globalThis.__patchsmithAppUrl).toBe("https://apps.test/client.js");
+
+    return await Promise.resolve({ default: client });
+  });
+  runtime.update(requestImplementation("asset-source"));
+  await vi.waitFor(() => {
+    expect(runtime.importModule).toHaveBeenCalledOnce();
+  });
+});
+
 it("imports once, publishes updates, clears unsupported slots, and dispatches callbacks", async () => {
   let clicks = 0;
 

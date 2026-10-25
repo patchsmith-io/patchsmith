@@ -9,6 +9,7 @@ import { patchsmithUploadManifestSchema } from "./upload-manifest";
 const inspectClient = `
 import { readFile } from "node:fs/promises";
 const source = await readFile(process.argv[1], "utf8");
+globalThis.__patchsmithAppUrl = "https://build.invalid/a/000000000000/d/000000000000/client/client.js";
 const { default: client } = await import("data:text/javascript;base64," + Buffer.from(source).toString("base64"));
 if (!client?.slots || typeof client.slots !== "object") throw new Error("Invalid generated app client: missing slots");
 const instanceResolvers = [];

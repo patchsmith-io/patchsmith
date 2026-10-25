@@ -170,19 +170,7 @@ export const appDeployment = pgTable(
     id: uuid("id")
       .default(sql`pg_catalog.gen_random_uuid()`)
       .primaryKey(),
-    logoDarkFileId: uuid("logo_dark_file_id").references(
-      // oxlint-disable-next-line no-use-before-define -- This deferred callback runs after initialization; the definitions are mutually dependent.
-      (): AnyPgColumn => appDeploymentFile.id,
-      {
-        onDelete: "restrict",
-      }
-    ),
     logoDarkPath: text("logo_dark_path"),
-    logoLightFileId: uuid("logo_light_file_id").references(
-      // oxlint-disable-next-line no-use-before-define -- This deferred callback runs after initialization; the definitions are mutually dependent.
-      (): AnyPgColumn => appDeploymentFile.id,
-      { onDelete: "restrict" }
-    ),
     logoLightPath: text("logo_light_path"),
     shortId: varchar("short_id", { length: 12 })
       .notNull()

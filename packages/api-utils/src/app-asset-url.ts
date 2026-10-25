@@ -47,7 +47,7 @@ export const withAppAssetUrl = <
     const appBase = `${assetBaseUrl}/a/${assetAppId}`;
     const deploymentBase = `${appBase}/d/${deployment.shortId}`;
     clientPath = `${deploymentBase}/client/client.js`;
-    const getLogoUrl = (path: string) => `${deploymentBase}/${path}`;
+    const getLogoUrl = (path: string) => `${appBase}/${path}`;
     const logos: NonNullable<typeof logoPaths> = {};
 
     if (hasText(deployment.logoDarkPath)) {

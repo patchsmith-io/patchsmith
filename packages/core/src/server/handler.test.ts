@@ -1135,7 +1135,13 @@ describe("createPatchsmithServer", () => {
       { disabled: true as const, path: "/disabled", slot: "page" },
     ];
 
-    await client.deployments.create({
+    const staticAssets = Array.from({ length: 256 }, (_, index) => ({
+      checksum: "a".repeat(64),
+      contentLength: 1,
+      path: `asset-${index}.bin`,
+    }));
+
+    const input = {
       appId: "app",
       assets: [
         {
@@ -1146,9 +1152,27 @@ describe("createPatchsmithServer", () => {
           objectKey: "client.js",
         },
       ],
+      staticAssets,
+      views,
+    } satisfies Parameters<typeof client.deployments.create>[0];
+
+    await client.deployments.create(input);
+    await expect(requests[1]?.json()).resolves.toMatchObject({
+      staticAssets,
       views,
     });
-    await expect(requests[1]?.json()).resolves.toMatchObject({ views });
+    await expect(
+      client.deployments.create({
+        ...input,
+        staticAssets: [
+          ...staticAssets,
+          { checksum: "a".repeat(64), contentLength: 1, path: "extra.bin" },
+        ],
+      })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(
+      requests.filter((request) => request.url.endsWith("/deployments"))
+    ).toHaveLength(1);
   });
 
   it("accepts a CLI token containing a transformed scope output", async () => {

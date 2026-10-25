@@ -41,10 +41,14 @@ const uploadSchema = z.object({
 const createdSchema = z.object({
   assets: z.array(uploadSchema.extend({ uploadUrl: z.url() })).length(1),
   deployment: z.object({ id: z.string().min(1) }),
-  logos: z
-    .object({ dark: uploadSchema.optional(), light: uploadSchema.optional() })
-    .optional(),
   server: uploadSchema.extend({ uploadUrl: z.url() }).optional(),
+  staticAssets: z
+    .array(
+      uploadSchema.extend({
+        file: z.object({ checksum: z.string(), path: z.string() }),
+      })
+    )
+    .optional(),
 });
 
 const publishedSchema = z.object({ id: z.string().min(1) });
@@ -53,12 +57,6 @@ type ReadArtifact = Pick<
   ReturnType<Sandbox["currentSession"]>,
   "readFileToBuffer"
 >;
-
-const logoTypes = {
-  png: "image/png",
-  svg: "image/svg+xml",
-  webp: "image/webp",
-} as const;
 
 const readAsset = async (sandbox: ReadArtifact, filename: string) => {
   const content = await sandbox.readFileToBuffer({
@@ -81,6 +79,53 @@ const describeAsset = (content: Buffer) => {
     checksum: createHash("sha256").update(content).digest("hex"),
     contentLength: content.byteLength,
   };
+};
+
+const readDeploymentAssets = async (
+  sandbox: ReadArtifact,
+  manifest: v.InferOutput<typeof patchsmithUploadManifestSchema>
+) => {
+  const clientAsset = await readAsset(sandbox, manifest.assets.client);
+
+  const serverAsset = manifest.assets.server
+    ? await readAsset(sandbox, manifest.assets.server)
+    : undefined;
+
+  const staticAssets = await Promise.all(
+    (manifest.assets.static ?? []).map(async (asset) => {
+      const content = await readAsset(sandbox, `assets/${asset.path}`);
+
+      if (
+        content.byteLength !== asset.contentLength ||
+        createHash("sha256").update(content).digest("hex") !== asset.checksum
+      ) {
+        throw new Error(`Built asset changed after hashing: ${asset.path}`);
+      }
+
+      return { ...asset, content };
+    })
+  );
+
+  const clientCode = await gzipAsync(clientAsset);
+  const serverCode = serverAsset ? await gzipAsync(serverAsset) : undefined;
+
+  const staticBytes = staticAssets.reduce(
+    (total, asset) => total + asset.content.byteLength,
+    0
+  );
+
+  assertDeploymentSize([
+    clientAsset.byteLength,
+    serverAsset?.byteLength ?? 0,
+    staticBytes,
+  ]);
+  assertDeploymentSize([
+    clientCode.byteLength,
+    serverCode?.byteLength ?? 0,
+    staticBytes,
+  ]);
+
+  return { clientCode, serverCode, staticAssets };
 };
 
 /** Only the host publishes; sandbox output is parsed as data and never executed here. */
@@ -109,50 +154,10 @@ export const publishDeployment = async (
     JSON.parse(manifestContent.toString("utf-8"))
   );
 
-  const clientAsset = await readAsset(sandbox, manifest.assets.client);
-
-  const serverAsset = manifest.assets.server
-    ? await readAsset(sandbox, manifest.assets.server)
-    : undefined;
-
-  const clientCode = await gzipAsync(clientAsset);
-  const serverCode = serverAsset ? await gzipAsync(serverAsset) : undefined;
-
-  const logos = [];
-
-  for (const variant of ["dark", "light"] as const) {
-    const filename = manifest.assets.logos?.[variant];
-
-    if (filename === undefined) {
-      continue;
-    }
-
-    // oxlint-disable-next-line eslint/no-await-in-loop -- Validate each of the two optional logos before creating a deployment.
-    const content = await readAsset(sandbox, filename);
-    const extension = filename.split(".").at(-1);
-
-    if (extension !== "png" && extension !== "svg" && extension !== "webp") {
-      throw new Error("Unsupported deployment logo format.");
-    }
-
-    logos.push({ content, contentType: logoTypes[extension], variant });
-  }
-
-  const logoBytes = logos.reduce(
-    (total, { content }) => total + content.byteLength,
-    0
+  const { clientCode, serverCode, staticAssets } = await readDeploymentAssets(
+    sandbox,
+    manifest
   );
-
-  assertDeploymentSize([
-    clientAsset.byteLength,
-    serverAsset?.byteLength ?? 0,
-    logoBytes,
-  ]);
-  assertDeploymentSize([
-    clientCode.byteLength,
-    serverCode?.byteLength ?? 0,
-    logoBytes,
-  ]);
 
   const request = async (pathname: string, body: string) => {
     const response = await fetchImplementation(
@@ -180,7 +185,7 @@ export const publishDeployment = async (
     await request(
       "/deployments",
       JSON.stringify({
-        appId,
+        app: { id: appId },
         assets: [
           {
             ...describeAsset(clientCode),
@@ -189,18 +194,8 @@ export const publishDeployment = async (
             objectKey: "client.js",
           },
         ],
-        logos:
-          logos.length > 0
-            ? Object.fromEntries(
-                logos.map((logo) => [
-                  logo.variant,
-                  {
-                    ...describeAsset(logo.content),
-                    contentType: logo.contentType,
-                  },
-                ])
-              )
-            : undefined,
+        hooks: manifest.hooks,
+        logos: manifest.assets.logos,
         scope,
         server: serverCode
           ? {
@@ -209,6 +204,9 @@ export const publishDeployment = async (
               encoding: "gzip",
               objectKey: "server.js",
             }
+          : undefined,
+        staticAssets: staticAssets.length
+          ? staticAssets.map(({ content: _content, ...asset }) => asset)
           : undefined,
         views: manifest.views,
       })
@@ -226,7 +224,7 @@ export const publishDeployment = async (
       );
     }
 
-    // An existing content-addressed logo has no upload URL.
+    // Existing content-addressed assets have no upload URL.
     if (destination.uploadUrl === undefined) {
       return;
     }
@@ -254,17 +252,35 @@ export const publishDeployment = async (
     }
   };
 
+  const staticUploads = new Map(
+    (created.staticAssets ?? []).map((destination) => [
+      destination.file.path,
+      destination,
+    ])
+  );
+
+  for (const asset of staticAssets) {
+    if (staticUploads.get(asset.path)?.file.checksum !== asset.checksum) {
+      throw new Error(`Deployment did not accept static asset ${asset.path}.`);
+    }
+  }
+
+  const pendingStaticAssets = staticAssets.values();
+
+  await Promise.all(
+    Array.from({ length: Math.min(4, staticAssets.length) }, async () => {
+      for (const asset of pendingStaticAssets) {
+        // oxlint-disable-next-line no-await-in-loop -- Each worker uploads one asset at a time to bound concurrent PUT requests.
+        await upload(staticUploads.get(asset.path), asset.content);
+      }
+    })
+  );
+
   await upload(created.assets[0], clientCode, "gzip");
 
   if (serverCode !== undefined) {
     await upload(created.server, serverCode, "gzip");
   }
-
-  await Promise.all(
-    logos.map(async (logo) => {
-      await upload(created.logos?.[logo.variant], logo.content);
-    })
-  );
 
   const published = publishedSchema.parse(
     await request(

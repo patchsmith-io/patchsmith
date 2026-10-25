@@ -10,7 +10,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { gunzipSync } from "node:zlib";
+import { gunzipSync, gzipSync } from "node:zlib";
 
 import { asyncFixture } from "@patchsmith/config/testing";
 import type { createPatchsmithClient } from "@patchsmith/core/server";
@@ -49,11 +49,12 @@ const mocks = vi.hoisted(() => ({
     ) => Promise<{
       deployment: { id: string };
       assets: { headers?: Record<string, string>; uploadUrl: string }[];
-      logos?: Record<
-        string,
-        { headers?: Record<string, string>; uploadUrl: string }
-      >;
       server?: { uploadUrl: string };
+      staticAssets?: {
+        file: { checksum: string; path: string };
+        headers?: Record<string, string>;
+        uploadUrl?: string;
+      }[];
     }>
   >(),
   load: vi.fn<
@@ -146,6 +147,257 @@ afterEach(async () => {
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
   await rm(root, { force: true, recursive: true });
+});
+
+it.each([
+  { budget: "compressed", extraBytes: 0, reuse: false },
+  { budget: "compressed", extraBytes: 1, reuse: false },
+  { budget: "compressed", extraBytes: 0, reuse: true },
+  { budget: "compressed", extraBytes: 1, reuse: true },
+  { budget: "raw", extraBytes: 0, reuse: true },
+  { budget: "raw", extraBytes: 1, reuse: true },
+])(
+  "counts static files in the combined $budget budget ($extraBytes bytes over, reused=$reuse)",
+  async ({ budget, extraBytes, reuse }) => {
+    const clientContent =
+      budget === "raw"
+        ? Buffer.alloc(6 * 1024 * 1024, "x")
+        : Buffer.from("client-code");
+
+    const serverContent =
+      budget === "raw"
+        ? Buffer.alloc(1024 * 1024, "y")
+        : Buffer.from("server-code");
+
+    const bundleBytes =
+      budget === "raw"
+        ? clientContent.byteLength + serverContent.byteLength
+        : gzipSync(clientContent).byteLength +
+          gzipSync(serverContent).byteLength;
+
+    await writeFile(
+      path.join(root, ".patchsmith/client/client.js"),
+      clientContent
+    );
+    await writeFile(
+      path.join(root, ".patchsmith/server/server.js"),
+      serverContent
+    );
+
+    const content = Buffer.alloc(
+      maxDeploymentBytes - bundleBytes + extraBytes,
+      3
+    );
+
+    const checksum = createHash("sha256").update(content).digest("hex");
+    await mkdir(path.join(root, ".patchsmith/assets"));
+    await writeFile(path.join(root, ".patchsmith/assets/doom.wad"), content);
+    await writeFile(
+      path.join(root, ".patchsmith/patchsmith-upload.json"),
+      JSON.stringify({
+        assets: {
+          client: "client/client.js",
+          server: "server/server.js",
+          static: [
+            { checksum, contentLength: content.byteLength, path: "doom.wad" },
+          ],
+        },
+        version: 1,
+      })
+    );
+    mocks.create.mockResolvedValue({
+      assets: [{ uploadUrl: "https://uploads.example/client" }],
+      deployment: { id: "deployment" },
+      server: { uploadUrl: "https://uploads.example/server" },
+      staticAssets: [
+        {
+          file: { checksum, path: "doom.wad" },
+          uploadUrl: reuse ? undefined : "https://uploads.example/doom.wad",
+        },
+      ],
+    });
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(null, { status: 200 })
+    );
+
+    if (extraBytes > 0) {
+      await expect(runDeploy({ cwd: root })).rejects.toThrow(
+        "Combined deployment assets cannot exceed"
+      );
+      expect(mocks.create).not.toHaveBeenCalled();
+      expect(mocks.publish).not.toHaveBeenCalled();
+    } else {
+      await expect(runDeploy({ cwd: root })).resolves.toMatchObject({
+        status: "published",
+      });
+    }
+  }
+);
+
+it.each([false, true])(
+  "uploads raw static files and skips reused uploads: %s",
+  async (reuse) => {
+    const content = Buffer.alloc(4 * 1024 * 1024, 3);
+    const checksum = createHash("sha256").update(content).digest("hex");
+    await mkdir(path.join(root, ".patchsmith/assets"));
+    await writeFile(path.join(root, ".patchsmith/assets/doom.wad"), content);
+    await writeFile(
+      path.join(root, ".patchsmith/patchsmith-upload.json"),
+      JSON.stringify({
+        assets: {
+          client: "client/client.js",
+          static: [
+            { checksum, contentLength: content.byteLength, path: "doom.wad" },
+          ],
+        },
+        version: 1,
+      })
+    );
+    mocks.create.mockResolvedValue({
+      assets: [{ uploadUrl: "https://uploads.example/client" }],
+      deployment: { id: "deployment" },
+      staticAssets: [
+        {
+          file: { checksum, path: "doom.wad" },
+          headers: { "content-type": "application/octet-stream" },
+          uploadUrl: reuse ? undefined : "https://uploads.example/doom.wad",
+        },
+      ],
+    });
+
+    const fetch = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(null, { status: 200 }));
+
+    await runDeploy({ cwd: root });
+    expect(mocks.create.mock.calls[0]?.[0].staticAssets).toEqual([
+      { checksum, contentLength: content.byteLength, path: "doom.wad" },
+    ]);
+    expect(fetch).toHaveBeenCalledTimes(reuse ? 1 : 2);
+
+    if (!reuse) {
+      const uploaded = fetch.mock.calls.find(
+        ([url]) => url === "https://uploads.example/doom.wad"
+      );
+
+      expect(
+        Buffer.from(requireBytes(uploaded?.[1]?.body)).equals(content)
+      ).toBe(true);
+      expect(
+        new Headers(uploaded?.[1]?.headers).get("Content-Encoding")
+      ).toBeNull();
+    }
+
+    expect(mocks.publish).toHaveBeenCalledOnce();
+  }
+);
+
+it.each([false, true])(
+  "limits concurrent static uploads (failure=%s)",
+  async (fail) => {
+    const content = Buffer.from("asset-data");
+    const checksum = createHash("sha256").update(content).digest("hex");
+
+    const assets = Array.from({ length: 9 }, (_, index) => ({
+      checksum,
+      contentLength: content.byteLength,
+      path: `asset-${index}.bin`,
+    }));
+
+    await mkdir(path.join(root, ".patchsmith/assets"));
+    await Promise.all(
+      assets.map(async (asset) => {
+        await writeFile(
+          path.join(root, ".patchsmith/assets", asset.path),
+          content
+        );
+      })
+    );
+    await writeFile(
+      path.join(root, ".patchsmith/patchsmith-upload.json"),
+      JSON.stringify({
+        assets: { client: "client/client.js", static: assets },
+        version: 1,
+      })
+    );
+    mocks.create.mockResolvedValue({
+      assets: [{ uploadUrl: "https://uploads.example/client" }],
+      deployment: { id: "deployment" },
+      staticAssets: assets.map((asset) => ({
+        file: asset,
+        uploadUrl: `https://uploads.example/${asset.path}`,
+      })),
+    });
+    const gate = Promise.withResolvers<boolean>();
+    let active = 0;
+    let peak = 0;
+    const uploaded: string[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => {
+      const uploadUrl = url instanceof Request ? url.url : url.toString();
+
+      if (uploadUrl.endsWith(".bin")) {
+        active += 1;
+        peak = Math.max(peak, active);
+        await gate.promise;
+        active -= 1;
+        uploaded.push(uploadUrl);
+
+        if (fail) {
+          return new Response(null, { status: 500 });
+        }
+      }
+
+      return new Response(null, { status: 200 });
+    });
+    const deployment = runDeploy({ cwd: root });
+
+    try {
+      await vi.waitFor(() => {
+        expect(active).toBeGreaterThanOrEqual(4);
+      });
+      expect(mocks.publish).not.toHaveBeenCalled();
+    } finally {
+      gate.resolve(true);
+    }
+
+    if (fail) {
+      await expect(deployment).rejects.toThrow("Asset upload failed");
+      expect(mocks.publish).not.toHaveBeenCalled();
+    } else {
+      await expect(deployment).resolves.toMatchObject({ status: "published" });
+      expect(uploaded.toSorted()).toEqual(
+        assets
+          .map((asset) => `https://uploads.example/${asset.path}`)
+          .toSorted()
+      );
+      expect(mocks.publish).toHaveBeenCalledOnce();
+    }
+
+    expect(peak).toBe(4);
+  }
+);
+
+it("rejects hosts that discard static asset metadata instead of publishing a broken app", async () => {
+  const content = Buffer.from("game-data");
+  const checksum = createHash("sha256").update(content).digest("hex");
+  await mkdir(path.join(root, ".patchsmith/assets"));
+  await writeFile(path.join(root, ".patchsmith/assets/doom.wad"), content);
+  await writeFile(
+    path.join(root, ".patchsmith/patchsmith-upload.json"),
+    JSON.stringify({
+      assets: {
+        client: "client/client.js",
+        static: [
+          { checksum, contentLength: content.byteLength, path: "doom.wad" },
+        ],
+      },
+      version: 1,
+    })
+  );
+  await expect(runDeploy({ cwd: root })).rejects.toThrow(
+    "Upgrade the Patchsmith host and platform"
+  );
+  expect(mocks.publish).not.toHaveBeenCalled();
 });
 
 it("uploads gzip server and client code with metadata matching the stored bytes", async () => {
@@ -625,7 +877,15 @@ it.each(["client", "server"])(
 
 it("preserves signed upload headers and uploads logos without gzip encoding", async () => {
   const logo = '<svg xmlns="http://www.w3.org/2000/svg"/>';
-  await writeFile(path.join(root, ".patchsmith/client/logo-light.svg"), logo);
+  await mkdir(path.join(root, ".patchsmith/assets"));
+  await writeFile(path.join(root, ".patchsmith/assets/logo-light.svg"), logo);
+
+  const artifact = {
+    checksum: createHash("sha256").update(logo).digest("hex"),
+    contentLength: Buffer.byteLength(logo),
+    path: "logo-light.svg",
+  };
+
   const manifestPath = path.join(root, ".patchsmith/patchsmith-upload.json");
 
   const manifest = z
@@ -634,11 +894,21 @@ it("preserves signed upload headers and uploads logos without gzip encoding", as
         client: z.string(),
         logos: z.record(z.string(), z.string()).optional(),
         server: z.string().optional(),
+        static: z
+          .array(
+            z.object({
+              checksum: z.string(),
+              contentLength: z.number(),
+              path: z.string(),
+            })
+          )
+          .optional(),
       }),
     })
     .parse(JSON.parse(await readFile(manifestPath, "utf-8")));
 
-  manifest.assets.logos = { light: "client/logo-light.svg" };
+  manifest.assets.logos = { light: "logo-light.svg" };
+  manifest.assets.static = [artifact];
   await writeFile(manifestPath, JSON.stringify(manifest));
   mocks.create.mockResolvedValue({
     assets: [
@@ -651,13 +921,14 @@ it("preserves signed upload headers and uploads logos without gzip encoding", as
       },
     ],
     deployment: { id: "deployment" },
-    logos: {
-      light: {
+    server: { uploadUrl: "https://uploads.example/server" },
+    staticAssets: [
+      {
+        file: artifact,
         headers: { "content-type": "image/svg+xml" },
         uploadUrl: "https://uploads.example/logo",
       },
-    },
-    server: { uploadUrl: "https://uploads.example/server" },
+    ],
   });
 
   const fetch = vi
@@ -715,20 +986,28 @@ it.each([0, 1])(
     );
     await writeFile(
       path.join(root, ".patchsmith/server/server.js"),
-      "y".repeat(4 * 1024 * 1024 - 2 * logo.length + extraBytes)
+      "y".repeat(4 * 1024 * 1024 - logo.length + extraBytes)
     );
-    await writeFile(path.join(root, ".patchsmith/client/logo-dark.svg"), logo);
-    await writeFile(path.join(root, ".patchsmith/client/logo-light.svg"), logo);
+    await mkdir(path.join(root, ".patchsmith/assets"));
+    await writeFile(path.join(root, ".patchsmith/assets/logo.svg"), logo);
+
+    const artifact = {
+      checksum: createHash("sha256").update(logo).digest("hex"),
+      contentLength: Buffer.byteLength(logo),
+      path: "logo.svg",
+    };
+
     await writeFile(
       path.join(root, ".patchsmith/patchsmith-upload.json"),
       JSON.stringify({
         assets: {
           client: "client/client.js",
           logos: {
-            dark: "client/logo-dark.svg",
-            light: "client/logo-light.svg",
+            dark: "logo.svg",
+            light: "logo.svg",
           },
           server: "server/server.js",
+          static: [artifact],
         },
         version: 1,
       })
@@ -736,11 +1015,10 @@ it.each([0, 1])(
     mocks.create.mockResolvedValue({
       assets: [{ uploadUrl: "https://uploads.example/client" }],
       deployment: { id: "deployment" },
-      logos: {
-        dark: { uploadUrl: "https://uploads.example/logo-dark" },
-        light: { uploadUrl: "https://uploads.example/logo-light" },
-      },
       server: { uploadUrl: "https://uploads.example/server" },
+      staticAssets: [
+        { file: artifact, uploadUrl: "https://uploads.example/logo" },
+      ],
     });
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(null, { status: 200 })

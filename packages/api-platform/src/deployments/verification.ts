@@ -1,47 +1,18 @@
 import { ORPCError } from "@orpc/server";
 import { maxDeploymentBytes } from "@patchsmith/asset-delivery";
-import { validateLogoAsset } from "@patchsmith/asset-delivery/logo-validation";
 import type { AppDeployment } from "@patchsmith/db/schema/apps";
 import { appDeployment, appDeploymentFile } from "@patchsmith/db/schema/apps";
 import { eq } from "drizzle-orm";
 import { Effect, Exit } from "effect";
-import { z } from "zod";
 
 import type { Context } from "#context";
+import {
+  deploymentStaticAssets,
+  verifyStaticAssets,
+} from "#routes/static-assets";
 import { attempt, PlatformDatabase, PlatformHttp } from "#services";
 
-interface DeploymentLogo {
-  checksum: string;
-  contentLength: number;
-  contentType: string;
-}
-
-const isObjectValue = <TValue>(value: TValue): value is TValue & object =>
-  typeof value === "object" && value !== null;
-
-const logoInspectionTimeoutMs = 10_000;
 const bundleInspectionTimeoutMs = 10_000;
-
-const isNotFound = (cause: unknown) => {
-  if (!isObjectValue(cause)) {
-    return false;
-  }
-
-  const parsed = z
-    .object({
-      $metadata: z.object({ httpStatusCode: z.number().optional() }).optional(),
-      name: z.string().optional(),
-    })
-    .safeParse(cause);
-
-  const value = parsed.success ? parsed.data : undefined;
-
-  return (
-    value?.name === "NoSuchKey" ||
-    value?.name === "NotFound" ||
-    value?.$metadata?.httpStatusCode === 404
-  );
-};
 
 export const hexToBase64 = (hex: string): string => {
   const bytes = new Uint8Array(hex.length / 2);
@@ -51,28 +22,6 @@ export const hexToBase64 = (hex: string): string => {
   }
 
   return Buffer.from(bytes).toString("base64");
-};
-
-export const hasMatchingLogo = async (
-  storage: Context["storage"],
-  logo: DeploymentLogo,
-  objectKey: string
-) => {
-  try {
-    const object = await storage.head({ key: objectKey });
-
-    return (
-      object.contentLength === logo.contentLength &&
-      object.contentType === logo.contentType &&
-      object.checksumSha256 === hexToBase64(logo.checksum)
-    );
-  } catch (error) {
-    if (isNotFound(error)) {
-      return false;
-    }
-
-    throw error;
-  }
 };
 
 const inspectCompressedBundle = async (
@@ -134,19 +83,8 @@ const inspectCompressedBundle = async (
   }
 };
 
-type DeploymentVerification = Pick<
-  z.infer<typeof AppDeployment>,
-  "id" | "logoDarkFileId" | "logoLightFileId"
->;
-
-// Logo variants count toward the budget even when they share one stored file.
-const fileCopies = (deployment: DeploymentVerification, fileId: string) =>
-  fileId === deployment.logoDarkFileId && fileId === deployment.logoLightFileId
-    ? 2
-    : 1;
-
 export const verifyDeploymentFilesEffect = (
-  deployment: DeploymentVerification,
+  deployment: Pick<AppDeployment, "id" | "logoDarkPath" | "logoLightPath">,
   storage: Context["storage"]
 ) =>
   Effect.gen(function* verifyDeploymentFiles() {
@@ -170,10 +108,16 @@ export const verifyDeploymentFilesEffect = (
       );
     }
 
-    const storedBytes = files.reduce(
-      (total, file) =>
-        total + file.contentLength * fileCopies(deployment, file.id),
+    const staticAssets = yield* deploymentStaticAssets(deployment.id);
+
+    const staticBytes = staticAssets.reduce(
+      (total, asset) => total + asset.contentLength,
       0
+    );
+
+    const storedBytes = files.reduce(
+      (total, file) => total + file.contentLength,
+      staticBytes
     );
 
     if (storedBytes > maxDeploymentBytes) {
@@ -184,7 +128,7 @@ export const verifyDeploymentFilesEffect = (
       );
     }
 
-    let deploymentBytes = 0;
+    let deploymentBytes = staticBytes;
 
     yield* attempt(
       async () =>
@@ -248,67 +192,23 @@ export const verifyDeploymentFilesEffect = (
                   );
                 }
 
-                const copies = fileCopies(deployment, file.id);
-
                 const decodedBytes =
                   file.encoding === "gzip"
                     ? await inspectCompressedBundle(
                         storage,
                         file.objectKey,
-                        Math.floor(
-                          (maxDeploymentBytes - deploymentBytes) / copies
-                        ),
+                        maxDeploymentBytes - deploymentBytes,
                         fetch,
                         signal
                       )
                     : contentLength;
 
-                deploymentBytes += decodedBytes * copies;
+                deploymentBytes += decodedBytes;
 
                 if (deploymentBytes > maxDeploymentBytes) {
                   throw new Error(
                     `Combined deployment assets cannot exceed ${maxDeploymentBytes} bytes after decompression.`
                   );
-                }
-
-                if (file.contentType !== "application/javascript") {
-                  const download = await storage.createDownloadUrl({
-                    expiresInSeconds: 60,
-                    key: file.objectKey,
-                  });
-
-                  const downloadUrl = new URL(download.url);
-
-                  if (downloadUrl.protocol !== "https:") {
-                    throw new Error("Logo download URL must use HTTPS.");
-                  }
-
-                  const controller = new AbortController();
-
-                  const timeout = setTimeout(() => {
-                    controller.abort();
-                  }, logoInspectionTimeoutMs);
-
-                  try {
-                    const response = await fetch(downloadUrl, {
-                      redirect: "error",
-                      signal: AbortSignal.any([signal, controller.signal]),
-                    });
-
-                    if (!response.ok) {
-                      throw new Error("Failed to inspect uploaded logo.");
-                    }
-
-                    validateLogoAsset(
-                      new Uint8Array(await response.arrayBuffer()),
-                      z
-                        .enum(["image/png", "image/svg+xml", "image/webp"])
-                        .parse(file.contentType)
-                    );
-                  } finally {
-                    controller.abort();
-                    clearTimeout(timeout);
-                  }
                 }
               }).pipe(
                 Effect.tap(() =>
@@ -343,6 +243,20 @@ export const verifyDeploymentFilesEffect = (
           })
         ),
       { concurrency: 1, discard: true }
+    );
+
+    yield* verifyStaticAssets(storage, staticAssets, [
+      deployment.logoDarkPath,
+      deployment.logoLightPath,
+    ]).pipe(
+      Effect.onError(() =>
+        attempt(async () => {
+          await db
+            .update(appDeployment)
+            .set({ status: "uploading" })
+            .where(eq(appDeployment.id, deployment.id));
+        }).pipe(Effect.orDie)
+      )
     );
 
     return files;

@@ -259,8 +259,16 @@ export const generateApp = async (
     { dest: "package.json", template: packageJsonTemplate },
     { dest: "tsconfig.json", template: tsconfigTemplate },
     { dest: "patchsmith.config.ts", template: patchsmithConfigTemplate },
-    { condition: !bare, dest: "logo-dark.svg", template: logoDarkTemplate },
-    { condition: !bare, dest: "logo-light.svg", template: logoLightTemplate },
+    {
+      condition: !bare,
+      dest: "assets/logo-dark.svg",
+      template: logoDarkTemplate,
+    },
+    {
+      condition: !bare,
+      dest: "assets/logo-light.svg",
+      template: logoLightTemplate,
+    },
     { dest: ".gitignore", template: gitignoreTemplate },
     { dest: "vite.config.ts", template: viteConfigTemplate },
     { dest: path.join("src", "root.tsx"), template: rootTemplate },

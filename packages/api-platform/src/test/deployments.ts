@@ -5,6 +5,8 @@ import { call } from "@orpc/server";
 import { asyncFixture } from "@patchsmith/config/testing";
 import {
   app as appTable,
+  appAsset,
+  appDeploymentAsset,
   appDeployment,
   appDeploymentFile,
 } from "@patchsmith/db/schema/apps";
@@ -73,11 +75,16 @@ export const deploymentTestFixture = () => {
       createDownloadUrl: vi.fn().mockResolvedValue({ url: downloadUrl }),
       createUploadUrl: vi.fn(),
       delete: vi.fn(),
-      head: vi.fn().mockResolvedValue({
-        checksumSha256: logoChecksumBase64,
-        contentLength: 11,
-        contentType: "image/svg+xml",
-      }),
+      head: vi.fn(
+        asyncFixture(({ key }: { key: string }) => ({
+          checksumSha256: logoChecksumBase64,
+          contentLength: 11,
+          contentType: key.endsWith(".svg")
+            ? "image/svg+xml"
+            : "application/javascript",
+          key,
+        }))
+      ),
       type: "s3",
     },
   });
@@ -137,6 +144,7 @@ export const deploymentTestFixture = () => {
       .insert(appDeployment)
       .values({
         appId: currentApp.id,
+        logoDarkPath: `assets/${logoChecksum}/logo.svg`,
         shortId: "dep000000001",
         status: "uploading",
       })
@@ -150,9 +158,28 @@ export const deploymentTestFixture = () => {
       appDeploymentId: deployment.id,
       checksum: logoChecksum,
       contentLength: 11,
-      contentType: "image/svg+xml",
+      contentType: "application/javascript",
       encoding: null,
-      objectKey: "projects/proj00000001/apps/app000000001/logos/legacy.svg",
+      objectKey:
+        "projects/proj00000001/apps/app000000001/deployments/dep000000001/client/client.js",
+    });
+
+    const [asset] = await db
+      .insert(appAsset)
+      .values({
+        appId: currentApp.id,
+        checksum: logoChecksum,
+        contentLength: 11,
+        contentType: "image/svg+xml",
+        objectKey: `projects/proj00000001/apps/app000000001/assets/${logoChecksum}/logo.svg`,
+        path: "logo.svg",
+      })
+      .returning();
+
+    await db.insert(appDeploymentAsset).values({
+      appAssetId: requireValue(asset).id,
+      appDeploymentId: deployment.id,
+      appId: currentApp.id,
     });
 
     return deployment;

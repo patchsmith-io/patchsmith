@@ -45,7 +45,7 @@
     }
   },
   "scripts": {
-    "build": "vp pack src/index.ts src/services.ts src/errors.ts src/app-agent-mcp.ts src/app-runtime/auth.ts src/context.ts src/pagination.ts src/procedures.ts src/cli-token.ts src/asset-url.ts src/assets.ts src/scope.ts src/routes/apps.ts src/routes/app-runtime.ts src/routes/cli-auth.ts src/routes/deployments.ts src/routes/app-agent.ts src/app-runtime/deployment-workflow.ts src/app-runtime/deployment-steps.ts src/app-runtime/publication.ts src/deployments/verification.ts --target node24 --format esm --dts --clean",
+    "build": "vp pack src/index.ts src/services.ts src/errors.ts src/app-agent-mcp.ts src/app-runtime/auth.ts src/context.ts src/pagination.ts src/procedures.ts src/cli-token.ts src/asset-url.ts src/assets.ts src/scope.ts src/routes/apps.ts src/routes/app-runtime.ts src/routes/cli-auth.ts src/routes/deployments.ts src/routes/app-agent.ts src/app-runtime/deployment-workflow.ts src/app-runtime/deployment-workflow-steps.ts src/app-runtime/deployment-steps.ts src/app-runtime/publication.ts src/deployments/verification.ts --target node24 --format esm --dts --clean",
     "check-types": "tsc --noEmit",
     "generate:openapi": "node --conditions=development --import tsx scripts/generate-openapi.ts && vp fmt openapi.json",
     "test": "vp test run",

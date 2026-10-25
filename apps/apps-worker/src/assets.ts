@@ -14,7 +14,11 @@ import { catch as catchEffect } from "effect/Effect";
 
 const cachedEncodingHeader = "X-Patchsmith-Content-Encoding";
 
-const downstreamResponse = (response: Response, request: Request) => {
+const downstreamResponse = (
+  response: Response,
+  request: Request,
+  identity: AssetIdentity
+) => {
   const headers = new Headers(response.headers);
 
   if (headers.get(cachedEncodingHeader) === "gzip") {
@@ -24,7 +28,12 @@ const downstreamResponse = (response: Response, request: Request) => {
   headers.delete(cachedEncodingHeader);
   // Keep browser reuse bounded and allow the CDN to negotiate delivery encoding.
   // no-transform belongs only on the opaque internal cache entry below.
-  headers.set("Cache-Control", "private, max-age=3600");
+  headers.set(
+    "Cache-Control",
+    identity.immutable
+      ? "public, max-age=31536000, immutable"
+      : "private, max-age=3600"
+  );
   let { body } = response;
 
   // At the edge this is Cloudflare's normalized Accept-Encoding, not the original
@@ -84,7 +93,7 @@ const loadAsset = (
     );
 
     if (cached) {
-      return downstreamResponse(cached, request);
+      return downstreamResponse(cached, request, identity);
     }
 
     if (request.method === "HEAD") {
@@ -93,7 +102,7 @@ const loadAsset = (
         try: async () => await env.BUNDLES.head(identity.key),
       });
 
-      const contentLength = yield* assetSize(object?.size);
+      const contentLength = yield* assetSize(object?.size, identity.maxBytes);
 
       return downstreamResponse(
         new Response(null, {
@@ -104,7 +113,8 @@ const loadAsset = (
             etag: object?.httpEtag,
           }),
         }),
-        request
+        request,
+        identity
       );
     }
 
@@ -113,7 +123,7 @@ const loadAsset = (
       try: async () => await env.BUNDLES.get(identity.key),
     });
 
-    const contentLength = yield* assetSize(object?.size);
+    const contentLength = yield* assetSize(object?.size, identity.maxBytes);
 
     if (!object) {
       return yield* Effect.fail(new AssetDeliveryError(404));
@@ -160,7 +170,7 @@ const loadAsset = (
       ctx.waitUntil(Effect.runPromiseWith(effectContext)(cacheWrite));
     });
 
-    return downstreamResponse(response, request);
+    return downstreamResponse(response, request, identity);
   });
 
 export default {

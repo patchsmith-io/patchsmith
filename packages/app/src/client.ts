@@ -28,6 +28,8 @@ export type { ErrorCode } from "./errors";
 
 export { callTool } from "./client/tools";
 
+export { assetUrl } from "./client/assets";
+
 export { experimental_requestCanvas } from "./client/canvas";
 
 export { experimental_useCanvasSurface } from "./client/canvas-hook";

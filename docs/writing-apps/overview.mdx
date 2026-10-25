@@ -48,6 +48,7 @@ Use these files to add UI, backend logic, and configuration:
 
 | Location | Purpose |
 | --- | --- |
+| `assets/` | Public static files uploaded with the app and addressed by content hash. |
 | `src/slots/` | UI views, grouped by slot. |
 | `src/root.tsx` | The shared UI shell. |
 | `src/functions/**/*.router.ts` | Automatically registered backend function routers. |
@@ -60,3 +61,45 @@ Use these files to add UI, backend logic, and configuration:
 Every app includes a private backend, even when it has no functions. Use the optional `server` setting in `patchsmith.config.ts` to customize the migrations path. File paths supply API namespaces: `greeting.router.ts` exporting `defineRouter({ getGreeting })` exposes `api.greeting.getGreeting`. Dots and directories both create nested namespaces. Run `patchsmith generate` after adding or moving modules; the builder creates the private server entry automatically.
 
 Start by [writing UI for a slot](/writing-apps/ui).
+
+## Static assets
+
+Put images, fonts, WebAssembly, game data, and other public files in `assets/` at the app root. The build includes every file in that directory. Files use SHA-256 URLs scoped to the source app:
+
+```text
+assets/game/doom1.wad
+→ https://<project>.tailorkit.app/a/<app>/assets/<sha256>/game/doom1.wad
+```
+
+Resolve files inside the sandbox with `assetUrl`:
+
+```ts
+import { assetUrl } from "patchsmith/client";
+
+const response = await fetch(assetUrl("game/doom1.wad"));
+```
+
+Vite URL imports from this directory also resolve to hosted files, including small files that Vite would normally inline:
+
+```ts
+import wasmUrl from "../assets/engine.wasm?url";
+```
+
+New apps include Vite's asset import types. For an existing app, add `"types": ["vite/client"]` to `compilerOptions` in `tsconfig.json`, preserving any other entries in `types`, to typecheck `?url` imports.
+
+The platform stores file metadata and deployment references in its database, and bytes in R2. Unchanged paths and content reuse the same upload and URL across deployments. Changed content receives a new URL. Deployment lookup includes `staticAssets`, so each deployment retains its exact file list for inspection and rollbacks. Files remain stored when a deployment is removed; references protect files still used by retained deployments. Automatic cleanup of unreferenced files is not currently performed.
+
+Static assets are public and cached for one year with `immutable`; keep credentials and private files outside `assets/`. Filenames and directories support letters, numbers, underscores, hyphens, and dots, with each segment starting with a letter or number. Symlinks and empty files are rejected. A deployment can include up to 256 static files, including logos. Static assets (including logos), client code, and server code share one 10 MiB budget, measured before and after compression. Reused assets count toward each deployment that references them.
+
+App logos are ordinary assets. Configure paths relative to `assets/`, without an `assets/` or `./` prefix:
+
+```ts
+logos: {
+  light: "logo-light.svg",
+  dark: "logo-dark.svg",
+}
+```
+
+SVG, PNG, and WebP logos are validated for safe content and supported dimensions. Both variants may reference the same file; it uploads and counts toward the deployment budget once. Logos use stable asset URLs, so unchanged logos remain cached across deployments. Move existing root-level logos into `assets/` before building.
+
+Deploy the platform database migration and backend before upgrading hosts and publishing apps that use assets. Upgrade the platform, host SDK, and CLI together, then redeploy apps; old logo URLs are no longer served.

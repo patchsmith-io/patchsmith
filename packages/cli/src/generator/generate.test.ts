@@ -186,8 +186,8 @@ describe("generateApp", () => {
       "tsconfig.json",
       "patchsmith.config.ts",
       "vite.config.ts",
-      "logo-dark.svg",
-      "logo-light.svg",
+      "assets/logo-dark.svg",
+      "assets/logo-light.svg",
       ".gitignore",
       path.join("src", "root.tsx"),
       path.join("src", "slots", "sidebar", "customers.view.tsx"),
@@ -467,7 +467,7 @@ describe("generateApp", () => {
       await generateApp({ ...defaultOptions, targetDirectory });
 
       const content = await readFile(
-        path.join(targetDirectory, `logo-${variant}.svg`),
+        path.join(targetDirectory, "assets", `logo-${variant}.svg`),
         "utf-8"
       );
 
@@ -487,8 +487,14 @@ describe("generateApp", () => {
     "protects the existing %s logo unless force is enabled",
     async (variant) => {
       const targetDirectory = await createTempDir();
-      const logoPath = path.join(targetDirectory, `logo-${variant}.svg`);
 
+      const logoPath = path.join(
+        targetDirectory,
+        "assets",
+        `logo-${variant}.svg`
+      );
+
+      await mkdir(path.dirname(logoPath), { recursive: true });
       await writeFile(logoPath, "custom logo", "utf-8");
 
       await expect(

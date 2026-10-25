@@ -12,6 +12,7 @@ import { eq } from "drizzle-orm";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import type { Context } from "#context";
+import { deploymentRouter } from "#routes/deployments";
 import { canonicalizeScope } from "#scope";
 import {
   deploymentTestFixture,
@@ -22,8 +23,6 @@ import {
   logoChecksumBase64,
   productionScope,
 } from "#test/deployments";
-
-import { deploymentRouter } from "./deployments";
 
 describe("platform deployments-verification", () => {
   const fixture = deploymentTestFixture();
@@ -50,7 +49,7 @@ describe("platform deployments-verification", () => {
       const server = Buffer.alloc(
         maxDeploymentBytes -
           clientBundle.byteLength -
-          2 * logo.byteLength +
+          logo.byteLength +
           extraBytes,
         121
       );
@@ -66,6 +65,12 @@ describe("platform deployments-verification", () => {
           uploadUrl: `https://uploads.example/${key}`,
         }))
       );
+
+      context.storage.head = vi
+        .fn()
+        .mockRejectedValue(
+          Object.assign(new Error("Not found"), { name: "NotFound" })
+        );
 
       const logoMetadata = {
         ...describeFile(logo),
@@ -85,7 +90,7 @@ describe("platform deployments-verification", () => {
                 objectKey: "client.js",
               },
             ],
-            logos: { dark: logoMetadata, light: logoMetadata },
+            logos: { dark: "logo.svg", light: "logo.svg" },
             scope: productionScope,
             server: {
               ...describeFile(uploadedServer),
@@ -93,6 +98,7 @@ describe("platform deployments-verification", () => {
               encoding,
               objectKey: "server.js",
             },
+            staticAssets: [{ ...logoMetadata, path: "logo.svg" }],
           },
         },
         { context }
@@ -102,10 +108,16 @@ describe("platform deployments-verification", () => {
         where: { appDeploymentId: created.body.deployment.id },
       });
 
+      const staticFiles =
+        created.body.staticAssets?.map(({ file }) => ({
+          ...file,
+          encoding: null,
+        })) ?? [];
+
       context.storage.head = vi.fn<typeof context.storage.head>(
         asyncFixture(({ key }) => {
           const file = requireValue(
-            files.find((entry) => entry.objectKey === key)
+            [...files, ...staticFiles].find((entry) => entry.objectKey === key)
           );
 
           return {
@@ -595,23 +607,23 @@ describe("platform deployments-verification", () => {
   it("aborts logo inspection while reading the response body", async () => {
     const deployment = await createLogoDeployment();
     vi.useFakeTimers();
+    const inspectionStarted = Promise.withResolvers<boolean>();
     http.mockImplementation(
-      async (_input, init) =>
-        await Promise.resolve(
-          new Response(
-            new ReadableStream({
-              start(controller) {
-                init?.signal?.addEventListener(
-                  "abort",
-                  () => {
+      vi.fn(
+        asyncFixture(
+          (_url: Parameters<typeof fetch>[0], init?: RequestInit) =>
+            new Response(
+              new ReadableStream<Uint8Array>({
+                start(controller) {
+                  inspectionStarted.resolve(true);
+                  init?.signal?.addEventListener("abort", () => {
                     controller.error(new DOMException("Aborted", "AbortError"));
-                  },
-                  { once: true }
-                );
-              },
-            })
-          )
+                  });
+                },
+              })
+            )
         )
+      )
     );
 
     const publish = call(
@@ -623,10 +635,12 @@ describe("platform deployments-verification", () => {
       { context: publishContext("https://uploads.example/logo-dark.svg") }
     );
 
+    await inspectionStarted.promise;
     const advanceTimers = vi.advanceTimersByTimeAsync(10_000);
-    await expect(publish).rejects.toThrow("Aborted");
+    await expect(publish).rejects.toThrow("Logo inspection timed out.");
     await advanceTimers;
   });
+
   it("restores retryable state on cancellation and ignores late storage completion", async () => {
     const deployment = await createLogoDeployment();
     const waiting = Promise.withResolvers<boolean>();

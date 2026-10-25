@@ -6,7 +6,7 @@ import type { PgAsyncDatabase } from "drizzle-orm/pg-core/async";
 import { Effect } from "effect";
 
 import { PlatformDependencyError } from "#errors";
-import { attempt, PlatformDatabase, runPlatform } from "#services";
+import { attempt, PlatformDatabase } from "#services";
 
 import { warmRuntimeInstallationEffect } from "./publication";
 
@@ -164,23 +164,6 @@ export const warmRuntimeDeploymentEffect = (projectId: string, appId: string) =>
       deploymentId: deployment.id,
     });
   });
-
-export const listRuntimeInstallations = async (
-  input: RuntimeRollout,
-  cursor?: string
-) => {
-  "use step";
-
-  return await runPlatform(listRuntimeInstallationsEffect(input, cursor));
-};
-
-export const warmRuntimeDeployment = async (
-  projectId: string,
-  appId: string
-) => {
-  "use step";
-  await runPlatform(warmRuntimeDeploymentEffect(projectId, appId));
-};
 
 export const selectRuntimeDeploymentEffect = (input: RuntimeRollout) =>
   Effect.gen(function* selectDeployment() {
