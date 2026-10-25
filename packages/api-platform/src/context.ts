@@ -218,10 +218,17 @@ export const createContext = async ({
 
 /** Keep unavailable dependencies distinct from rejected credentials at the HTTP boundary. */
 export const contextErrorResponse = (cause: unknown) => {
-  if (cause instanceof ORPCError && cause.code === "UNAUTHORIZED") {
+  const code: unknown = cause instanceof ORPCError ? cause.code : undefined;
+
+  if (
+    cause instanceof ORPCError &&
+    (code === "UNAUTHORIZED" || code === "FORBIDDEN" || code === "BAD_REQUEST")
+  ) {
+    const statuses = { BAD_REQUEST: 400, FORBIDDEN: 403, UNAUTHORIZED: 401 };
+
     return Response.json(
-      { code: "UNAUTHORIZED", message: cause.message },
-      { status: 401 }
+      { code, message: cause.message },
+      { status: statuses[code] }
     );
   }
 

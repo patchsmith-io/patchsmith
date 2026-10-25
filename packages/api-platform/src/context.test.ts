@@ -1,3 +1,4 @@
+import { ORPCError } from "@orpc/server";
 import { Effect } from "effect";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 
@@ -125,3 +126,22 @@ it("reports verifier and database outages as unavailable rather than unauthorize
     runPlatform(createContextEffect(request("Bearer host-key")), services)
   ).rejects.toMatchObject({ _tag: "PlatformDependencyError" });
 });
+
+it.each([
+  ["UNAUTHORIZED", 401],
+  ["FORBIDDEN", 403],
+  ["BAD_REQUEST", 400],
+] as const)(
+  "preserves %s context errors at the HTTP boundary",
+  async (code, status) => {
+    const response = contextErrorResponse(
+      new ORPCError(code, { message: "Request rejected" })
+    );
+
+    expect(response.status).toBe(status);
+    expect(await response.json()).toEqual({
+      code,
+      message: "Request rejected",
+    });
+  }
+);

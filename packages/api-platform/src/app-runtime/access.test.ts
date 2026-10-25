@@ -52,20 +52,29 @@ it.each([
   async (path, method) => {
     await expect(
       runtimeProjectAccess(request(path, method), secret)
-    ).rejects.toThrow("restricted");
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "Runtime credential is restricted to bundle metadata",
+    });
   }
 );
 
-it("requires a bounded project ID and rejects oversized tokens", async () => {
-  await expect(
-    runtimeProjectAccess(request(undefined, undefined, undefined, null), secret)
-  ).rejects.toThrow("project required");
-  await expect(
-    runtimeProjectAccess(
-      request(undefined, undefined, undefined, "x".repeat(257)),
-      secret
-    )
-  ).rejects.toThrow("project required");
+it.each([null, "", "x".repeat(257)])(
+  "requires a bounded project ID (%s)",
+  async (projectId) => {
+    await expect(
+      runtimeProjectAccess(
+        request(undefined, undefined, undefined, projectId),
+        secret
+      )
+    ).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: "Runtime project required",
+    });
+  }
+);
+
+it("rejects oversized tokens", async () => {
   expect(
     await runtimeProjectAccess(
       request(undefined, undefined, "x".repeat(8192)),
