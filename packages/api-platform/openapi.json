@@ -6078,6 +6078,23 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Deployment publication is already in progress.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Conflict"
+                    },
+                    {
+                      "$ref": "#/components/schemas/UndefinedError"
+                    }
+                  ]
+                }
+              }
+            }
           }
         }
       }
@@ -6228,6 +6245,23 @@
           },
           "code": {
             "const": "GATEWAY_TIMEOUT"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {}
+        },
+        "required": ["defined", "code", "message"]
+      },
+      "Conflict": {
+        "title": "CONFLICT",
+        "type": "object",
+        "properties": {
+          "defined": {
+            "const": true
+          },
+          "code": {
+            "const": "CONFLICT"
           },
           "message": {
             "type": "string"

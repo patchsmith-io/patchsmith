@@ -28,6 +28,16 @@ export type GatewayTimeout = {
   data?: unknown;
 };
 
+/**
+ * CONFLICT
+ */
+export type Conflict = {
+  defined: true;
+  code: 'CONFLICT';
+  message: string;
+  data?: unknown;
+};
+
 export type AppAgentChatData = {
   body: {
     app: {
@@ -1446,6 +1456,15 @@ export type DeploymentsPublishData = {
   query?: never;
   url: '/deployments/{deploymentId}';
 };
+
+export type DeploymentsPublishErrors = {
+  /**
+   * Deployment publication is already in progress.
+   */
+  409: Conflict | UndefinedError;
+};
+
+export type DeploymentsPublishError = DeploymentsPublishErrors[keyof DeploymentsPublishErrors];
 
 export type DeploymentsPublishResponses = {
   /**

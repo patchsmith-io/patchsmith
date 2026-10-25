@@ -3,13 +3,17 @@ import { Effect } from "effect";
 
 import type { Context } from "#context";
 
+const isDeploymentError = (
+  cause: unknown
+): cause is ORPCError<string, unknown> => cause instanceof ORPCError;
+
 /** Adapt database/storage promises at the deployment boundary, preserving domain errors. */
 export const deploymentOperation = <A>(
   operation: (signal: AbortSignal) => PromiseLike<A>
 ) =>
   Effect.tryPromise({
     catch: (cause) =>
-      cause instanceof ORPCError
+      isDeploymentError(cause)
         ? cause
         : new ORPCError("INTERNAL_SERVER_ERROR", {
             cause,

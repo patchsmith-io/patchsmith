@@ -20,3 +20,11 @@ The typed `server.mcp.transport({ scopes, subjectId })` helper prepares the URL 
 App reads, creation, and edits use the authenticated project and exact canonical scope identities. Builder/editor agents receive a one-hour grant for the selected app's scope, using the existing CLI/JWT authorization and revocation checks. The platform revokes the source grant when the call finishes, fails, or is cancelled. The workflow records `subjectId` in its attributes for provenance.
 
 See [the MCP tools, streaming contract, and compatibility requirements](../agent/README.md#mcp).
+
+## Publish a deployment
+
+`POST /deployments/{deploymentId}` permits one publication attempt at a time. An atomic database claim owns verification, file status changes, and cleanup. An overlapping request receives `409 CONFLICT` while verification is in progress and can retry after the attempt finishes.
+
+A repeated request for a published deployment returns the stored deployment without verifying files, changing deployment selection, or enqueueing warm-up again. The first successful request's `rollout` choice is final, including when a later request supplies a different value.
+
+Failed or cancelled verification releases the claim and resets unfinished files so the deployment can be retried. Once publication commits, rollout selection and warm-up enqueueing finish even if the caller disconnects. Publication and rollout selection commit in the same database transaction.
