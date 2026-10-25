@@ -5,6 +5,7 @@ import {
   writeFile,
   readFile,
   rename,
+  realpath,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -457,8 +458,8 @@ it("checks re-exported view paths against their file locations during the build"
 it("resolves client and server runtimes from the app when build output is outside the project", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "patchsmith-file-client-"));
 
-  const output = await mkdtemp(
-    path.join(tmpdir(), "patchsmith-external-output-")
+  const output = await realpath(
+    await mkdtemp(path.join(tmpdir(), "patchsmith-external-output-"))
   );
 
   try {

@@ -8,6 +8,9 @@ import {
   rename,
   mkdtemp,
   mkdir,
+  lstat,
+  symlink,
+  realpath,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -442,9 +445,14 @@ it("builds file routes with discovered functions and blocks server imports from 
     expect(application.migrations).toEqual([]);
     expect(browser).not.toContain("Configured server loaded");
     expect(browser).not.toContain("Internal server result");
+
     // The host deployment tool must build beneath the app so the generated
     // temporary server entry can resolve patchsmith/server from node_modules.
-    const deploymentOutput = path.join(root, ".patchsmith/agent-deployment");
+    const deploymentOutput = path.join(
+      await realpath(root),
+      ".patchsmith/agent-deployment"
+    );
+
     await buildFixture({ cwd: root, outDir: deploymentOutput });
     expect(
       await readFile(path.join(deploymentOutput, "server/server.js"), "utf-8")
@@ -742,6 +750,39 @@ describe("database app builds", () => {
       await expect(buildFixture({ cwd: root })).rejects.toThrow(
         "cannot be imported into a browser bundle"
       );
+    });
+  });
+
+  it.each(["linked", "linked/output", "linked/missing/output"])(
+    "rejects symlinked build output at %s without deleting target files",
+    async (outDir) => {
+      await withDatabaseApp(async (root) => {
+        const target = path.join(root, "retained");
+        await mkdir(path.join(target, "output"), { recursive: true });
+        const sentinel = path.join(target, "output/keep.txt");
+        await writeFile(sentinel, "keep");
+        await symlink(target, path.join(root, "linked"), "dir");
+
+        await expect(buildFixture({ cwd: root, outDir })).rejects.toThrow(
+          "App build output must not traverse a symlink"
+        );
+        expect(await readFile(sentinel, "utf-8")).toBe("keep");
+        const linkStats = await lstat(path.join(root, "linked"));
+        expect(linkStats.isSymbolicLink()).toBe(true);
+      });
+    }
+  );
+
+  it("rejects a dangling output symlink without removing it", async () => {
+    await withDatabaseApp(async (root) => {
+      const output = path.join(root, "linked");
+      await symlink(path.join(root, "missing"), output, "dir");
+
+      await expect(
+        buildFixture({ cwd: root, outDir: "linked" })
+      ).rejects.toThrow("App build output must not traverse a symlink");
+      const linkStats = await lstat(output);
+      expect(linkStats.isSymbolicLink()).toBe(true);
     });
   });
 

@@ -1,4 +1,4 @@
-import { realpath, rm, writeFile } from "node:fs/promises";
+import { lstat, realpath, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 
@@ -35,6 +35,42 @@ const requireValue = <T>(value: T | null | undefined): T => {
 };
 
 const preactPackageJson = "preact/package.json";
+
+const rejectSymlinkedOutput = async (output: string) => {
+  const paths = [output];
+  let current = output;
+
+  while (path.dirname(current) !== current) {
+    current = path.dirname(current);
+    paths.push(current);
+  }
+
+  await Promise.all(
+    paths.map(async (directory) => {
+      let stats;
+
+      try {
+        stats = await lstat(directory);
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          "code" in error &&
+          error.code === "ENOENT"
+        ) {
+          return;
+        }
+
+        throw error;
+      }
+
+      if (stats.isSymbolicLink()) {
+        throw new Error(
+          `App build output must not traverse a symlink: ${directory}`
+        );
+      }
+    })
+  );
+};
 
 const preactPackageJsonModuleId = "\0patchsmith-preact-package-json";
 
@@ -350,6 +386,7 @@ export const patchsmith = (options: PatchsmithPluginOptions = {}): Plugin[] => {
         validateServerBuildOutput(loaded, resolvedOutDir);
         clientOutDir = path.join(resolvedOutDir, "client");
 
+        await rejectSymlinkedOutput(resolvedOutDir);
         await rm(resolvedOutDir, { force: true, recursive: true });
 
         functionEntry = await createFileFunctionEntry(
