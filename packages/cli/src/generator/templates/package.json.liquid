@@ -6,13 +6,13 @@
     "node": ">=22"
   },
   "imports": {
-    "#patchsmith": "./src/patchsmith.gen.ts",
+    "#patchsmith": "./{{ sourcePrefix }}patchsmith.gen.ts",
     "#*": [
-      "./src/*",
-      "./src/*.ts",
-      "./src/*.tsx",
-      "./src/*/index.ts",
-      "./src/*/index.tsx"
+      "./{{ sourcePrefix }}*",
+      "./{{ sourcePrefix }}*.ts",
+      "./{{ sourcePrefix }}*.tsx",
+      "./{{ sourcePrefix }}*/index.ts",
+      "./{{ sourcePrefix }}*/index.tsx"
     ]
   },
   "scripts": {

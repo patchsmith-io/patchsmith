@@ -8,6 +8,7 @@ import {
 } from "@patchsmith/core/spec";
 import { isViewAncestor } from "@patchsmith/core/views";
 import {
+  resolveAppSourceRoot,
   discoverFunctionFiles,
   generateFunctionTypes,
 } from "@patchsmith/vite/builder";
@@ -969,12 +970,12 @@ export const generateTypes = async (
 ): Promise<string> => {
   const root = path.resolve(options.cwd ?? ".");
 
-  const outPath = path.resolve(
-    root,
-    options.outFile ?? path.join("src", "patchsmith.gen.ts")
-  );
-
   const loaded = await loadPatchsmithConfig(options.configPath, root);
+
+  const outPath =
+    options.outFile === undefined
+      ? path.join(resolveAppSourceRoot(loaded.root), "patchsmith.gen.ts")
+      : path.resolve(root, options.outFile);
 
   const schema =
     options.schema ??

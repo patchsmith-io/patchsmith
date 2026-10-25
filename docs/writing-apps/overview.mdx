@@ -18,25 +18,23 @@ These are the main files for a host with a `panel` slot and a `/` view:
 
 <Tree>
   <Tree.Folder name="my-app" defaultOpen>
-    <Tree.Folder name="src" defaultOpen>
-      <Tree.Folder name="slots" defaultOpen>
-        <Tree.Folder name="panel" defaultOpen>
-          <Tree.File name="index.view.tsx" />
-        </Tree.Folder>
-      </Tree.Folder>
-      <Tree.Folder name="functions" defaultOpen>
-        <Tree.File name="greeting.router.ts" />
-      </Tree.Folder>
-      <Tree.Folder name="db">
-        <Tree.File name="index.ts" />
-        <Tree.File name="schema.ts" />
-        <Tree.File name="relations.ts" />
-        <Tree.Folder name="migrations" />
-      </Tree.Folder>
+    <Tree.Folder name="slots" defaultOpen>
       <Tree.File name="root.tsx" />
-      <Tree.File name="patchsmith.functions.gen.ts" />
-      <Tree.File name="patchsmith.gen.ts" />
+      <Tree.Folder name="panel" defaultOpen>
+        <Tree.File name="index.view.tsx" />
+      </Tree.Folder>
     </Tree.Folder>
+    <Tree.Folder name="functions" defaultOpen>
+      <Tree.File name="greeting.router.ts" />
+    </Tree.Folder>
+    <Tree.Folder name="db">
+      <Tree.File name="index.ts" />
+      <Tree.File name="schema.ts" />
+      <Tree.File name="relations.ts" />
+      <Tree.Folder name="migrations" />
+    </Tree.Folder>
+    <Tree.File name="patchsmith.functions.gen.ts" />
+    <Tree.File name="patchsmith.gen.ts" />
     <Tree.File name="patchsmith.config.ts" />
     <Tree.File name="vite.config.ts" />
     <Tree.File name="package.json" />
@@ -44,17 +42,19 @@ These are the main files for a host with a `panel` slot and a `/` view:
   </Tree.Folder>
 </Tree>
 
+App source lives at the project root by default. Pass `--src-dir` to `patchsmith init` to put it under `src/` instead. Keep all app source directories together; mixing root-level and `src/` app directories is an error. Configuration, `.env` files, and `assets/` stay at the project root in either layout.
+
 Use these files to add UI, backend logic, and configuration:
 
 | Location | Purpose |
 | --- | --- |
 | `assets/` | Public static files uploaded with the app and addressed by content hash. |
-| `src/slots/` | UI views, grouped by slot. |
-| `src/root.tsx` | The shared UI shell. |
-| `src/functions/**/*.router.ts` | Automatically registered backend function routers. |
-| `src/patchsmith.functions.gen.ts` | Generated type-only function registry. |
-| `src/db/` | Database schema, connection, and migrations. |
-| `src/patchsmith.gen.ts` | Generated components, tools, and types; refreshed by `patchsmith generate`. |
+| `slots/` | UI views, grouped by slot. |
+| `slots/root.tsx` | The shared UI shell. |
+| `functions/**/*.router.ts` | Automatically registered backend function routers. |
+| `patchsmith.functions.gen.ts` | Generated type-only function registry. |
+| `db/` | Database schema, connection, and migrations. |
+| `patchsmith.gen.ts` | Generated components, tools, and types; refreshed by `patchsmith generate`. |
 | `patchsmith.config.ts` | The host URL and app logos. |
 | `vite.config.ts` | Build configuration. |
 

@@ -125,8 +125,9 @@ it.each([
         path.join(root, "patchsmith.config.mjs"),
         'export default { name: "Test App", slug: "test-app", host: "https://host.test" };'
       );
+      await mkdir(path.join(root, "src/slots"), { recursive: true });
       await writeFile(
-        path.join(root, "src/root.tsx"),
+        path.join(root, "src/slots/root.tsx"),
         'import { defineRoute } from "patchsmith/client"; export default defineRoute({ shellComponent: () => "client" });'
       );
 
@@ -232,8 +233,9 @@ it.each([
         path.join(root, "patchsmith.config.mjs"),
         'export default { name: "Test App", slug: "test-app", host: "https://host.test" };'
       );
+      await mkdir(path.join(root, "src/slots"), { recursive: true });
       await writeFile(
-        path.join(root, "src/root.tsx"),
+        path.join(root, "src/slots/root.tsx"),
         'import { defineRoute } from "patchsmith/client"; export default defineRoute({ shellComponent: () => "client" });'
       );
       await writeFile(
@@ -277,7 +279,8 @@ it("builds file routes with discovered functions and blocks server imports from 
     const client =
       'import { defineRoute } from "patchsmith/client"; export default defineRoute({ shellComponent: () => "Configured client loaded" });';
 
-    await writeFile(path.join(root, "src/root.tsx"), client);
+    await mkdir(path.join(root, "src/slots"), { recursive: true });
+    await writeFile(path.join(root, "src/slots/root.tsx"), client);
     await writeFile(
       path.join(root, "src/functions/helper.ts"),
       'export const value = "Lazy server helper";'
@@ -344,14 +347,16 @@ it("builds file routes with discovered functions and blocks server imports from 
       appId: "configured-app",
       assets: { client: "client/client.js", server: "server/server.js" },
     });
+    await mkdir(path.join(root, "src/slots"), { recursive: true });
     await writeFile(
-      path.join(root, "src/root.tsx"),
-      `import type app from "./functions/example.router";\n${client}`
+      path.join(root, "src/slots/root.tsx"),
+      `import type app from "../functions/example.router";\n${client}`
     );
     await expect(buildFixture({ cwd: root })).resolves.toBeDefined();
+    await mkdir(path.join(root, "src/slots"), { recursive: true });
     await writeFile(
-      path.join(root, "src/root.tsx"),
-      `import "./functions/example.router";\n${client}`
+      path.join(root, "src/slots/root.tsx"),
+      `import "../functions/example.router";\n${client}`
     );
     await expect(buildFixture({ cwd: root })).rejects.toThrow(
       "cannot be imported into a browser bundle"
@@ -363,7 +368,7 @@ it("builds file routes with discovered functions and blocks server imports from 
 
 it.each(
   ["fn", "router"].flatMap((suffix) => [
-    { specifier: `./functions/private.${suffix}.ts`, suffix },
+    { specifier: `../functions/private.${suffix}.ts`, suffix },
     { specifier: `#functions/private.${suffix}`, suffix },
   ])
 )(
@@ -390,8 +395,9 @@ it.each(
         'export const secret = "Server-only literal";'
       );
 
+      await mkdir(path.join(root, "src/slots"), { recursive: true });
       await writeFile(
-        path.join(root, "src/root.tsx"),
+        path.join(root, "src/slots/root.tsx"),
         `import { defineRoute } from "patchsmith/client"; import { secret } from ${JSON.stringify(specifier)}; export default defineRoute({ shellComponent: () => secret });`
       );
       await expect(buildFixture({ cwd: root })).rejects.toThrow(
@@ -414,8 +420,9 @@ it("builds and declares an empty backend without server configuration", async ()
       path.join(root, "patchsmith.config.mjs"),
       'export default { name: "Test App", slug: "test-app", host: "https://host.test" };'
     );
+    await mkdir(path.join(root, "src/slots"), { recursive: true });
     await writeFile(
-      path.join(root, "src/root.tsx"),
+      path.join(root, "src/slots/root.tsx"),
       'import { defineRoute } from "patchsmith/client"; export default defineRoute({ shellComponent: () => "client" });'
     );
 
@@ -486,85 +493,113 @@ describe("database app builds", () => {
     }
   };
 
-  it("builds separate artifacts without exposing server code to the browser", async () => {
-    await withDatabaseApp(async (root) => {
-      const sourceFiles = await readdir(path.join(root, "src"), {
-        recursive: true,
-      });
+  it.each([".", "src"])(
+    "builds %s source without exposing server code to the browser",
+    async (directory) => {
+      await withDatabaseApp(async (root) => {
+        if (directory === ".") {
+          for (const name of await readdir(path.join(root, "src"))) {
+            // oxlint-disable-next-line no-await-in-loop -- Move each fixture source before removing its old directory.
+            await rename(path.join(root, "src", name), path.join(root, name));
+          }
 
-      await buildFixture({ cwd: root });
+          await rm(path.join(root, "src"), { recursive: true });
+        }
 
-      const browser = await readFile(
-        path.join(root, ".patchsmith/client/client.js"),
-        "utf-8"
-      );
+        const source = path.join(root, directory);
 
-      const server = await readFile(
-        path.join(root, ".patchsmith/server/server.js"),
-        "utf-8"
-      );
+        const readSources = async () => {
+          const directories = await Promise.all(
+            ["slots", "functions", "db"].map(async (folder) => {
+              const files = await readdir(path.join(source, folder), {
+                recursive: true,
+              });
 
-      // Keep a small app below this budget, including its schemas and ORM.
-      expect(Buffer.byteLength(server)).toBeLessThan(150_000);
-      expect(server).not.toContain("patchsmith_receipts");
-      expect(server).not.toContain("cloudflare:workers");
-      expect(server).not.toContain("node:async_hooks");
-      expect(server).not.toContain(
-        "CREATE TABLE IF NOT EXISTS patchsmith_migrations"
-      );
-      expect(server).toContain("CREATE TABLE `todos`");
-      expect(browser).not.toContain("patchsmith_migrations");
-      expect(browser).not.toContain("CREATE TABLE `todos`");
-      expect(browser).not.toContain("patchsmith_receipts");
-      expect(browser).not.toContain("PRIVATE_DATABASE_TEST");
-      expect(browser).not.toContain("cloudflare:workers");
-      expect(browser).not.toContain("jwtVerify");
-      expect(browser).not.toContain("SignJWT");
-      expect(
-        await readdir(path.join(root, "src"), { recursive: true })
-      ).toEqual(
-        expect.arrayContaining([...sourceFiles, "patchsmith.functions.gen.ts"])
-      );
-      expect(
-        JSON.parse(
+              return files.map((name) => path.join(folder, name));
+            })
+          );
+
+          return directories.flat().toSorted();
+        };
+
+        const sourceFiles = await readSources();
+
+        await buildFixture({ cwd: root });
+
+        const browser = await readFile(
+          path.join(root, ".patchsmith/client/client.js"),
+          "utf-8"
+        );
+
+        const server = await readFile(
+          path.join(root, ".patchsmith/server/server.js"),
+          "utf-8"
+        );
+
+        // Keep a small app below this budget, including its schemas and ORM.
+        expect(Buffer.byteLength(server)).toBeLessThan(150_000);
+        expect(server).not.toContain("patchsmith_receipts");
+        expect(server).not.toContain("cloudflare:workers");
+        expect(server).not.toContain("node:async_hooks");
+        expect(server).not.toContain(
+          "CREATE TABLE IF NOT EXISTS patchsmith_migrations"
+        );
+        expect(server).toContain("CREATE TABLE `todos`");
+        expect(browser).not.toContain("patchsmith_migrations");
+        expect(browser).not.toContain("CREATE TABLE `todos`");
+        expect(browser).not.toContain("patchsmith_receipts");
+        expect(browser).not.toContain("PRIVATE_DATABASE_TEST");
+        expect(browser).not.toContain("cloudflare:workers");
+        expect(browser).not.toContain("jwtVerify");
+        expect(browser).not.toContain("SignJWT");
+        expect(await readSources()).toEqual(sourceFiles);
+        expect(
           await readFile(
-            path.join(root, ".patchsmith/patchsmith-upload.json"),
+            path.join(source, "patchsmith.functions.gen.ts"),
             "utf-8"
           )
-        ).assets
-      ).toEqual({ client: "client/client.js", server: "server/server.js" });
+        ).toContain("./functions/todos.router");
+        expect(
+          JSON.parse(
+            await readFile(
+              path.join(root, ".patchsmith/patchsmith-upload.json"),
+              "utf-8"
+            )
+          ).assets
+        ).toEqual({ client: "client/client.js", server: "server/server.js" });
 
-      const migrationFiles = await readdir(
-        path.join(root, "src/db/migrations"),
-        {
-          recursive: true,
-        }
-      );
+        const migrationFiles = await readdir(
+          path.join(source, "db/migrations"),
+          {
+            recursive: true,
+          }
+        );
 
-      expect(
-        await readdir(path.join(root, ".patchsmith/migrations"), {
-          recursive: true,
-        })
-      ).toEqual(migrationFiles);
-      await Promise.all(
-        migrationFiles
-          .filter((filename) => filename.endsWith("migration.sql"))
-          .map(async (file) => {
-            expect(
-              await readFile(
-                path.join(root, ".patchsmith/migrations", file),
-                "utf-8"
-              )
-            ).toBe(
-              await readFile(
-                path.join(root, "src/db/migrations", file),
-                "utf-8"
-              )
-            );
+        expect(
+          await readdir(path.join(root, ".patchsmith/migrations"), {
+            recursive: true,
           })
-      );
-    });
-  });
+        ).toEqual(migrationFiles);
+        await Promise.all(
+          migrationFiles
+            .filter((filename) => filename.endsWith("migration.sql"))
+            .map(async (file) => {
+              expect(
+                await readFile(
+                  path.join(root, ".patchsmith/migrations", file),
+                  "utf-8"
+                )
+              ).toBe(
+                await readFile(
+                  path.join(source, "db/migrations", file),
+                  "utf-8"
+                )
+              );
+            })
+        );
+      });
+    }
+  );
 
   it("preserves the client bundle and migrations with custom output", async () => {
     await withDatabaseApp(async (root) => {
@@ -608,7 +643,7 @@ describe("database app builds", () => {
   });
 
   it.each([
-    "./functions/todos.router",
+    "../functions/todos.router",
     "patchsmith/server",
     "patchsmith/internal/server",
     "@patchsmith/app/internal/server",
@@ -617,7 +652,7 @@ describe("database app builds", () => {
     "effect",
   ])("rejects the browser's accidental import of %s", async (specifier) => {
     await withDatabaseApp(async (root) => {
-      const clientPath = path.join(root, "src/root.tsx");
+      const clientPath = path.join(root, "src/slots/root.tsx");
       const client = await readFile(clientPath, "utf-8");
       await writeFile(
         clientPath,

@@ -6,11 +6,11 @@ Import database APIs from `patchsmith/db` in backend files. For storage choices,
 
 ## Tables
 
-Define tables in `src/db/schema.ts` with `table`, `text`, `integer`, `real`, and `boolean`. Use `crypto.randomUUID()` for text IDs. Table names start with a letter, contain letters/digits/underscores, have at most 63 characters, and avoid `sqlite_` and `patchsmith_` prefixes.
+Define tables in `db/schema.ts` with `table`, `text`, `integer`, `real`, and `boolean`. Use `crypto.randomUUID()` for text IDs. Table names start with a letter, contain letters/digits/underscores, have at most 63 characters, and avoid `sqlite_` and `patchsmith_` prefixes.
 
-For example, define installation-shared notes in `src/db/schema.ts`:
+For example, define installation-shared notes in `db/schema.ts`:
 
-<!-- example: src/db/schema.ts -->
+<!-- example: db/schema.ts -->
 
 ```ts
 import { table, text } from "patchsmith/db";
@@ -25,9 +25,9 @@ export const notes = table("notes", {
 
 ## Database and function builder
 
-In `src/db/index.ts`, include the tables and bind the function builder:
+In `db/index.ts`, include the tables and bind the function builder:
 
-<!-- example: src/db/index.ts -->
+<!-- example: db/index.ts -->
 
 ```ts
 import { defineDatabase, defineRelations } from "patchsmith/db";
@@ -45,6 +45,6 @@ Relations describe connected records. Add a `defineRelations` callback when need
 
 ## Migrations
 
-Run `pnpm run db:generate` after table changes. Keep SQL and snapshots under `src/db/migrations`, or the configured migration directory. Preserve applied migrations and existing data; new required columns need defaults or a backfill.
+Run `pnpm run db:generate` after table changes. Keep SQL and snapshots under `db/migrations`, or the configured migration directory. Preserve applied migrations and existing data; new required columns need defaults or a backfill.
 
 Deployment applies pending migrations before database functions run. Use migrations for schema changes, preserving existing data instead of resetting it.

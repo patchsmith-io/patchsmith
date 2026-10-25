@@ -8,17 +8,17 @@ export { default as packageJsonTemplate } from "./package.json.liquid";
 
 export { default as pnpmWorkspaceTemplate } from "./pnpm-workspace.yaml.liquid";
 
-export { default as databaseTemplate } from "./src/db/index.ts.liquid";
+export { default as databaseTemplate } from "./db/index.ts.liquid";
 
-export { default as relationsTemplate } from "./src/db/relations.ts.liquid";
+export { default as relationsTemplate } from "./db/relations.ts.liquid";
 
-export { default as schemaTemplate } from "./src/db/schema.ts.liquid";
+export { default as schemaTemplate } from "./db/schema.ts.liquid";
 
-export { default as greetingTemplate } from "./src/functions/greeting.router.ts.liquid";
+export { default as greetingTemplate } from "./functions/greeting.router.ts.liquid";
 
-export { default as rootTemplate } from "./src/root.tsx.liquid";
+export { default as rootTemplate } from "./slots/root.tsx.liquid";
 
-export { default as defaultViewTemplate } from "./src/slots/view.tsx.liquid";
+export { default as defaultViewTemplate } from "./slots/view.tsx.liquid";
 
 export { default as patchsmithConfigTemplate } from "./patchsmith.config.ts.liquid";
 

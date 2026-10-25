@@ -1,6 +1,15 @@
 import path from "node:path";
 
-export const appDatabasePaths = (root: string, migrations?: string) => ({
-  migrations: path.resolve(root, migrations ?? "./src/db/migrations"),
-  schema: path.join(root, "src/db/schema.ts"),
-});
+import { resolveAppSourceRoot } from "#source-root";
+
+export const appDatabasePaths = (root: string, migrations?: string) => {
+  const source = resolveAppSourceRoot(root);
+
+  return {
+    migrations:
+      migrations === undefined
+        ? path.join(source, "db/migrations")
+        : path.resolve(root, migrations),
+    schema: path.join(source, "db/schema.ts"),
+  };
+};

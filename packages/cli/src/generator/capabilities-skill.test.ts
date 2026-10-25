@@ -380,7 +380,7 @@ it("removes obsolete references on regeneration and preserves unrelated source a
       readFile(path.join(skillDirectory, "references/components/Button.md"))
     ).rejects.toThrow();
     expect(
-      await readFile(path.join(root, "src/patchsmith.gen.ts"), "utf-8")
+      await readFile(path.join(root, "patchsmith.gen.ts"), "utf-8")
     ).not.toContain("export const Button");
     expect(await readFile(path.join(skillDirectory, "notes.md"), "utf-8")).toBe(
       "user content"

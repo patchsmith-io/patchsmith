@@ -14,6 +14,7 @@ import {
 } from "@patchsmith/vite/builder";
 import { build } from "vite";
 import { expect, it } from "vite-plus/test";
+import { z } from "zod";
 
 import { generateApp } from "./generate";
 import { renderGeneratedReferences, renderGeneratedTypes } from "./types";
@@ -182,19 +183,18 @@ it("typechecks and bundles examples with scaffold imports and the public SDK", a
     }
 
     expect(Object.keys(sources).length).toBeGreaterThanOrEqual(10);
-    sources["src/examples/source-aliases.ts"] =
+    sources["examples/source-aliases.ts"] =
       'export { NoteEditor } from "#components/note-editor";\nexport { Empty } from "#components/empty";\nexport { default as notes } from "#functions/notes.router";';
-    sources["src/components/empty/index.tsx"] =
-      "export const Empty = () => null;";
+    sources["components/empty/index.tsx"] = "export const Empty = () => null;";
     // Legacy form examples call api.todos; reuse the notes router under that namespace.
-    sources["src/functions/todos.router.ts"] =
+    sources["functions/todos.router.ts"] =
       'export { default } from "#functions/notes.router";';
-    sources["src/patchsmith.gen.ts"] = renderGeneratedTypes(schema, {
+    sources["patchsmith.gen.ts"] = renderGeneratedTypes(schema, {
       functionsModule: "./patchsmith.functions.gen",
     });
 
     const references = renderGeneratedReferences(schema, {
-      bindingsPath: "../src/patchsmith.gen.ts",
+      bindingsPath: "../patchsmith.gen.ts",
     });
 
     expect(references["components/RequiredText.md"]).toContain(
@@ -211,7 +211,7 @@ it("typechecks and bundles examples with scaffold imports and the public SDK", a
           throw new Error("Invalid generated code block.");
         }
 
-        sources[`src/examples/generated-${count}.${language}`] = source;
+        sources[`examples/generated-${count}.${language}`] = source;
         count += 1;
       }
     }
@@ -251,24 +251,27 @@ it("typechecks and bundles examples with scaffold imports and the public SDK", a
           moduleResolution: "Bundler",
           noEmit: true,
           paths: {
+            "patchsmith/app/config": [declaration("@patchsmith/vite/config")],
             "patchsmith/client": [declaration("@patchsmith/app/client")],
             "patchsmith/db": [
               path.join(path.dirname(database), "dist/index.d.ts"),
             ],
             "patchsmith/server": [declaration("@patchsmith/app/server")],
+            "patchsmith/vite": [declaration("@patchsmith/vite")],
             preact: [path.join(preact, "src/index.d.ts")],
             "preact/hooks": [path.join(preact, "hooks/src/index.d.ts")],
             "preact/jsx-runtime": [
               path.join(preact, "jsx-runtime/src/index.d.ts"),
             ],
             valibot: [declaration("valibot")],
+            vite: [declaration("vite")],
           },
           skipLibCheck: true,
           strict: true,
           target: "ESNext",
           types: [],
         },
-        include: ["src"],
+        include: ["."],
       })
     );
 
@@ -282,13 +285,19 @@ it("typechecks and bundles examples with scaffold imports and the public SDK", a
       compiler,
       "-p",
       path.join(root, "tsconfig.json"),
-    ]);
+    ]).catch((error: ErrorOptions["cause"]) => {
+      const detail = z
+        .object({ stderr: z.string(), stdout: z.string() })
+        .parse(error);
+
+      throw new Error(detail.stdout + detail.stderr, { cause: error });
+    });
 
     expect(result.stdout).toBe("");
     await build({
       build: {
         lib: {
-          entry: path.join(root, "src/examples/source-aliases.ts"),
+          entry: path.join(root, "examples/source-aliases.ts"),
           formats: ["es"],
         },
         rolldownOptions: { external: [externalPackage] },

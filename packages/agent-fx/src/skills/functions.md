@@ -12,9 +12,9 @@ App functions run on Patchsmith's managed backend. Every app includes a backend;
 
 Database functions use `fn` from `#db`. These snippets use the shared `notes` table (`id`, `title`) from `patchsmith-database`.
 
-A query reads data synchronously. For example, in `src/functions/notes.router.ts`:
+A query reads data synchronously. For example, in `functions/notes.router.ts`:
 
-<!-- example: src/functions/notes.router.ts -->
+<!-- example: functions/notes.router.ts -->
 
 ```ts
 import { fn } from "#db";
@@ -26,7 +26,7 @@ const list = fn.query.handler(({ db }) =>
 
 Add a mutation in the same module to validate and save input:
 
-<!-- continue: src/functions/notes.router.ts -->
+<!-- continue: functions/notes.router.ts -->
 
 ```ts
 import * as v from "valibot";
@@ -48,7 +48,7 @@ Queries, mutations, and their validators finish synchronously; each mutation run
 
 A router groups named functions. Export the handlers from the same module:
 
-<!-- continue: src/functions/notes.router.ts -->
+<!-- continue: functions/notes.router.ts -->
 
 ```ts
 import { defineRouter } from "patchsmith/server";
@@ -56,7 +56,7 @@ import { defineRouter } from "patchsmith/server";
 export default defineRouter({ list, add });
 ```
 
-The builder discovers `src/functions/**/*.router.ts` automatically. Run `pnpm run generate` after adding, moving, or removing modules. `notes.router.ts` exposes `api.notes.list` and `api.notes.add`; no `src/server.ts` is needed.
+The builder discovers `functions/**/*.router.ts` automatically. Run `pnpm run generate` after adding, moving, or removing modules. `notes.router.ts` exposes `api.notes.list` and `api.notes.add`; no `server.ts` is needed.
 
 Dots and directories create the same namespaces: `billing.invoices.router.ts` and `billing/invoices.router.ts` both prefix their router keys with `api.billing.invoices`. Nested router objects add further segments. Shared namespaces merge; duplicate callable paths and function/namespace conflicts fail the build with both source files. Every segment must start with a letter and contain at most 64 letters, digits, or underscores. `name` and `then` are reserved at every depth. `index` is literal. Other files are ordinary helpers.
 
@@ -64,7 +64,7 @@ Dots and directories create the same namespaces: `billing.invoices.router.ts` an
 
 Use `fn` from `patchsmith/server` for actions without a database. This action fetches a summary; replace the URL with the requested service:
 
-<!-- example: src/functions/preview.router.ts -->
+<!-- example: functions/preview.router.ts -->
 
 ```ts
 import { AppError, defineRouter, fn } from "patchsmith/server";
@@ -92,7 +92,7 @@ Actions have no `db`. Import routers explicitly (for example, `import notes from
 
 After registering each function's router, import `api` from `#patchsmith`. Inside a component under `ClientProvider`:
 
-<!-- example: src/examples/function-hooks.ts -->
+<!-- example: examples/function-hooks.ts -->
 
 ```ts
 import { useAction, useMutation, useQuery } from "patchsmith/client";

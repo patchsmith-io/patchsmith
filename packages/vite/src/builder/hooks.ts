@@ -5,6 +5,8 @@ import path from "node:path";
 import { parseSync } from "vite";
 import type { Plugin, ESTree } from "vite";
 
+import { resolveAppSourceRoot } from "#source-root";
+
 import { childNodes, createDefineHookMatcher } from "./define-view";
 import { isMissingFile } from "./fs-errors";
 
@@ -17,7 +19,7 @@ const hookSegment = /^[a-zA-Z][a-zA-Z0-9_]{0,63}$/u;
 
 /** Discover only hook entry files; supporting modules remain ordinary imports. */
 export const discoverHooks = async (root: string): Promise<HookFile[]> => {
-  const directory = path.join(root, "src/hooks");
+  const directory = path.join(resolveAppSourceRoot(root), "hooks");
   const files: HookFile[] = [];
   const names = new Set<string>();
 
@@ -109,18 +111,26 @@ export const hookFilesPlugin = (
   return {
     buildStart: () => {
       if (watching && !watcher) {
-        watcher = watch(path.join(root, "src"), { recursive: true }, () => {
-          if (timer) {
-            clearTimeout(timer);
-          }
+        watcher = watch(
+          resolveAppSourceRoot(root),
+          { recursive: true },
+          (_event, filename) => {
+            if (filename !== null && filename.split(path.sep)[0] !== "hooks") {
+              return;
+            }
 
-          timer = setTimeout(() => {
-            pending = (async () => {
-              await pending;
-              await refresh();
-            })();
-          }, 25);
-        });
+            if (timer) {
+              clearTimeout(timer);
+            }
+
+            timer = setTimeout(() => {
+              pending = (async () => {
+                await pending;
+                await refresh();
+              })();
+            }, 25);
+          }
+        );
       }
     },
     closeWatcher: async () => {
@@ -136,7 +146,10 @@ export const hookFilesPlugin = (
         return;
       }
 
-      const relative = path.relative(path.join(root, "src/hooks"), filename);
+      const relative = path.relative(
+        path.join(resolveAppSourceRoot(root), "hooks"),
+        filename
+      );
 
       if (relative.startsWith("..") || path.isAbsolute(relative)) {
         return;

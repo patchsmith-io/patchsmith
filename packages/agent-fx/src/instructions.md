@@ -8,9 +8,9 @@ The host can expose components, tools, slots (UI locations), and context (such a
 
 Tools run host-defined code with declared inputs and results. Client tools run in the host's frontend; server tools run in its backend. App UI can call both; app actions can call server tools.
 
-`#patchsmith` exports generated host bindings and app function references. Other `#...` imports resolve from `src/`, such as `#components/editor` or `#db`. `.agents/skills/patchsmith-capabilities/SKILL.md` describes the available host capabilities. `patchsmith-frontend` covers components and tools; `patchsmith-views` covers UI placement, context, and routing.
+`#patchsmith` exports generated host bindings and app function references. Other `#...` imports resolve from the app source root through `package.json`, such as `#components/editor` or `#db`. `.agents/skills/patchsmith-capabilities/SKILL.md` describes the available host capabilities. `patchsmith-frontend` covers components and tools; `patchsmith-views` covers UI placement, context, and routing.
 
-Use the capability skills for host APIs; consult relevant sections of the large generated `src/patchsmith.gen.ts` only for essential details the skills don't cover.
+Use the capability skills for host APIs; consult relevant sections of the large generated `patchsmith.gen.ts` only for essential details the skills don't cover.
 
 ## Initial discovery
 
@@ -38,12 +38,12 @@ App backend functions include queries for reading data, mutations for transactio
 | --- | --- |
 | `patchsmith.config.ts` | Host URL, app identity, and backend options. |
 | `vite.config.ts` | Patchsmith/Preact build configuration. |
-| `src/patchsmith.gen.ts` | Generated bindings (`#patchsmith`). |
-| `src/root.tsx` | Shared UI/providers around views. |
-| `src/slots/<slot>/` | UI views (`*.view.tsx`), roots, and layouts. |
-| `src/functions/**/*.router.ts` | Automatically registered backend function routers. |
-| `src/patchsmith.functions.gen.ts` | Generated type-only function registry. |
-| `src/db/` | Tables, relationships, database builder, and migrations. |
+| `patchsmith.gen.ts` | Generated bindings (`#patchsmith`). |
+| `slots/root.tsx` | Shared UI/providers around views. |
+| `slots/<slot>/` | UI views (`*.view.tsx`), roots, and layouts. |
+| `functions/**/*.router.ts` | Automatically registered backend function routers. |
+| `patchsmith.functions.gen.ts` | Generated type-only function registry. |
+| `db/` | Tables, relationships, database builder, and migrations. |
 
 Backend modules register by file path; migration paths can be configured.
 
@@ -52,3 +52,5 @@ Backend modules register by file path; migration paths can be configured.
 App identity lives in `patchsmith.config.ts`: `name` is the display name; `appId` and `slug` identify the app across updates.
 
 The `deploy` tool formats, lints, tests, typechecks, builds, and publishes new apps or updates.
+
+App source lives at the project root by default. Apps may instead keep all source under `src/`; follow the existing layout, including `slots/root.tsx` for the shared frontend shell. Configuration and assets stay at the project root.

@@ -88,7 +88,7 @@ it("fetches the host schema and generates real bindings even when installation i
   );
 
   const bindings = await readFile(
-    path.join(directory, "src/patchsmith.gen.ts"),
+    path.join(directory, "patchsmith.gen.ts"),
     "utf-8"
   );
 
@@ -99,40 +99,44 @@ it("fetches the host schema and generates real bindings even when installation i
   expect(bindings).not.toContain("Card");
   expect(
     await readFile(
-      path.join(directory, "src/slots/sidebar/people.view.tsx"),
+      path.join(directory, "slots/sidebar/people.view.tsx"),
       "utf-8"
     )
   ).toContain("<Box>");
   expect(
-    await readFile(path.join(directory, "src/root.tsx"), "utf-8")
+    await readFile(path.join(directory, "slots/root.tsx"), "utf-8")
   ).toContain("shellComponent: Shell");
 });
 
-it("passes bare mode through initialization and still generates host capabilities", async () => {
-  const options = await initOptions();
-  await writeFile(
-    path.join(options.cwd, "schema.json"),
-    JSON.stringify({
-      components: {},
-      slots: { navbar: { views: ["/"] } },
-      version: 1,
-      views: { "/": {} },
-    })
-  );
+it.each([false, true])(
+  "passes bare mode and srcDir=%s through initialization",
+  async (srcDir) => {
+    const options = await initOptions();
+    await writeFile(
+      path.join(options.cwd, "schema.json"),
+      JSON.stringify({
+        components: {},
+        slots: { navbar: { views: ["/"] } },
+        version: 1,
+        views: { "/": {} },
+      })
+    );
 
-  const directory = await runInit({
-    ...options,
-    bare: true,
-    schemaPath: "schema.json",
-  });
+    const directory = await runInit({
+      ...options,
+      bare: true,
+      schemaPath: "schema.json",
+      srcDir,
+    });
 
-  const files = await readdir(path.join(directory, "src"));
-  expect(files.toSorted()).toEqual([
-    "patchsmith.functions.gen.ts",
-    "patchsmith.gen.ts",
-    "root.tsx",
-  ]);
-});
+    const source = srcDir ? path.join(directory, "src") : directory;
+    const files = await readdir(path.join(source, "slots"));
+    expect(files).toEqual(["root.tsx"]);
+    expect(
+      await readFile(path.join(source, "patchsmith.gen.ts"), "utf-8")
+    ).toContain("navbar");
+  }
+);
 
 it("reports schema fetch failures without creating a project", async () => {
   vi.stubGlobal(
@@ -181,7 +185,7 @@ it("scaffolds and regenerates from a schema file while the local host is unreach
 
   vi.stubGlobal("fetch", fetch);
   const directory = await runInit(options);
-  const generated = path.join(directory, "src/patchsmith.gen.ts");
+  const generated = path.join(directory, "patchsmith.gen.ts");
   const initial = await readFile(generated, "utf-8");
   expect(initial).toContain('"sidebar": { views: "/local"; multiple: false }');
   expect(initial).toContain("name?: string");

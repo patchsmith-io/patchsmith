@@ -20,7 +20,7 @@ Use the hook's pending/error state, disable overlapping saves, and keep drafts o
 
 This uncontrolled input keeps its draft on failure and remounts empty after a successful save. It assumes the host supports omitting `value`, `onValueChange({ value })`, and `onClick()`; use the host's declared props and accessible labels:
 
-<!-- example: src/components/note-editor.tsx -->
+<!-- example: components/note-editor.tsx -->
 
 ```tsx
 import { useMutation } from "patchsmith/client";

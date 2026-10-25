@@ -36,8 +36,9 @@ it("builds the app's Vite config with custom plugins, aliases, constants and out
       path.join(root, "src/message.ts"),
       'export const message = "CUSTOM_ALIAS";'
     );
+    await mkdir(path.join(root, "src/slots"), { recursive: true });
     await writeFile(
-      path.join(root, "src/root.tsx"),
+      path.join(root, "src/slots/root.tsx"),
       `
       import { defineRoute } from "patchsmith/client";
       import { message } from "@/message";

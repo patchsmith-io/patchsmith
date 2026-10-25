@@ -47,126 +47,134 @@ it("discovers dotted and nested hook names, ignores helpers and rejects duplicat
   }
 });
 
-it("bundles hooks privately, validates literal names and watches added and removed files", async () => {
-  const root = await mkdtemp(path.join(tmpdir(), "patchsmith-hook-build-"));
-
-  try {
-    await createDatabaseTestApp(root);
-    await mkdir(path.join(root, "src/hooks"));
-    const filename = path.join(root, "src/hooks/sync.hook.ts");
-
-    const source =
-      'import { defineHook as handler } from "patchsmith/server"; export default handler({ hook: "sync", handler: () => "PRIVATE_HOOK_HANDLER" });';
-
-    await writeFile(filename, source);
-    await build({
-      configFile: false,
-      logLevel: "silent",
-      plugins: [
-        patchsmith({ configPath: path.join(root, "patchsmith.config.mjs") }),
-      ],
-      root,
-    });
-    expect(
-      await readFile(path.join(root, ".patchsmith/client/client.js"), "utf-8")
-    ).not.toContain("PRIVATE_HOOK_HANDLER");
-    expect(
-      await readFile(path.join(root, ".patchsmith/server/server.js"), "utf-8")
-    ).toContain("PRIVATE_HOOK_HANDLER");
-
-    const application = v.parse(
-      v.object({
-        runtimeManifest: v.object({ requires: v.array(v.string()) }),
-      }),
-      await import(
-        pathToFileURL(path.join(root, ".patchsmith/server/server.js")).href
-      )
-    );
-
-    expect(application.runtimeManifest.requires).toEqual(
-      expect.arrayContaining(["hooks", "nested-actions"])
-    );
-
-    const readHooks = async () =>
-      v.parse(
-        patchsmithUploadManifestSchema,
-        JSON.parse(
-          await readFile(
-            path.join(root, ".patchsmith/patchsmith-upload.json"),
-            "utf-8"
-          )
-        )
-      ).hooks;
-
-    expect(await readHooks()).toEqual(["sync"]);
-
-    await writeFile(filename, source.replace('hook: "sync"', 'hook: "wrong"'));
-
-    const loaded = await loadPatchsmithConfig(
-      path.join(root, "patchsmith.config.mjs")
-    );
-
-    const functions = await createFileFunctionEntry(
-      root,
-      path.join(root, ".patchsmith"),
-      false
-    );
-
-    await expect(buildServer(loaded, functions.entry)).rejects.toThrow(
-      'defineHook hook must be "sync"'
-    );
-    await writeFile(filename, source);
-    const watcher = await buildServer(loaded, functions.entry, true);
-
-    if (!("close" in watcher)) {
-      throw new Error("Expected a server watcher");
-    }
-
-    const server = path.join(root, ".patchsmith/server/server.js");
+it.each([".", "src"])(
+  "bundles %s hooks privately and watches changes",
+  async (directory) => {
+    const root = await mkdtemp(path.join(tmpdir(), "patchsmith-hook-build-"));
 
     try {
-      await rename(filename, path.join(root, "src/hooks/other.hook.ts"));
-      await writeFile(
-        path.join(root, "src/hooks/other.hook.ts"),
-        source
-          .replaceAll("sync", "other")
-          .replace("PRIVATE_HOOK_HANDLER", "RENAMED_HOOK_HANDLER")
-      );
-      await expect
-        .poll(async () => await readFile(server, "utf-8").catch(() => ""), {
-          timeout: 10_000,
-        })
-        .toContain("RENAMED_HOOK_HANDLER");
-      await expect.poll(readHooks).toEqual(["other"]);
-      await rm(path.join(root, "src/hooks/other.hook.ts"));
-      await expect
-        .poll(
-          async () => {
-            const output = await readFile(server, "utf-8").catch(() => "");
+      await createDatabaseTestApp(root, directory);
+      const sourceRoot = path.join(root, directory);
+      await mkdir(path.join(sourceRoot, "hooks"));
+      const filename = path.join(sourceRoot, "hooks/sync.hook.ts");
 
-            return (
-              output.length > 0 && !output.includes("RENAMED_HOOK_HANDLER")
-            );
-          },
-          { timeout: 10_000 }
+      const source =
+        'import { defineHook as handler } from "patchsmith/server"; export default handler({ hook: "sync", handler: () => "PRIVATE_HOOK_HANDLER" });';
+
+      await writeFile(filename, source);
+      await build({
+        configFile: false,
+        logLevel: "silent",
+        plugins: [
+          patchsmith({ configPath: path.join(root, "patchsmith.config.mjs") }),
+        ],
+        root,
+      });
+      expect(
+        await readFile(path.join(root, ".patchsmith/client/client.js"), "utf-8")
+      ).not.toContain("PRIVATE_HOOK_HANDLER");
+      expect(
+        await readFile(path.join(root, ".patchsmith/server/server.js"), "utf-8")
+      ).toContain("PRIVATE_HOOK_HANDLER");
+
+      const application = v.parse(
+        v.object({
+          runtimeManifest: v.object({ requires: v.array(v.string()) }),
+        }),
+        await import(
+          pathToFileURL(path.join(root, ".patchsmith/server/server.js")).href
         )
-        .toBe(true);
-      await expect.poll(readHooks).toEqual([]);
+      );
+
+      expect(application.runtimeManifest.requires).toEqual(
+        expect.arrayContaining(["hooks", "nested-actions"])
+      );
+
+      const readHooks = async () =>
+        v.parse(
+          patchsmithUploadManifestSchema,
+          JSON.parse(
+            await readFile(
+              path.join(root, ".patchsmith/patchsmith-upload.json"),
+              "utf-8"
+            )
+          )
+        ).hooks;
+
+      expect(await readHooks()).toEqual(["sync"]);
+
       await writeFile(
         filename,
-        source.replace("PRIVATE_HOOK_HANDLER", "ADDED_HOOK_HANDLER")
+        source.replace('hook: "sync"', 'hook: "wrong"')
       );
-      await expect
-        .poll(async () => await readFile(server, "utf-8").catch(() => ""), {
-          timeout: 10_000,
-        })
-        .toContain("ADDED_HOOK_HANDLER");
-      await expect.poll(readHooks).toEqual(["sync"]);
+
+      const loaded = await loadPatchsmithConfig(
+        path.join(root, "patchsmith.config.mjs")
+      );
+
+      const functions = await createFileFunctionEntry(
+        root,
+        path.join(root, ".patchsmith"),
+        false
+      );
+
+      await expect(buildServer(loaded, functions.entry)).rejects.toThrow(
+        'defineHook hook must be "sync"'
+      );
+      await writeFile(filename, source);
+      const watcher = await buildServer(loaded, functions.entry, true);
+
+      if (!("close" in watcher)) {
+        throw new Error("Expected a server watcher");
+      }
+
+      const server = path.join(root, ".patchsmith/server/server.js");
+
+      try {
+        await rename(filename, path.join(sourceRoot, "hooks/other.hook.ts"));
+        await writeFile(
+          path.join(sourceRoot, "hooks/other.hook.ts"),
+          source
+            .replaceAll("sync", "other")
+            .replace("PRIVATE_HOOK_HANDLER", "RENAMED_HOOK_HANDLER")
+        );
+        await expect
+          .poll(async () => await readFile(server, "utf-8").catch(() => ""), {
+            timeout: 10_000,
+          })
+          .toContain("RENAMED_HOOK_HANDLER");
+        await expect.poll(readHooks).toEqual(["other"]);
+        await rm(path.join(sourceRoot, "hooks/other.hook.ts"));
+        await expect
+          .poll(
+            async () => {
+              const output = await readFile(server, "utf-8").catch(() => "");
+
+              return (
+                output.length > 0 && !output.includes("RENAMED_HOOK_HANDLER")
+              );
+            },
+            { timeout: 10_000 }
+          )
+          .toBe(true);
+        await expect.poll(readHooks).toEqual([]);
+        await writeFile(
+          filename,
+          source.replace("PRIVATE_HOOK_HANDLER", "ADDED_HOOK_HANDLER")
+        );
+        await expect
+          .poll(async () => await readFile(server, "utf-8").catch(() => ""), {
+            timeout: 10_000,
+          })
+          .toContain("ADDED_HOOK_HANDLER");
+        await expect.poll(readHooks).toEqual(["sync"]);
+      } finally {
+        await watcher.close();
+        await functions.close();
+      }
     } finally {
-      await watcher.close();
-      await functions.close();
+      await rm(root, { force: true, recursive: true });
     }
-  } finally {
-    await rm(root, { force: true, recursive: true });
-  }
-}, 30_000);
+  },
+  30_000
+);

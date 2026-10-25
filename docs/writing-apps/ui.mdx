@@ -14,9 +14,9 @@ npx patchsmith generate
 
 ## Write a view
 
-Put view files in `src/slots/<slot>/` with a `.view.tsx` suffix. This view supplies default UI for the `panel` slot:
+Put view files in `slots/<slot>/` with a `.view.tsx` suffix. This view supplies default UI for the `panel` slot:
 
-```tsx title="src/slots/panel/index.view.tsx"
+```tsx title="slots/panel/index.view.tsx"
 import "../../patchsmith.gen";
 import { defineView } from "patchsmith/client";
 
@@ -35,11 +35,29 @@ export default view;
 
 The folder identifies the slot. The filename identifies the context: `index.view.tsx` maps to `/`, and `members/detail.view.tsx` or `members.detail.view.tsx` maps to `/members/detail`. An explicit `view` gives `useContext()` its inferred type and must match that path. The build rejects mismatched `view` or `slot` declarations.
 
+## Shared shell and layouts
+
+Put providers and UI shared by all slots in `slots/root.tsx`. The shell renders `Route` to show the selected view:
+
+```tsx title="slots/root.tsx"
+import { ClientProvider, defineRoute, Route } from "patchsmith/client";
+
+const Shell = () => (
+  <ClientProvider>
+    <Route />
+  </ClientProvider>
+);
+
+export default defineRoute({ shellComponent: Shell });
+```
+
+Use `slots/<slot>/root.tsx` for a shell specific to one slot and `slots/<slot>/layout.tsx` for its layout. Apps using the optional `src/` directory keep this same hierarchy under `src/slots/`.
+
 ## Use components and tools
 
 Add another view for `/members/detail`. With `Button` and `showToast` exposed in the contract, generated imports let you use them together:
 
-```tsx title="src/slots/panel/members.detail.view.tsx"
+```tsx title="slots/panel/members.detail.view.tsx"
 import { defineView } from "patchsmith/client";
 import { Button, tools } from "../../patchsmith.gen";
 
@@ -71,7 +89,7 @@ On a member's page, Patchsmith selects this view and supplies the member context
 
 For a `tile` slot declared with `multiple: true`, return an entry for each dashboard tile:
 
-```tsx title="src/slots/tile/index.view.tsx"
+```tsx title="slots/tile/index.view.tsx"
 import "../../patchsmith.gen";
 import { defineView } from "patchsmith/client";
 import { z } from "zod";
@@ -126,7 +144,7 @@ Import `defineView` from `patchsmith/client`. The build discovers `.view.tsx` fi
 
 | Option | Meaning |
 | --- | --- |
-| `slot` | Must match `src/slots/<slot>/` if supplied. Otherwise the build uses the folder name. |
+| `slot` | Must match `slots/<slot>/` if supplied. Otherwise the build uses the folder name. |
 | `view` | A supported context path matching the filename. Optional; when supplied, gives precise context typing. Dots and subdirectories separate path segments; a final `index` is omitted. |
 | `component` | Required. The UI component; use `view.useContext()` to read its context. |
 | `instances` | Required for `multiple: true` slots; omitted for single-instance slots. |

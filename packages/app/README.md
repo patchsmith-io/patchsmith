@@ -6,27 +6,28 @@ Define app tables, relations, and database capabilities with `patchsmith/db`, ba
 
 ## File routing
 
-The builder registers views from `src/slots` automatically. Only files ending in `.view.tsx` register views, so supporting components can live beside them:
+App source lives at the project root by default, or together under optional `src/`. The paths below are relative to that source root. Configuration and assets remain at the project root.
+
+The builder registers views from `slots` automatically. Only files ending in `.view.tsx` register views, so supporting components can live beside them:
 
 ```text
-src/
+slots/
   root.tsx
-  slots/
-    panel/
-      root.tsx
-      layout.tsx
-      index.view.tsx
-      customers.view.tsx
-      customers.layout.tsx
-      customers.details.view.tsx
-      customer-card.tsx
+  panel/
+    root.tsx
+    layout.tsx
+    index.view.tsx
+    customers.view.tsx
+    customers.layout.tsx
+    customers.details.view.tsx
+    customer-card.tsx
 ```
 
 The slot directory is its literal host slot name, including dots in names such as `panel.links`. Dots in a view filename separate route segments: `customers.details.view.tsx` registers `/customers/details`. Subdirectories also separate segments. `customer-card.tsx` is an ordinary component and is ignored unless imported.
 
 Duplicate view paths in a slot fail the build.
 
-For example, `src/slots/panel/customers.details.view.tsx` registers `/customers/details`:
+For example, `slots/panel/customers.details.view.tsx` registers `/customers/details`:
 
 ```tsx
 import { defineView } from "patchsmith/client";
@@ -36,7 +37,7 @@ import CustomerCard from "./customer-card";
 export default defineView({ component: CustomerCard });
 ```
 
-The builder supplies the slot and route before compiling. In `src/slots/panel/index.view.tsx`, an explicit `view` gives typed host context and must match `/`:
+The builder supplies the slot and route before compiling. In `slots/panel/index.view.tsx`, an explicit `view` gives typed host context and must match `/`:
 
 ```tsx
 import { defineView } from "patchsmith/client";
@@ -81,7 +82,7 @@ Deploy platform and host support before publishing apps with static instances. O
 
 ## Roots and layouts
 
-`src/root.tsx` is the optional app shell. Init generates a shell with the backend provider:
+`slots/root.tsx` is the optional app shell. Init generates a shell with the backend provider:
 
 ```tsx
 import { ClientProvider, defineRoute, Route } from "patchsmith/client";
@@ -129,8 +130,8 @@ import { defineConfig, lazyPlugins } from "vite-plus";
 
 export default defineConfig({
   plugins: lazyPlugins(() => [patchsmith()]),
-  lint: { ignorePatterns: ["src/patchsmith.gen.ts", ".patchsmith/**"] },
-  fmt: { ignorePatterns: ["src/patchsmith.gen.ts", ".patchsmith/**"] },
+  lint: { ignorePatterns: ["patchsmith.gen.ts", ".patchsmith/**"] },
+  fmt: { ignorePatterns: ["patchsmith.gen.ts", ".patchsmith/**"] },
 });
 ```
 
@@ -148,7 +149,7 @@ File routing is the app client entry point. Generated entries live in the build 
 
 ## Backend function routers
 
-Bind your database once in `src/db/index.ts`:
+Bind your database once in `db/index.ts`:
 
 ```ts
 import { defineDatabase } from "patchsmith/db";
@@ -163,7 +164,7 @@ export const fn = createFunctions({ database: db });
 Each function file exports its public router. Handlers receive the scoped database automatically, with read-only access in queries and write access in mutations:
 
 ```ts
-// src/functions/tasks.router.ts
+// functions/tasks.router.ts
 import { defineRouter } from "patchsmith/server";
 
 import { fn } from "#db";
@@ -175,13 +176,13 @@ const listTasks = fn.query.handler(({ db }) =>
 export default defineRouter({ listTasks });
 ```
 
-Every app includes a private backend without additional configuration. The builder discovers `src/functions/**/*.router.ts` and registers each default router automatically; no `src/server.ts` is needed. Other files remain ordinary helpers.
+Every app includes a private backend without additional configuration. The builder discovers `functions/**/*.router.ts` and registers each default router automatically; no `server.ts` is needed. Other files remain ordinary helpers.
 
 File paths prefix router keys. Both `billing.invoices.router.ts` and `billing/invoices.router.ts` expose `api.billing.invoices.*`; mixed dots and directories work too. `index.router.ts` creates an `index` namespace. Router objects may nest, so `tasks.router.ts` exporting `defineRouter({ get: { children, parents } })` exposes `api.tasks.get.children` and `api.tasks.get.parents`.
 
 Shared namespaces merge across files. Duplicate callable paths and function/namespace conflicts throw when the server bundle loads, with the API path and both source files. Every namespace and function name must start with a letter and contain at most 64 letters, digits, or underscores. `name` and `then` are reserved because client references use them internally.
 
-Run `patchsmith generate` after adding, moving, or deleting function files. Generated `src/patchsmith.functions.gen.ts` imports routers only as types; `src/patchsmith.gen.ts` uses those types for client `api` references. Builds refresh the function registry, and build watch mode tracks new, renamed, and removed modules. Private implementations stay out of the browser bundle.
+Run `patchsmith generate` after adding, moving, or deleting function files. Generated `patchsmith.functions.gen.ts` imports routers only as types; `patchsmith.gen.ts` uses those types for client `api` references. Builds refresh the function registry, and build watch mode tracks new, renamed, and removed modules. Private implementations stay out of the browser bundle.
 
 Actions can import a router from `#functions/tasks.router`, declare `.functions({ tasks })`, and call `queries.tasks.listTasks()`; they receive no direct database handle. Discovery does not grant additional action capabilities.
 
@@ -190,7 +191,7 @@ Actions can import a router from `#functions/tasks.router`, declare `.functions(
 Functions are public by default. Add `.internal()` before `.handler()` to restrict a query, mutation, or action to backend execution:
 
 ```ts
-// src/functions/tasks.router.ts
+// functions/tasks.router.ts
 import { defineRouter } from "patchsmith/server";
 
 import { fn } from "#db";
@@ -212,10 +213,10 @@ New backend builds require the `internal-functions` and `nested-actions` runtime
 
 ## Host hooks
 
-Hosts declare hooks in their contract. Apps implement any subset of them in `src/hooks`:
+Hosts declare hooks in their contract. Apps implement any subset of them in `hooks`:
 
 ```text
-src/hooks/
+hooks/
   sync.hook.ts                 → sync
   customers/sync.hook.ts       → customers.sync
   billing.updated.hook.ts      → billing.updated
@@ -225,7 +226,7 @@ src/hooks/
 Each hook file default-exports `defineHook` from `patchsmith/server`. The required `hook` string supplies input and output types from the generated host bindings and must match the file path. Duplicate names and mismatches fail the build. Regenerate bindings after changing the host contract or registered app functions.
 
 ```ts
-// src/hooks/sync.hook.ts
+// hooks/sync.hook.ts
 import { defineHook } from "patchsmith/server";
 
 export default defineHook({

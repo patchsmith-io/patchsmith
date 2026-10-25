@@ -32,7 +32,7 @@ export default view;
 `;
 
 it("extracts resolver dependencies without executing or retaining the component", async () => {
-  const result = await extractInstances("/app/src/page.tsx", source, "/app");
+  const result = await extractInstances("/app/page.tsx", source, "/app");
   expect(result).toBeDefined();
   expect(requireValue(result).server).toContain("SERVER_ONLY_SECRET");
   expect(requireValue(result).server).toContain("./server-helper");
@@ -53,7 +53,7 @@ it("extracts resolver dependencies without executing or retaining the component"
 });
 
 it("extracts namespace defineView instances with inferred file routes", async () => {
-  const filename = "/app/src/slots/page/customers.details.view.tsx";
+  const filename = "/app/slots/page/customers.details.view.tsx";
   const named = source.replace('slot: "page", view: "/",', "");
 
   const namespace = named
@@ -79,7 +79,7 @@ it("ignores instances in calls shadowing the SDK import", async () => {
   }`;
 
   const result = await extractInstances(
-    "/app/src/page.tsx",
+    "/app/page.tsx",
     `${source}\n${unrelated}`,
     "/app"
   );
@@ -90,10 +90,10 @@ it("ignores instances in calls shadowing the SDK import", async () => {
 });
 
 it("keeps resolver references stable when component code or source positions change", async () => {
-  const first = await extractInstances("/app/src/page.tsx", source, "/app");
+  const first = await extractInstances("/app/page.tsx", source, "/app");
 
   const second = await extractInstances(
-    "/app/src/page.tsx",
+    "/app/page.tsx",
     `\n// changed\n${source.replace("Shared label", "Other label")}`,
     "/app"
   );
@@ -109,7 +109,7 @@ it("handles shadowed variables, destructuring defaults and Unicode source offset
       "function inner(privateValue) { return privateValue; }\nconst { id = format('x') } = context;\nvoid inner(id);\nconst rows = await queries.reports.list"
     );
 
-  const result = await extractInstances("/app/src/page.tsx", code, "/app");
+  const result = await extractInstances("/app/page.tsx", code, "/app");
   expect(requireValue(result).server).toContain("Private 🐈");
   expect(requireValue(result).browser).not.toContain("Private 🐈");
 });
@@ -167,18 +167,14 @@ it("extracts an explicit static policy while retaining runtime behavior for none
       'const rows = [{ id: "reports" }];'
     );
 
-  const result = await extractInstances(
-    "/app/src/page.tsx",
-    staticSource,
-    "/app"
-  );
+  const result = await extractInstances("/app/page.tsx", staticSource, "/app");
 
   expect(result?.browser).toContain('cache: "static"');
   expect(result?.browser).not.toContain("SERVER_ONLY_SECRET");
   expect(result?.server).toContain("SERVER_ONLY_SECRET");
 
   const runtime = await extractInstances(
-    "/app/src/page.tsx",
+    "/app/page.tsx",
     source.replace("dataSchema:", 'cache: "none", dataSchema:'),
     "/app"
   );
@@ -192,7 +188,7 @@ it.each(['"infinity"', "policy", "{}", "undefined"])(
   async (cache) => {
     await expect(
       extractInstances(
-        "/app/src/page.tsx",
+        "/app/page.tsx",
         source.replace("dataSchema:", `cache: ${cache}, dataSchema:`),
         "/app"
       )
@@ -203,7 +199,7 @@ it.each(['"infinity"', "policy", "{}", "undefined"])(
 it("rejects request arguments in static resolvers", async () => {
   await expect(
     extractInstances(
-      "/app/src/page.tsx",
+      "/app/page.tsx",
       source.replace("dataSchema:", 'cache: "static", dataSchema:'),
       "/app"
     )

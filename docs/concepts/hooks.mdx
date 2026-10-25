@@ -30,9 +30,9 @@ A [tool](/concepts/tools) lets an app call your host's code. A hook lets your ho
 
 ## Implement it in an app
 
-Regenerate the app's host bindings with `patchsmith generate`. Add a file under `src/hooks` that default-exports `defineHook`:
+Regenerate the app's host bindings with `patchsmith generate`. Add a file under `hooks` that default-exports `defineHook`:
 
-```ts title="src/hooks/sync.hook.ts"
+```ts title="hooks/sync.hook.ts"
 import { defineHook } from "patchsmith/server";
 
 export default defineHook({

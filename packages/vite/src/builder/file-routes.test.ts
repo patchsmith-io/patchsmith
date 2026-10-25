@@ -73,13 +73,13 @@ it.each([
   ["index.index", "/index"],
   ["home", "/home"],
 ])("maps %s.view.tsx to %s", (name, view) => {
-  expect(
-    fileViewLocation(`/app/src/slots/panel/${name}.view.tsx`, "/app")
-  ).toEqual({ path: view, slot: "panel" });
+  expect(fileViewLocation(`/app/slots/panel/${name}.view.tsx`, "/app")).toEqual(
+    { path: view, slot: "panel" }
+  );
 });
 
 it("infers dotted paths and literal slot names while checking explicit declarations", () => {
-  const filename = "/app/src/slots/panel.links/customers.details.view.tsx";
+  const filename = "/app/slots/panel.links/customers.details.view.tsx";
 
   const source =
     'import { defineView as view } from "patchsmith/client"; export default view({ component: () => null });';
@@ -95,11 +95,11 @@ it("infers dotted paths and literal slot names while checking explicit declarati
   );
 
   expect(inferFileView(explicit, filename, "/app")).toBe(explicit);
-  expect(inferFileView(source, "/app/src/slots/panel/card.tsx", "/app")).toBe(
+  expect(inferFileView(source, "/app/slots/panel/card.tsx", "/app")).toBe(
     source
   );
   expect(() =>
-    inferFileView(source, "/app/src/slots/panel/a..b.view.tsx", "/app")
+    inferFileView(source, "/app/slots/panel/a..b.view.tsx", "/app")
   ).toThrow("empty route segment");
 });
 
@@ -116,7 +116,7 @@ it.each([
   expect(() =>
     inferFileView(
       `import { defineView } from "patchsmith/client"; export default defineView({ ${properties}, component: () => null });`,
-      "/app/src/slots/panel/customers.details.view.tsx",
+      "/app/slots/panel/customers.details.view.tsx",
       "/app"
     )
   ).toThrow(message);
@@ -129,7 +129,7 @@ it.each([
   "@patchsmith/app/client",
   "@patchsmith/app",
 ])("infers namespace defineView calls imported from %s", (module) => {
-  const filename = "/app/src/slots/panel/customers.details.view.tsx";
+  const filename = "/app/slots/panel/customers.details.view.tsx";
 
   for (const call of ["client.defineView", 'client["defineView"]']) {
     const source = `import * as client from ${JSON.stringify(module)}; export default ${call}({ component: () => null });`;
@@ -195,7 +195,7 @@ it.each([
     "const unrelated = class $name { static run() { return $call(options); } };",
   ],
 ])("ignores imported defineView names shadowed by a %s", (_scope, body) => {
-  const filename = "/app/src/slots/panel/index.view.tsx";
+  const filename = "/app/slots/panel/index.view.tsx";
 
   for (const [imports, name, call] of [
     ['import { defineView as view } from "patchsmith/client";', "view", "view"],
@@ -223,7 +223,7 @@ it("keeps SDK references in closures and parameter defaults outside body declara
 
   const inferred = inferFileView(
     source,
-    "/app/src/slots/panel/index.view.tsx",
+    "/app/slots/panel/index.view.tsx",
     "/app"
   );
 
@@ -239,7 +239,7 @@ it("discovers only view and layout files, supports roots, and checks the same so
     });
     await Promise.all(
       [
-        "root.tsx",
+        "slots/root.tsx",
         "slots/panel.links/root.tsx",
         "slots/panel.links/layout.tsx",
         "slots/panel.links/customers.layout.tsx",
@@ -277,31 +277,32 @@ const withFileRouteApp = async (check: (root: string) => Promise<void>) => {
 
   try {
     await linkTestDependencies(root);
-    await mkdir(path.join(root, "src/slots/page"), { recursive: true });
+    await mkdir(path.join(root, "slots/page"), { recursive: true });
     await writeFile(path.join(root, "package.json"), '{"type":"module"}');
     await writeFile(
       path.join(root, "patchsmith.config.mjs"),
       'export default { name: "Test App", slug: "test-app", host: "https://host.example.com" };'
     );
+    await mkdir(path.join(root, "slots"), { recursive: true });
     await writeFile(
-      path.join(root, "src/root.tsx"),
+      path.join(root, "slots/root.tsx"),
       'import { defineRoute, ClientProvider } from "patchsmith/client"; export default defineRoute({ shellComponent: ClientProvider });'
     );
     await writeFile(
-      path.join(root, "src/slots/page/root.tsx"),
+      path.join(root, "slots/page/root.tsx"),
       'import { defineRoute, Route } from "patchsmith/client"; export default defineRoute({ shellComponent: () => <Route /> });'
     );
     await writeFile(
-      path.join(root, "src/slots/page/layout.tsx"),
+      path.join(root, "slots/page/layout.tsx"),
       'import { Route } from "patchsmith/client"; export default () => <Route />;'
     );
     await writeFile(
-      path.join(root, "src/slots/page/index.view.tsx"),
+      path.join(root, "slots/page/index.view.tsx"),
       `import * as client from "patchsmith/client"; import { z } from "zod";
       export default client.defineView({ view: "/", component: () => "leaf", instances: { dataSchema: z.object({}), resolve: () => [{ key: "all", metadata: { title: "PRIVATE_RESOLVER" }, data: {} }] } });`
     );
     await writeFile(
-      path.join(root, "src/slots/page/card.tsx"),
+      path.join(root, "slots/page/card.tsx"),
       'throw new Error("Ordinary components are not routes");'
     );
     await check(root);
@@ -331,12 +332,9 @@ it.each(["add", "rename", "remove"] as const)(
   "discovers a file route %s in watch mode",
   async (change) => {
     await withFileRouteApp(async (root) => {
-      const next = path.join(root, "src/slots/page/customers.details.view.tsx");
+      const next = path.join(root, "slots/page/customers.details.view.tsx");
 
-      const renamed = path.join(
-        root,
-        "src/slots/page/customers.summary.view.tsx"
-      );
+      const renamed = path.join(root, "slots/page/customers.summary.view.tsx");
 
       const viewSource =
         'import * as client from "patchsmith/client"; import { z } from "zod"; export default client["defineView"]({ component: () => "details", instances: { dataSchema: z.object({}), resolve: () => [{ key: "details", metadata: { title: "INFERRED_RESOLVER" }, data: {} }] } });';
@@ -375,7 +373,7 @@ it.each(["add", "rename", "remove"] as const)(
           return;
         }
 
-        await rm(path.join(root, "src/slots/page/index.view.tsx"));
+        await rm(path.join(root, "slots/page/index.view.tsx"));
         await expect.poll(paths).toEqual(["/customers/summary"]);
         await expect
           .poll(async () => {

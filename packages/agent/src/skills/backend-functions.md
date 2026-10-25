@@ -2,14 +2,14 @@
 
 Every app includes a backend. Queries read reactively, mutations write atomically, and actions await external work. Queries/mutations are synchronous; actions use `queries`, `mutations`, and exposed server `tools` instead of a direct `db`.
 
-Chain `.input(schema)` and optional `.output(schema)` with synchronous Standard Schema v1-compatible validators. Builder handlers receive validated `input`. Return JSON-compatible values, using `null` for absence. Export each function module with `export default defineRouter({ list, add })`, save it under `src/functions/**/*.router.ts`, and regenerate bindings. The file path supplies its API namespace; dots and directories are equivalent. Nested router objects add segments. Shared namespaces merge, while duplicate function paths and function/namespace conflicts fail the build. Each segment starts with a letter and contains at most 64 letters, digits, or underscores; `name` and `then` are reserved. `index` stays literal.
+Chain `.input(schema)` and optional `.output(schema)` with synchronous Standard Schema v1-compatible validators. Builder handlers receive validated `input`. Return JSON-compatible values, using `null` for absence. Export each function module with `export default defineRouter({ list, add })`, save it under `functions/**/*.router.ts`, and regenerate bindings. The file path supplies its API namespace; dots and directories are equivalent. Nested router objects add segments. Shared namespaces merge, while duplicate function paths and function/namespace conflicts fail the build. Each segment starts with a letter and contains at most 64 letters, digits, or underscores; `name` and `then` are reserved. `index` stays literal.
 
 ## Small example
 
-Import the shared `fn` from `#db`, configured once with `createFunctions({ database: db })` in `src/db/index.ts`. This uses the database skill's `todos` table, shared by the installation. For private records, add ownership from verified identity and enforce it in every read/write.
+Import the shared `fn` from `#db`, configured once with `createFunctions({ database: db })` in `db/index.ts`. This uses the database skill's `todos` table, shared by the installation. For private records, add ownership from verified identity and enforce it in every read/write.
 
 ```ts
-// src/functions/todos.router.ts
+// functions/todos.router.ts
 import { defineRouter } from "patchsmith/server";
 import * as v from "valibot";
 

@@ -176,8 +176,9 @@ beforeEach(async () => {
   root = await mkdtemp(path.join(tmpdir(), "patchsmith-deploy-name-"));
   await linkTestDependencies(root);
   await mkdir(path.join(root, "src"));
+  await mkdir(path.join(root, "src/slots"), { recursive: true });
   await writeFile(
-    path.join(root, "src/root.tsx"),
+    path.join(root, "src/slots/root.tsx"),
     'import { defineRoute } from "patchsmith/client"; export default defineRoute({ shellComponent: () => null });'
   );
   await writeFile(

@@ -3,6 +3,8 @@ import { mkdir, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
+import { resolveAppSourceRoot } from "#source-root";
+
 import { drizzleGenerateArguments } from "./builder/drizzle";
 import { getBuildEnvironment } from "./builder/env";
 
@@ -38,7 +40,7 @@ export const linkTestDependencies = async (root: string): Promise<void> => {
 
 /** Generate real Drizzle migrations in disposable test storage. */
 export const generateTestMigrations = async (root: string): Promise<string> => {
-  const directory = path.join(root, "src/db/migrations");
+  const directory = path.join(resolveAppSourceRoot(root), "db/migrations");
   // oxlint-disable-next-line typescript/strict-void-return -- Node explicitly supports promisify(execFile); its ChildProcess return is intentionally ignored by the callback-to-Promise adapter.
   await promisify(execFile)(
     process.execPath,
@@ -54,7 +56,10 @@ export const generateTestMigrations = async (root: string): Promise<string> => {
 };
 
 /** Disposable database inputs for builder tests. */
-export const createDatabaseTestApp = async (root: string): Promise<void> => {
+export const createDatabaseTestApp = async (
+  root: string,
+  sourceDirectory = "src"
+): Promise<void> => {
   await linkTestDependencies(root);
 
   const files = {
@@ -72,13 +77,17 @@ const router = defineRouter({
   privateMarker: fn.query.handler(() => "PRIVATE_DATABASE_TEST"),
 });
 export default router;`,
-    "src/root.tsx": `import { defineRoute } from "patchsmith/client";
+    "src/slots/root.tsx": `import { defineRoute } from "patchsmith/client";
 export default defineRoute({ shellComponent: () => "Database test client" });`,
   };
 
   await Promise.all(
     Object.entries(files).map(async ([filename, source]) => {
-      const destination = path.join(root, filename);
+      const destination = path.join(
+        root,
+        filename.replace(/^src\//u, `${sourceDirectory}/`)
+      );
+
       await mkdir(path.dirname(destination), { recursive: true });
       await writeFile(destination, source);
     })

@@ -77,19 +77,18 @@ describe("generateApp", () => {
         targetDirectory,
         tooling,
       });
-      const sourceFiles = await readdir(path.join(targetDirectory, "src"));
-      expect(sourceFiles.toSorted()).toEqual([
-        "patchsmith.functions.gen.ts",
-        "patchsmith.gen.ts",
-        "root.tsx",
-      ]);
+      const sourceFiles = await readdir(path.join(targetDirectory, "slots"));
+      expect(sourceFiles).toEqual(["root.tsx"]);
+      expect(await readdir(targetDirectory)).not.toContain("src");
+      expect(await readdir(targetDirectory)).not.toContain("functions");
+      expect(await readdir(targetDirectory)).not.toContain("db");
       const config = await loadPatchsmithConfig(undefined, targetDirectory);
       expect(config.config).not.toHaveProperty("logos");
       expect(config.config).not.toHaveProperty("server");
       expect(await readdir(targetDirectory)).not.toContain("logo-light.svg");
 
       const bindings = await readFile(
-        path.join(targetDirectory, "src/patchsmith.gen.ts"),
+        path.join(targetDirectory, "patchsmith.gen.ts"),
         "utf-8"
       );
 
@@ -107,6 +106,61 @@ describe("generateApp", () => {
     }
   );
 
+  it.each([true, false])(
+    "scaffolds optional src source (bare: %s)",
+    async (bare) => {
+      const targetDirectory = await createTempDir();
+      await generateApp({
+        ...defaultOptions,
+        bare,
+        srcDir: true,
+        targetDirectory,
+        tooling: "vite-plus",
+      });
+      expect(await readdir(path.join(targetDirectory, "src/slots"))).toContain(
+        "root.tsx"
+      );
+      expect(await readdir(targetDirectory)).not.toContain("slots");
+      expect(await readdir(targetDirectory)).not.toContain("patchsmith.gen.ts");
+
+      const pkg = await readFile(
+        path.join(targetDirectory, "package.json"),
+        "utf-8"
+      );
+
+      expect(pkg).toContain('"#patchsmith": "./src/patchsmith.gen.ts"');
+      expect(pkg).toContain('"./src/*.ts"');
+      expect(
+        await readFile(path.join(targetDirectory, "vite.config.ts"), "utf-8")
+      ).toContain("src/patchsmith.functions.gen.ts");
+      const bindings = path.join(targetDirectory, "src/patchsmith.gen.ts");
+      const original = await readFile(bindings, "utf-8");
+      const { generateTypes } = await import("./types");
+      expect(
+        await generateTypes({
+          cwd: targetDirectory,
+          schema: defaultOptions.schema,
+        })
+      ).toBe(bindings);
+      expect(await readFile(bindings, "utf-8")).toBe(original);
+
+      if (!bare) {
+        expect(
+          await readFile(
+            path.join(targetDirectory, "src/db/schema.ts"),
+            "utf-8"
+          )
+        ).toContain("src/db/migrations");
+        expect(
+          await readFile(
+            path.join(targetDirectory, "src/functions/greeting.router.ts"),
+            "utf-8"
+          )
+        ).toContain("defineRouter");
+      }
+    }
+  );
+
   it("allows a bare app before the host exposes any slots", async () => {
     const targetDirectory = await createTempDir();
     await generateApp({
@@ -115,7 +169,9 @@ describe("generateApp", () => {
       schema: { components: {} },
       targetDirectory,
     });
-    expect(await readdir(path.join(targetDirectory, "src"))).toHaveLength(3);
+    expect(await readdir(path.join(targetDirectory, "slots"))).toEqual([
+      "root.tsx",
+    ]);
   });
 
   it("scaffolds Valibot as the default validator for app functions", async () => {
@@ -136,7 +192,7 @@ describe("generateApp", () => {
     expect(manifest.dependencies).not.toHaveProperty("zod");
 
     const greeting = await readFile(
-      path.join(targetDirectory, "src/functions/greeting.router.ts"),
+      path.join(targetDirectory, "functions/greeting.router.ts"),
       "utf-8"
     );
 
@@ -189,14 +245,14 @@ describe("generateApp", () => {
       "assets/logo-dark.svg",
       "assets/logo-light.svg",
       ".gitignore",
-      path.join("src", "root.tsx"),
-      path.join("src", "slots", "sidebar", "customers.view.tsx"),
-      path.join("src", "patchsmith.gen.ts"),
-      path.join("src", "patchsmith.functions.gen.ts"),
-      path.join("src", "db", "schema.ts"),
-      path.join("src", "db", "index.ts"),
-      path.join("src", "db", "relations.ts"),
-      path.join("src", "functions", "greeting.router.ts"),
+      path.join("slots", "root.tsx"),
+      path.join("slots", "sidebar", "customers.view.tsx"),
+      path.join("patchsmith.gen.ts"),
+      path.join("patchsmith.functions.gen.ts"),
+      path.join("db", "schema.ts"),
+      path.join("db", "index.ts"),
+      path.join("db", "relations.ts"),
+      path.join("functions", "greeting.router.ts"),
     ];
 
     await Promise.all(
@@ -213,7 +269,7 @@ describe("generateApp", () => {
     await generateApp({ ...defaultOptions, targetDirectory });
 
     const database = await readFile(
-      path.join(targetDirectory, "src/db/index.ts"),
+      path.join(targetDirectory, "db/index.ts"),
       "utf-8"
     );
 
@@ -223,7 +279,7 @@ describe("generateApp", () => {
     expect(database).not.toContain("import * as schema");
 
     const relations = await readFile(
-      path.join(targetDirectory, "src/db/relations.ts"),
+      path.join(targetDirectory, "db/relations.ts"),
       "utf-8"
     );
 
@@ -233,7 +289,7 @@ describe("generateApp", () => {
     expect(database).toContain("createFunctions({ database: db })");
 
     const functions = await readFile(
-      path.join(targetDirectory, "src/functions/greeting.router.ts"),
+      path.join(targetDirectory, "functions/greeting.router.ts"),
       "utf-8"
     );
 
@@ -243,15 +299,15 @@ describe("generateApp", () => {
 
     expect(
       await readFile(
-        path.join(targetDirectory, "src/slots/sidebar/customers.view.tsx"),
+        path.join(targetDirectory, "slots/sidebar/customers.view.tsx"),
         "utf-8"
       )
     ).toContain("api.greeting.getGreeting");
-    expect(
-      await readdir(path.join(targetDirectory, "src/db/migrations"))
-    ).toEqual([]);
+    expect(await readdir(path.join(targetDirectory, "db/migrations"))).toEqual(
+      []
+    );
     await expect(
-      readFile(path.join(targetDirectory, "src/schema.ts"))
+      readFile(path.join(targetDirectory, "schema.ts"))
     ).rejects.toThrow();
   });
 
@@ -289,7 +345,7 @@ describe("generateApp", () => {
         expect(config).toContain("lazyPlugins(() => [patchsmith()])");
         expect(config).toContain("lint:");
         expect(config).toContain("fmt:");
-        expect(config).toContain("src/patchsmith.gen.ts");
+        expect(config).toContain("patchsmith.gen.ts");
         expect(pkg.devDependencies["vite-plus"]).toBe("1.0.0");
         expect(pkg.devDependencies.vite).toBe(
           "npm:@voidzero-dev/vite-plus-core@1.0.0"
@@ -514,13 +570,7 @@ describe("generateApp", () => {
     await generateApp({ ...defaultOptions, targetDirectory });
 
     const content = await readFile(
-      path.join(
-        targetDirectory,
-        "src",
-        "slots",
-        "sidebar",
-        "customers.view.tsx"
-      ),
+      path.join(targetDirectory, "slots", "sidebar", "customers.view.tsx"),
       "utf-8"
     );
 
@@ -533,19 +583,19 @@ describe("generateApp", () => {
   });
 
   it.each([
-    { file: "src/slots/panel/index.view.tsx", slot: "panel", view: "/" },
+    { file: "slots/panel/index.view.tsx", slot: "panel", view: "/" },
     {
-      file: "src/slots/panel/members.view.tsx",
+      file: "slots/panel/members.view.tsx",
       slot: "panel",
       view: "/members",
     },
     {
-      file: "src/slots/panel/members.index.index.view.tsx",
+      file: "slots/panel/members.index.index.view.tsx",
       slot: "panel",
       view: "/members/index",
     },
     {
-      file: "src/slots/panel.links/customers.details.view.tsx",
+      file: "slots/panel.links/customers.details.view.tsx",
       slot: "panel.links",
       view: "/customers/details",
     },
@@ -560,7 +610,7 @@ describe("generateApp", () => {
       });
 
       const root = await readFile(
-        path.join(targetDirectory, "src/root.tsx"),
+        path.join(targetDirectory, "slots/root.tsx"),
         "utf-8"
       );
 
@@ -569,10 +619,10 @@ describe("generateApp", () => {
       expect(content).not.toContain("slot:");
       expect(content).toContain(`view: ${JSON.stringify(view)}`);
       await expect(
-        readdir(path.join(targetDirectory, "src/views"))
+        readdir(path.join(targetDirectory, "views"))
       ).rejects.toThrow();
       await expect(
-        readFile(path.join(targetDirectory, "src/client.ts"))
+        readFile(path.join(targetDirectory, "client.ts"))
       ).rejects.toThrow();
     }
   );
@@ -619,7 +669,7 @@ describe("generateApp", () => {
     });
 
     const view = await readFile(
-      path.join(targetDirectory, "src/slots/sidebar/customers.view.tsx"),
+      path.join(targetDirectory, "slots/sidebar/customers.view.tsx"),
       "utf-8"
     );
 
@@ -629,7 +679,7 @@ describe("generateApp", () => {
     expect(view).toContain('key: "default"');
 
     const types = await readFile(
-      path.join(targetDirectory, "src/patchsmith.gen.ts"),
+      path.join(targetDirectory, "patchsmith.gen.ts"),
       "utf-8"
     );
 
@@ -643,7 +693,7 @@ describe("generateApp", () => {
     await generateApp({ ...defaultOptions, targetDirectory });
 
     const content = await readFile(
-      path.join(targetDirectory, "src/root.tsx"),
+      path.join(targetDirectory, "slots/root.tsx"),
       "utf-8"
     );
 
@@ -661,7 +711,7 @@ describe("generateApp", () => {
     await generateApp({ ...defaultOptions, targetDirectory });
 
     const content = await readFile(
-      path.join(targetDirectory, "src", "patchsmith.gen.ts"),
+      path.join(targetDirectory, "patchsmith.gen.ts"),
       "utf-8"
     );
 
@@ -674,7 +724,7 @@ describe("generateApp", () => {
     await generateApp({ ...defaultOptions, targetDirectory });
 
     const bindings = await readFile(
-      path.join(targetDirectory, "src/patchsmith.gen.ts"),
+      path.join(targetDirectory, "patchsmith.gen.ts"),
       "utf-8"
     );
 
@@ -700,9 +750,7 @@ describe("generateApp", () => {
       )
     ).toContain("components/Box.md");
     await expect(
-      readFile(
-        path.join(targetDirectory, "src/patchsmith.gen/components/Box.ts")
-      )
+      readFile(path.join(targetDirectory, "patchsmith.gen/components/Box.ts"))
     ).rejects.toThrow();
   });
 
@@ -743,12 +791,12 @@ describe("generateApp", () => {
     });
 
     const client = await readFile(
-      path.join(targetDirectory, "src/root.tsx"),
+      path.join(targetDirectory, "slots/root.tsx"),
       "utf-8"
     );
 
     const view = await readFile(
-      path.join(targetDirectory, "src/slots/alpha/accounts.view.tsx"),
+      path.join(targetDirectory, "slots/alpha/accounts.view.tsx"),
       "utf-8"
     );
 
@@ -776,7 +824,7 @@ describe("generateApp", () => {
     });
 
     const view = await readFile(
-      path.join(targetDirectory, "src/slots/sidebar/customers.view.tsx"),
+      path.join(targetDirectory, "slots/sidebar/customers.view.tsx"),
       "utf-8"
     );
 
@@ -804,8 +852,7 @@ describe("generateApp", () => {
 
   it("does not overwrite existing bindings without force", async () => {
     const targetDirectory = await createTempDir();
-    await mkdir(path.join(targetDirectory, "src"));
-    const bindings = path.join(targetDirectory, "src/patchsmith.gen.ts");
+    const bindings = path.join(targetDirectory, "patchsmith.gen.ts");
     await writeFile(bindings, "existing bindings");
     await expect(
       generateApp({ ...defaultOptions, targetDirectory })
