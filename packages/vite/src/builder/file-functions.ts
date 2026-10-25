@@ -1,4 +1,3 @@
-import { watch } from "node:fs";
 import type { Dirent } from "node:fs";
 import {
   mkdir,
@@ -15,6 +14,7 @@ import { validateFunctionName } from "@patchsmith/app/server";
 import { resolveAppSourceRoot } from "#source-root";
 
 import { isMissingFile } from "./fs-errors";
+import { watchSourceDirectory } from "./watch-source-directory";
 
 const functionPathSeparator = /[./\\]/u;
 
@@ -189,29 +189,18 @@ export const createFileFunctionEntry = async (
   };
 
   const watcher = watching
-    ? watch(
-        resolveAppSourceRoot(root),
-        { recursive: true },
-        (_event, filename) => {
-          if (
-            filename !== null &&
-            filename.split(path.sep)[0] !== "functions"
-          ) {
-            return;
-          }
-
-          if (timer) {
-            clearTimeout(timer);
-          }
-
-          timer = setTimeout(() => {
-            pending = (async () => {
-              await pending;
-              await refresh();
-            })();
-          }, 25);
+    ? watchSourceDirectory(resolveAppSourceRoot(root), "functions", () => {
+        if (timer) {
+          clearTimeout(timer);
         }
-      )
+
+        timer = setTimeout(() => {
+          pending = (async () => {
+            await pending;
+            await refresh();
+          })();
+        }, 25);
+      })
     : undefined;
 
   return {

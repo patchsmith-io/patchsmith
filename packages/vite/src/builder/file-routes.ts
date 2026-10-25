@@ -1,4 +1,4 @@
-import { existsSync, watch } from "node:fs";
+import { existsSync } from "node:fs";
 import { readdir, mkdir, mkdtemp, writeFile, rm } from "node:fs/promises";
 import path from "node:path";
 
@@ -9,6 +9,7 @@ import { forEachSequential } from "#for-each-sequential";
 import { resolveAppSourceRoot } from "#source-root";
 
 import { childNodes, createDefineViewMatcher } from "./define-view";
+import { watchSourceDirectory } from "./watch-source-directory";
 
 const clientRuntimeImport = "patchsmith:file-client-runtime";
 
@@ -337,26 +338,18 @@ export const createFileRouteEntry = async (
   };
 
   const watcher = watching
-    ? watch(
-        resolveAppSourceRoot(root),
-        { recursive: true },
-        (_event, filename) => {
-          if (filename !== null && filename.split(path.sep)[0] !== "slots") {
-            return;
-          }
-
-          if (timer) {
-            clearTimeout(timer);
-          }
-
-          timer = setTimeout(() => {
-            pending = (async () => {
-              await pending;
-              await refresh();
-            })();
-          }, 25);
+    ? watchSourceDirectory(resolveAppSourceRoot(root), "slots", () => {
+        if (timer) {
+          clearTimeout(timer);
         }
-      )
+
+        timer = setTimeout(() => {
+          pending = (async () => {
+            await pending;
+            await refresh();
+          })();
+        }, 25);
+      })
     : undefined;
 
   return {

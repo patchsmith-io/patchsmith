@@ -1,4 +1,3 @@
-import { watch } from "node:fs";
 import { readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -9,6 +8,7 @@ import { resolveAppSourceRoot } from "#source-root";
 
 import { childNodes, createDefineHookMatcher } from "./define-view";
 import { isMissingFile } from "./fs-errors";
+import { watchSourceDirectory } from "./watch-source-directory";
 
 export interface HookFile {
   filename: string;
@@ -85,7 +85,7 @@ export const hookFilesPlugin = (
 ): Plugin => {
   let source = "";
   let pending = Promise.resolve();
-  let watcher: ReturnType<typeof watch> | undefined;
+  let watcher: ReturnType<typeof watchSourceDirectory> | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let closed = false;
 
@@ -111,14 +111,10 @@ export const hookFilesPlugin = (
   return {
     buildStart: () => {
       if (watching && !watcher) {
-        watcher = watch(
+        watcher = watchSourceDirectory(
           resolveAppSourceRoot(root),
-          { recursive: true },
-          (_event, filename) => {
-            if (filename !== null && filename.split(path.sep)[0] !== "hooks") {
-              return;
-            }
-
+          "hooks",
+          () => {
             if (timer) {
               clearTimeout(timer);
             }
