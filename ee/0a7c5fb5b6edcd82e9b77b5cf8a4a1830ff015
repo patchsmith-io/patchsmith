@@ -1,0 +1,18 @@
+.changeset/fresh-upload-manifest.md
+  h_18044dd1b61a81 1-5
+packages/vite/src/builder/server.test.ts
+  h_18044dd1b61a81 36,98-150
+packages/vite/src/index.ts
+  h_18044dd1b61a81 1,155-159
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ee0a7c5fb5b6edcd82e9b77b5cf8a4a1830ff015",
+  "prompts": {},
+  "humans": {
+    "h_18044dd1b61a81": {
+      "author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
