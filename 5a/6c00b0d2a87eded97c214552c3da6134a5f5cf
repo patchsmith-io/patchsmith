@@ -1,0 +1,44 @@
+packages/api-platform/src/routes/deployments.ts
+  s_a4ab864e2ae698::t_fb30194d2360c2 21,26,37,521-523,533
+  s_a4ab864e2ae698::t_06634872858c46 534-536
+  s_a4ab864e2ae698::t_c178649a48fca5 537-541
+packages/client-platform/src/client/types.gen.ts
+  s_a4ab864e2ae698::t_c08fa7f4e27052 31-40,1460-1467
+  s_a4ab864e2ae698::t_49b7e13b636182 1468
+packages/client-platform/src/client/sdk.gen.ts
+  s_a4ab864e2ae698::t_c08fa7f4e27052 5,192
+packages/api-platform/src/routes/deployments-verification.test.ts
+  s_a4ab864e2ae698::t_b6ef9998b57bcb 48
+  s_a4ab864e2ae698::t_55203c67788258 1-16,18-47,49-71,73-97,99-132,134-140,142-145,147-157,159-174,177-183,186-205,207,210-223,225-226,229,231,234-240,243,245-251,253-254,256-260,262,265-340,346-347,349-355,360-363
+  s_a4ab864e2ae698::t_41922c6654ecfb 17,72,98,133,141,146,158,175-176,184-185,206,208-209,224,227-228,230,232-233,241-242,244,252,255,261,263-264,341-345,348,356-359
+packages/client-platform/src/client/index.ts
+  s_a4ab864e2ae698::t_c08fa7f4e27052 4
+packages/api-platform/openapi.json
+  s_a4ab864e2ae698::t_d118a7f1bbbeab 6081-6097,6255-6271
+packages/api-platform/src/routes/deployment-effects.ts
+  s_a4ab864e2ae698::t_2eb3a6d898481d 6-9,16
+packages/api-platform/src/routes/static-assets.ts
+  s_a4ab864e2ae698::t_1725d10bb40904 15,19-20,213-216,219,242,245-246,309,313
+.changeset/open-phones-count.md
+  s_a4ab864e2ae698::t_69c84deeb99ac5 1-5
+packages/api-platform/README.md
+  s_a4ab864e2ae698::t_5f9d45e2e08733 23-30
+packages/api-platform/src/deployments/verification.ts
+  s_a4ab864e2ae698::t_07086c132cc549 1-399
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5a6c00b0d2a87eded97c214552c3da6134a5f5cf",
+  "prompts": {},
+  "sessions": {
+    "s_a4ab864e2ae698": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1707e-286e-79f2-aad6-1a5078b54092",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}

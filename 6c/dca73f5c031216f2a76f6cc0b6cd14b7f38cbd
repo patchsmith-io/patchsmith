@@ -1,0 +1,53 @@
+packages/api-platform/src/routes/deployments.test.ts
+  s_bf88a8495e16af::t_34dc37e449d196 2,5,32-33,1546-1666,1671-1716,1719-1725,1727-1832,1838,1842-1844,1846-1879,1884-1909,2220-2223,2261-2264,2266-2274
+packages/api-platform/src/routes/deployments.ts
+  s_a4ab864e2ae698::t_e09089679848fe 41-44,134-149,151-156,159-160,164,565-571,629-653,655-659,661-662,664-712,714-715,717-723,725,731,733-739,741-760
+.changeset/clean-deployment-verification.md
+  s_43ad505f295ac4::t_68d12b5d6926ff 1-5
+packages/api-platform/openapi.json
+  s_43ad505f295ac4::t_ef712c91cece9a 6081-6114,6272-6305
+packages/api-platform/src/routes/deployment-effects.test.ts
+  s_43ad505f295ac4::t_cda05aba6023e0 1-3,6,10-15,17-25,28-81,83-150,152-195,197-199,202,208,211-213,216-225,228,232-308
+packages/api-platform/src/routes/deployment-effects.ts
+  s_43ad505f295ac4::t_36ca48f53ba143 3,7-57,78-79,82,89-90,97-109,112,116-157,164-166
+packages/api-platform/src/routes/static-assets.ts
+  s_43ad505f295ac4::t_b5636cb14d729f 25-27,81,232,236-238,249,258-285,291,296,302
+packages/client-platform/src/client/index.ts
+  s_43ad505f295ac4::t_9ce41fba9f15c2 4
+packages/client-platform/src/client/sdk.gen.ts
+  s_43ad505f295ac4::t_973b682a0316c5 5,192
+packages/client-platform/src/client/types.gen.ts
+  s_43ad505f295ac4::t_1869c2dbed205f 31-50,1470-1482
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6cdca73f5c031216f2a76f6cc0b6cd14b7f38cbd",
+  "prompts": {},
+  "sessions": {
+    "s_43ad505f295ac4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1707d-4429-7c62-a1b8-53aaec8c88c2",
+        "model": "unknown"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    },
+    "s_a4ab864e2ae698": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1707e-286e-79f2-aad6-1a5078b54092",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    },
+    "s_bf88a8495e16af": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1707b-9d13-7301-9812-f694c7e3035e",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
