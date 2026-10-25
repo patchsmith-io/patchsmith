@@ -1,0 +1,28 @@
+packages/vite/src/builder/server.ts
+  s_627ed0361772ed::t_05e7f179769ac6 50-63,65,69-83,85,97-98
+  s_627ed0361772ed::t_c68d88ed64a902 89-90,135
+packages/vite/src/index.ts
+  s_627ed0361772ed::t_05e7f179769ac6 386
+packages/vite/src/builder/server.test.ts
+  s_627ed0361772ed::t_5eea642f20ccaf 195,206-214,232-235,248,274-276
+  s_627ed0361772ed::t_7f396051630595 181,205,216-218,221-231,236-247,249-273,277-281
+  s_627ed0361772ed::t_fc40989ffd2dc9 282
+.changeset/fresh-upload-manifest.md
+  s_627ed0361772ed::t_6de3e90edba64a 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3fe00a8398a3e5011b94be2dfb8abe3f0022d1cc",
+  "prompts": {},
+  "sessions": {
+    "s_627ed0361772ed": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17090-d82a-7bf1-81b8-84d1e5a7ec2d",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
