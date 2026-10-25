@@ -39,6 +39,16 @@ export type BadRequest = {
 };
 
 /**
+ * CONFLICT
+ */
+export type Conflict = {
+  defined: true;
+  code: 'CONFLICT';
+  message: string;
+  data?: unknown;
+};
+
+/**
  * SERVICE_UNAVAILABLE
  */
 export type ServiceUnavailable = {
@@ -1450,6 +1460,10 @@ export type DeploymentsPublishErrors = {
    * Invalid deployment upload. Correct the upload before publishing again.
    */
   400: BadRequest | UndefinedError;
+  /**
+   * Deployment publication is already in progress.
+   */
+  409: Conflict | UndefinedError;
   /**
    * Deployment verification is temporarily unavailable. Retry publishing this deployment.
    */

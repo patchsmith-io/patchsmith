@@ -1,5 +1,12 @@
 import { createHash } from "node:crypto";
-import { lstat, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import {
+  lstat,
+  mkdir,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import path from "node:path";
 
 import {
@@ -112,6 +119,8 @@ export const writeStaticAssets = async (
   output: string,
   assets: StaticAsset[]
 ) => {
+  await rm(path.join(output, "assets"), { force: true, recursive: true });
+
   await forEachSequential(assets, async (asset) => {
     const filename = path.join(output, "assets", asset.path);
     await mkdir(path.dirname(filename), { recursive: true });

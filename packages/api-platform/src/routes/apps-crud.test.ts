@@ -8,7 +8,7 @@ import {
   appDeploymentFile,
 } from "@patchsmith/db/schema/apps";
 import { eq } from "drizzle-orm";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
 
 import { forEachSequential } from "#for-each-sequential";
@@ -101,6 +101,44 @@ describe("platform apps-crud", () => {
     expect(result.response?.status).toBe(400);
     expect(await fixture.db.select().from(appTable)).toEqual([]);
   });
+
+  it.each([
+    { path: "/apps/list", runtime: false },
+    { path: "/apps/runtime/resolve", runtime: true },
+  ])(
+    "rejects duplicate scopes as HTTP 400 on $path before querying apps",
+    async ({ path, runtime }) => {
+      const findMany = vi.spyOn(fixture.db.query.app, "findMany");
+      const handler = new OpenAPIHandler({ apps: appRouter });
+      const scopes = [productionScope, { ...productionScope }];
+
+      const body = runtime
+        ? {
+            contexts: [{ context: {}, path: "/", status: "ready" }],
+            scopes,
+            slot: "page",
+            subjectId: "principal",
+            toolUrl: "https://host.test/api/patchsmith/tools/execute",
+          }
+        : { page: 1, pageSize: 20, scopes };
+
+      const result = await handler.handle(
+        new Request(`https://platform.test/api/platform${path}`, {
+          body: JSON.stringify(body),
+          headers: { "content-type": "application/json" },
+          method: "POST",
+        }),
+        { context: createContext(), prefix: "/api/platform" }
+      );
+
+      expect(result.response?.status).toBe(400);
+      expect(await result.response?.json()).toMatchObject({
+        code: "BAD_REQUEST",
+        message: "Invalid scope selection.",
+      });
+      expect(findMany).not.toHaveBeenCalled();
+    }
+  );
 
   it("creates and lists apps within the authenticated project and scope", async () => {
     const context = createContext();

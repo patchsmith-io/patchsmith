@@ -428,13 +428,16 @@ export const runtimeResolve = protectedRouter
           page: currentPage,
           pageSize,
         }).pipe(
-          Effect.mapError(
-            (cause) =>
-              new ORPCError("INTERNAL_SERVER_ERROR", {
-                cause,
-                message: "Unable to discover views",
-              })
-          )
+          Effect.mapError((cause) => {
+            if (cause instanceof ORPCError && cause.code === "BAD_REQUEST") {
+              return cause;
+            }
+
+            return new ORPCError("INTERNAL_SERVER_ERROR", {
+              cause,
+              message: "Unable to discover views",
+            });
+          })
         );
 
         for (const appValue of installations.slice(0, pageSize)) {

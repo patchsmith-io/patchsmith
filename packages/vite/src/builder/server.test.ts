@@ -8,6 +8,9 @@ import {
   rename,
   mkdtemp,
   mkdir,
+  lstat,
+  symlink,
+  realpath,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -32,7 +35,8 @@ import { patchsmith } from "#index";
 import { linkTestDependencies, createDatabaseTestApp } from "#test-utils";
 
 import { readClientManifest } from "./client-views";
-import { runtimeManifest } from "./server";
+import { runtimeManifest, validateServerBuildOutput } from "./server";
+import { patchsmithUploadManifestSchema } from "./upload-manifest";
 
 const requireValue = <T>(value: T | null | undefined): T => {
   if (value === null || value === undefined) {
@@ -93,6 +97,188 @@ const router = (
 ) => `import { defineRouter, fn } from "patchsmith/server";
       const read = fn.query.handler(() => { throw new Error("HANDLERS_MUST_NOT_RUN_DURING_BUILDS"); });
       export default defineRouter({ ${keys} });`;
+
+it.each([".patchsmith", ".patchsmith/custom"])(
+  "clears previous build artifacts and replaces a legacy logo manifest in %s",
+  async (outDir) => {
+    const root = await mkdtemp(
+      path.join(tmpdir(), "patchsmith-stale-manifest-")
+    );
+
+    try {
+      await linkTestDependencies(root);
+      await mkdir(path.join(root, "src"));
+      await mkdir(path.join(root, "assets"));
+      await mkdir(path.join(root, outDir), { recursive: true });
+      await writeFile(path.join(root, "package.json"), '{"type":"module"}');
+      await writeFile(
+        path.join(root, "patchsmith.config.mjs"),
+        'export default { name: "Test App", slug: "test-app", host: "https://host.test", logos: { light: "logo.svg" } };'
+      );
+      await writeFile(
+        path.join(root, "src/root.tsx"),
+        'import { defineRoute } from "patchsmith/client"; export default defineRoute({ shellComponent: () => "client" });'
+      );
+      await writeFile(
+        path.join(root, "assets/logo.svg"),
+        '<svg xmlns="http://www.w3.org/2000/svg"/>'
+      );
+
+      await Promise.all(
+        ["logos", "assets", "tmp/interrupted-build"].map(async (directory) => {
+          await mkdir(path.join(root, outDir, directory), { recursive: true });
+          await writeFile(
+            path.join(root, outDir, directory, "obsolete.txt"),
+            "old"
+          );
+        })
+      );
+
+      await writeFile(path.join(root, outDir, "obsolete.txt"), "old");
+      const manifestPath = path.join(root, outDir, "patchsmith-upload.json");
+      await writeFile(
+        manifestPath,
+        JSON.stringify({
+          assets: { client: "client/client.js", logos: { light: "logo.svg" } },
+          hooks: ["obsolete"],
+          version: 1,
+        })
+      );
+
+      await buildFixture({ cwd: root, outDir });
+
+      const manifest = v.parse(
+        patchsmithUploadManifestSchema,
+        JSON.parse(await readFile(manifestPath, "utf-8"))
+      );
+
+      expect(manifest.assets.logos).toEqual({ light: "logo.svg" });
+      expect(manifest.assets.static).toEqual([
+        expect.objectContaining({ path: "logo.svg" }),
+      ]);
+      expect(manifest.hooks).toEqual([]);
+
+      const outputFiles = await readdir(path.join(root, outDir));
+
+      expect(outputFiles.toSorted()).toEqual([
+        "assets",
+        "client",
+        "migrations",
+        "patchsmith-upload.json",
+        "server",
+        "tmp",
+      ]);
+      expect(await readdir(path.join(root, outDir, "assets"))).toEqual([
+        "logo.svg",
+      ]);
+      expect(await readdir(path.join(root, outDir, "tmp"))).toEqual([]);
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  }
+);
+
+it("rejects output paths that would erase source, dependencies or configuration", async () => {
+  const root = path.join(tmpdir(), "patchsmith-output-guard");
+
+  const loaded = {
+    config: {
+      host: "https://host.test",
+      name: "Test App",
+      server: { migrations: "database/history" },
+      slug: "test-app",
+    },
+    filepath: path.join(root, "config/patchsmith.config.mjs"),
+    root,
+  };
+
+  const rejectedDirectories = [
+    ".",
+    "..",
+    "src",
+    "src/build",
+    "assets",
+    "node_modules",
+    "database",
+    "database/history/nested",
+    "config",
+    "config/patchsmith.config.mjs/nested",
+  ];
+
+  await Promise.all(
+    rejectedDirectories.map(async (directory) => {
+      await expect(
+        validateServerBuildOutput(loaded, path.resolve(root, directory))
+      ).rejects.toThrow("App build output must not");
+    })
+  );
+
+  await expect(
+    validateServerBuildOutput(loaded, path.join(root, ".patchsmith/custom"))
+  ).resolves.toBeUndefined();
+});
+
+it.each(["src", "assets", "node_modules", "database/history", "config.mjs"])(
+  "rejects output overlapping the canonical target of %s",
+  async (protectedPath) => {
+    const root = await realpath(
+      await mkdtemp(path.join(tmpdir(), "patchsmith-canonical-output-"))
+    );
+
+    try {
+      const target = path.join(root, "retained");
+      await mkdir(target);
+      await writeFile(path.join(target, "keep.txt"), "keep");
+      await mkdir(path.dirname(path.join(root, protectedPath)), {
+        recursive: true,
+      });
+
+      const isConfig = protectedPath === "config.mjs";
+      const configTarget = path.join(target, "app.mjs");
+
+      if (isConfig) {
+        await writeFile(configTarget, "export default {};");
+      }
+
+      await symlink(
+        isConfig ? configTarget : target,
+        path.join(root, protectedPath),
+        isConfig ? "file" : "dir"
+      );
+
+      const loaded = {
+        config: {
+          host: "https://host.test",
+          name: "Test App",
+          server: { migrations: "database/history" },
+          slug: "test-app",
+        },
+        filepath: path.join(root, "config.mjs"),
+        root,
+      };
+
+      await expect(validateServerBuildOutput(loaded, target)).rejects.toThrow(
+        "App build output must not overlap"
+      );
+
+      if (!isConfig) {
+        await expect(
+          validateServerBuildOutput(loaded, path.join(target, "missing/nested"))
+        ).rejects.toThrow("App build output must not overlap");
+        await symlink(target, path.join(root, "output-alias"), "dir");
+        await expect(
+          validateServerBuildOutput(loaded, path.join(root, "output-alias/new"))
+        ).rejects.toThrow("App build output must not overlap");
+      }
+
+      expect(await readFile(path.join(target, "keep.txt"), "utf-8")).toBe(
+        "keep"
+      );
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  }
+);
 
 it.each([
   {
@@ -326,9 +512,11 @@ it("builds file routes with discovered functions and blocks server imports from 
     expect(application.migrations).toEqual([]);
     expect(browser).not.toContain("Configured server loaded");
     expect(browser).not.toContain("Internal server result");
+
     // The host deployment tool must build beneath the app so the generated
     // temporary server entry can resolve patchsmith/server from node_modules.
     const deploymentOutput = path.join(root, ".patchsmith/agent-deployment");
+
     await buildFixture({ cwd: root, outDir: deploymentOutput });
     expect(
       await readFile(path.join(deploymentOutput, "server/server.js"), "utf-8")
@@ -626,6 +814,79 @@ describe("database app builds", () => {
       await expect(buildFixture({ cwd: root })).rejects.toThrow(
         "cannot be imported into a browser bundle"
       );
+    });
+  });
+
+  it.each(["app", "parent"])(
+    "normalizes an absolute output's inherited %s symlink",
+    async (prefix) => {
+      await withDatabaseApp(async (root) => {
+        const external = await mkdtemp(
+          path.join(tmpdir(), "patchsmith-output-")
+        );
+
+        try {
+          const alias = path.join(root, "alias");
+          await symlink(
+            prefix === "app" ? root : path.dirname(root),
+            alias,
+            "dir"
+          );
+
+          const cwd =
+            prefix === "app" ? alias : path.join(alias, path.basename(root));
+
+          const outDir =
+            prefix === "app"
+              ? path.join(cwd, ".patchsmith/custom")
+              : path.join(alias, path.basename(external), "custom");
+
+          await buildFixture({ cwd, outDir });
+          expect(
+            await readFile(path.join(outDir, "client/client.js"), "utf-8")
+          ).toContain("globalThis.__patchsmithAssets");
+          const stats = await lstat(alias);
+          expect(stats.isSymbolicLink()).toBe(true);
+        } finally {
+          await rm(external, { force: true, recursive: true });
+        }
+      });
+    }
+  );
+
+  it.each(["linked", "linked/output", "linked/missing/output"])(
+    "rejects symlinked build output at %s without deleting target files",
+    async (outDir) => {
+      await withDatabaseApp(async (root) => {
+        const target = path.join(root, "retained");
+        await mkdir(path.join(target, "output"), { recursive: true });
+        const sentinel = path.join(target, "output/keep.txt");
+        await writeFile(sentinel, "keep");
+        await symlink(target, path.join(root, "linked"), "dir");
+
+        await expect(buildFixture({ cwd: root, outDir })).rejects.toThrow(
+          "App build output must not traverse a symlink"
+        );
+        await expect(
+          buildFixture({ cwd: root, outDir: path.resolve(root, outDir) })
+        ).rejects.toThrow("App build output must not traverse a symlink");
+        expect(await readFile(sentinel, "utf-8")).toBe("keep");
+        const linkStats = await lstat(path.join(root, "linked"));
+        expect(linkStats.isSymbolicLink()).toBe(true);
+      });
+    }
+  );
+
+  it("rejects a dangling output symlink without removing it", async () => {
+    await withDatabaseApp(async (root) => {
+      const output = path.join(root, "linked");
+      await symlink(path.join(root, "missing"), output, "dir");
+
+      await expect(
+        buildFixture({ cwd: root, outDir: "linked" })
+      ).rejects.toThrow("App build output must not traverse a symlink");
+      const linkStats = await lstat(output);
+      expect(linkStats.isSymbolicLink()).toBe(true);
     });
   });
 

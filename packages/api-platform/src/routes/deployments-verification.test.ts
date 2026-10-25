@@ -16,7 +16,7 @@ import { drizzle } from "drizzle-orm/pglite";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import type { Context } from "#context";
-import { verifyAndPublishDeploymentEffect } from "#deployments/verification";
+import { publishDeployment } from "#deployments/verification";
 import { verificationUnavailableMessage } from "#routes/deployment-effects";
 import { deploymentRouter } from "#routes/deployments";
 import { canonicalizeScope } from "#scope";
@@ -1084,14 +1084,20 @@ describe("platform deployments-verification", () => {
         relations,
       });
 
+      const currentApp = requireValue(await fixture.db.query.app.findFirst());
+
       const context = {
         ...publishContext("https://storage.test/logo.svg"),
+        app: currentApp,
+        deployment,
         ...testServices({ database, fetch: http }),
       };
 
       await expect(
         runPlatform(
-          verifyAndPublishDeploymentEffect(deployment, context.storage),
+          publishDeployment(database, context, false, async () => {
+            await Promise.resolve();
+          }),
           context,
           controller.signal
         )
@@ -1110,7 +1116,9 @@ describe("platform deployments-verification", () => {
       expect(files.filter((file) => file.status === "verified")).toHaveLength(
         phase === "fail-between-files" ? 1 : 0
       );
-      expect(files.some((file) => file.status === "failed")).toBe(false);
+      expect(files.filter((file) => file.status === "failed")).toHaveLength(
+        phase === "fail-between-files" ? 1 : 0
+      );
     }
   );
 });

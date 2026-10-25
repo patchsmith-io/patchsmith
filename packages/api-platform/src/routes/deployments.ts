@@ -8,7 +8,6 @@ import {
 } from "@patchsmith/asset-delivery/logo-validation";
 import { isStaticAssetPath } from "@patchsmith/asset-delivery/static-assets";
 import {
-  app,
   AppAsset,
   AppDeployment,
   appDeployment,
@@ -17,15 +16,12 @@ import {
 } from "@patchsmith/db/schema/apps";
 import type { Scope } from "@patchsmith/db/schema/scope";
 import { setSpanAttributes } from "@patchsmith/observability";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { Effect } from "effect";
 import { z } from "zod";
 
 import { appSelectorSchema } from "#app-selector";
-import {
-  hexToBase64,
-  verifyAndPublishDeploymentEffect,
-} from "#deployments/verification";
+import { hexToBase64, publishDeployment } from "#deployments/verification";
 import { paginatedOutput, paginationQuery } from "#pagination";
 import { o, cliRouter, requireApp, requireAppInScopes } from "#procedures";
 import {
@@ -37,7 +33,7 @@ import {
 } from "#scope";
 import { attempt, PlatformDatabase, PlatformIds } from "#services";
 
-import { getRuntimeBundle, publishRuntimeMetadataEffect } from "./app-runtime";
+import { getRuntimeBundle, publishRuntimeMetadata } from "./app-runtime";
 import { verificationUnavailableMessage } from "./deployment-effects";
 import {
   deploymentStaticAssets,
@@ -532,6 +528,7 @@ const publishAppDeployment = cliRouter
       message:
         "Invalid deployment upload. Correct the upload before publishing again.",
     },
+    CONFLICT: { message: "Deployment publication is already in progress." },
     SERVICE_UNAVAILABLE: { message: verificationUnavailableMessage },
   })
   .input(
@@ -553,67 +550,19 @@ const publishAppDeployment = cliRouter
     )
   )
   .handler(
-    handlerGen(function* publishAppDeployment({ context, input }) {
-      const db = yield* PlatformDatabase;
+    handlerGen(function* publishRequestedDeployment({ context, input }) {
+      const database = yield* PlatformDatabase;
 
-      const { deployment } = context;
-
-      const { files, publishedDeployment } =
-        yield* verifyAndPublishDeploymentEffect(deployment, context.storage);
-
-      if (input.body.rollout) {
-        yield* attempt(
-          async () =>
-            await db
-              .update(app)
-              .set({ currentDeploymentId: publishedDeployment.id })
-              .where(
-                and(
-                  eq(app.id, context.app.id),
-                  eq(app.projectId, context.project.id)
-                )
-              )
-        );
-
-        const { selectRuntimeDeployment } = yield* attempt(
-          async () => await import("#app-runtime/deployment-steps")
-        );
-
-        const selected = yield* attempt(
-          async () =>
-            await selectRuntimeDeployment(
-              {
-                appId: context.app.id,
-                deploymentId: publishedDeployment.id,
-                projectId: context.project.id,
-              },
-              db
-            )
-        );
-
-        const server = files.find((file) =>
-          file.objectKey.endsWith("/server/server.js")
-        );
-
-        if (
-          selected &&
-          server?.checksum !== undefined &&
-          server?.checksum !== null &&
-          server?.checksum !== ""
-        ) {
-          yield* publishRuntimeMetadataEffect({
-            appId: context.app.id,
-            checksum: server.checksum,
-            contentEncoding: server.encoding === "gzip" ? "gzip" : undefined,
-            contentLength: server.contentLength,
-            deploymentId: publishedDeployment.id,
-            objectKey: server.objectKey,
-            projectId: context.project.id,
-          });
-        }
-      }
-
-      return { body: publishedDeployment };
+      return {
+        body: yield* publishDeployment(
+          database,
+          context,
+          input.body.rollout,
+          async (metadata, appShortId) => {
+            await publishRuntimeMetadata(metadata, appShortId, context);
+          }
+        ),
+      };
     })
   );
 

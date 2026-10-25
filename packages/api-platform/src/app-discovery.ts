@@ -1,3 +1,4 @@
+import { ORPCError } from "@orpc/server";
 import { App, AppDeployment } from "@patchsmith/db/schema/apps";
 import { Effect } from "effect";
 import { z } from "zod";
@@ -27,7 +28,15 @@ export const discoverAppsEffect = (
     const db = yield* PlatformDatabase;
 
     const { page, pageSize } = input;
-    const scopes = canonicalizeScopes(input.scopes);
+
+    const scopes = yield* Effect.try({
+      catch: (cause) =>
+        new ORPCError("BAD_REQUEST", {
+          cause,
+          message: "Invalid scope selection.",
+        }),
+      try: () => canonicalizeScopes(input.scopes),
+    });
 
     // Browser app filters may include missing or malformed IDs; never send those to a UUID column.
     const appIds = input.appIds?.filter(
