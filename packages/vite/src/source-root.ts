@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 
-const sourceDirectories = ["slots", "functions", "hooks", "db"];
+export const sourceDirectories = ["slots", "functions", "hooks", "db"];
 
 const hasSource = (directory: string) =>
   sourceDirectories.some((name) => existsSync(path.join(directory, name)));

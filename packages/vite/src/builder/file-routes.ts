@@ -338,7 +338,7 @@ export const createFileRouteEntry = async (
   };
 
   const watcher = watching
-    ? watchSourceDirectory(resolveAppSourceRoot(root), "slots", () => {
+    ? watchSourceDirectory(root, "slots", () => {
         if (timer) {
           clearTimeout(timer);
         }

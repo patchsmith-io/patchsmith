@@ -189,7 +189,7 @@ export const createFileFunctionEntry = async (
   };
 
   const watcher = watching
-    ? watchSourceDirectory(resolveAppSourceRoot(root), "functions", () => {
+    ? watchSourceDirectory(root, "functions", () => {
         if (timer) {
           clearTimeout(timer);
         }

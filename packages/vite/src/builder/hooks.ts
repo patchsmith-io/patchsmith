@@ -111,22 +111,18 @@ export const hookFilesPlugin = (
   return {
     buildStart: () => {
       if (watching && !watcher) {
-        watcher = watchSourceDirectory(
-          resolveAppSourceRoot(root),
-          "hooks",
-          () => {
-            if (timer) {
-              clearTimeout(timer);
-            }
-
-            timer = setTimeout(() => {
-              pending = (async () => {
-                await pending;
-                await refresh();
-              })();
-            }, 25);
+        watcher = watchSourceDirectory(root, "hooks", () => {
+          if (timer) {
+            clearTimeout(timer);
           }
-        );
+
+          timer = setTimeout(() => {
+            pending = (async () => {
+              await pending;
+              await refresh();
+            })();
+          }, 25);
+        });
       }
     },
     closeWatcher: async () => {
