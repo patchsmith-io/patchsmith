@@ -62,6 +62,8 @@ Every app includes a private backend, even when it has no functions. Use the opt
 
 Start by [writing UI for a slot](/writing-apps/ui).
 
+Builds own the entire output directory (`.patchsmith/` by default, or your configured `build.outDir`). Each new build empties that directory before generating its entries and artifacts. Keep source files, migrations, and anything you need to retain outside it. Watch mode keeps active entries between rebuilds and replaces generated bundles, manifests, and static assets. Dependency caches and CLI credentials live outside the app's build output and are preserved.
+
 ## Static assets
 
 Put images, fonts, WebAssembly, game data, and other public files in `assets/` at the app root. The build includes every file in that directory. Files use SHA-256 URLs scoped to the source app:

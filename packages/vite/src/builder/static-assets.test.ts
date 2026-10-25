@@ -3,6 +3,7 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  readdir,
   rm,
   symlink,
   writeFile,
@@ -13,6 +14,35 @@ import path from "node:path";
 import { expect, it } from "vite-plus/test";
 
 import { readStaticAssets, writeStaticAssets } from "./static-assets";
+
+it("removes obsolete static assets when a rebuild changes or empties the snapshot", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "patchsmith-static-rebuild-"));
+
+  try {
+    await mkdir(path.join(root, "assets/nested"), { recursive: true });
+    await writeFile(path.join(root, "assets/nested/old.txt"), "old");
+    await writeStaticAssets(
+      path.join(root, "output"),
+      await readStaticAssets(root)
+    );
+    await rm(path.join(root, "assets/nested"), { recursive: true });
+    await writeFile(path.join(root, "assets/current.txt"), "current");
+    await writeStaticAssets(
+      path.join(root, "output"),
+      await readStaticAssets(root)
+    );
+    expect(await readdir(path.join(root, "output/assets"))).toEqual([
+      "current.txt",
+    ]);
+    await writeStaticAssets(path.join(root, "output"), []);
+    expect(await readdir(path.join(root, "output"))).toEqual([]);
+    expect(await readFile(path.join(root, "assets/current.txt"), "utf-8")).toBe(
+      "current"
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
 
 it("accepts 256 static files and rejects a 257th file", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "patchsmith-static-count-"));

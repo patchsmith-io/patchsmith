@@ -1,4 +1,4 @@
-import { realpath, writeFile } from "node:fs/promises";
+import { lstat, realpath, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 
@@ -35,6 +35,72 @@ const requireValue = <T>(value: T | null | undefined): T => {
 };
 
 const preactPackageJson = "preact/package.json";
+
+const normalizeAbsoluteOutput = async (
+  root: string,
+  configuredRoot: string,
+  output: string
+) => {
+  let shared =
+    (await realpath(configuredRoot)) === root ? configuredRoot : root;
+
+  let relative = path.relative(shared, output);
+
+  while (
+    relative === ".." ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative)
+  ) {
+    const parent = path.dirname(shared);
+
+    if (parent === shared) {
+      return output;
+    }
+
+    shared = parent;
+    relative = path.relative(shared, output);
+  }
+
+  // Only normalize the prefix inherited from the app root. Output-specific
+  // path components must remain visible to rejectSymlinkedOutput.
+  return path.resolve(await realpath(shared), relative);
+};
+
+const rejectSymlinkedOutput = async (output: string) => {
+  const paths = [output];
+  let current = output;
+
+  while (path.dirname(current) !== current) {
+    current = path.dirname(current);
+    paths.push(current);
+  }
+
+  await Promise.all(
+    paths.map(async (directory) => {
+      let stats;
+
+      try {
+        stats = await lstat(directory);
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          "code" in error &&
+          error.code === "ENOENT"
+        ) {
+          return;
+        }
+
+        throw error;
+      }
+
+      if (stats.isSymbolicLink()) {
+        throw new Error(
+          `App build output must not traverse a symlink: ${directory}`
+        );
+      }
+    })
+  );
+};
 
 const preactPackageJsonModuleId = "\0patchsmith-preact-package-json";
 
@@ -91,6 +157,7 @@ export const patchsmith = (options: PatchsmithPluginOptions = {}): Plugin[] => {
   let loaded: LoadedPatchsmithConfig;
   let preactVersion: string;
   let outputDirectory: string;
+  let configuredRoot: string;
 
   let resolvedOutDir: string;
   let clientOutDir: string;
@@ -301,6 +368,8 @@ export const patchsmith = (options: PatchsmithPluginOptions = {}): Plugin[] => {
         );
         watching = Boolean(config.build?.watch);
         outputDirectory = config.build?.outDir ?? ".patchsmith";
+        // Vite canonicalizes config.root before configResolved runs.
+        configuredRoot = path.resolve(config.root ?? ".");
 
         return {
           build: {
@@ -346,9 +415,18 @@ export const patchsmith = (options: PatchsmithPluginOptions = {}): Plugin[] => {
         loaded.root = await realpath(root);
         preactVersion = getInstalledPreactVersion(loaded.root);
         assertSupportedPreactVersion(preactVersion);
-        resolvedOutDir = path.resolve(loaded.root, outputDirectory);
-        validateServerBuildOutput(loaded, resolvedOutDir);
+        resolvedOutDir = path.isAbsolute(outputDirectory)
+          ? await normalizeAbsoluteOutput(
+              loaded.root,
+              configuredRoot,
+              outputDirectory
+            )
+          : path.resolve(loaded.root, outputDirectory);
+        await validateServerBuildOutput(loaded, resolvedOutDir);
         clientOutDir = path.join(resolvedOutDir, "client");
+
+        await rejectSymlinkedOutput(resolvedOutDir);
+        await rm(resolvedOutDir, { force: true, recursive: true });
 
         functionEntry = await createFileFunctionEntry(
           loaded.root,
