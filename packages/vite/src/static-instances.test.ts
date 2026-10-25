@@ -114,6 +114,48 @@ const readManifest = async (root: string) =>
     )
   );
 
+it("preserves aliases supplied by a later client-only post config hook", async () => {
+  await withApp(async (root) => {
+    const filename = path.join(root, "src/slots/page/index.view.tsx");
+    const source = await readFile(filename, "utf-8");
+    await writeFile(
+      filename,
+      source
+        .replace("#labels", "#late-labels")
+        .replace('"STATIC_COMPONENT"', "label")
+    );
+    await writeFile(
+      path.join(root, "src/labels.ts"),
+      'export const label = "LATE_ALIAS_CLIENT_AND_STATIC";'
+    );
+    await buildApp(root, false, {
+      plugins: [
+        {
+          apply: (_config, env) => env.isSsrBuild !== true,
+          config: {
+            handler: () => ({
+              resolve: {
+                alias: { "#late-labels": path.join(root, "src/labels.ts") },
+              },
+            }),
+            order: "post",
+          },
+          enforce: "post",
+          name: "late-client-alias",
+        },
+      ],
+    });
+    expect(
+      await readFile(path.join(root, ".patchsmith/client/client.js"), "utf-8")
+    ).toContain("LATE_ALIAS_CLIENT_AND_STATIC");
+    const manifest = await readManifest(root);
+    expect(
+      manifest.views?.find((view) => view.slot === "page" && view.path === "/")
+        ?.staticInstances?.[0]?.metadata.label
+    ).toBe("LATE_ALIAS_CLIENT_AND_STATIC");
+  });
+});
+
 it.each([
   { name: "defaults", resolve: undefined },
   {

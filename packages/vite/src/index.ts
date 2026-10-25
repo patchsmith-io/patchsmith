@@ -276,10 +276,12 @@ export const patchsmith = (options: PatchsmithPluginOptions = {}): Plugin[] => {
 
   const plugins: Plugin[] = [
     {
-      config: {
-        handler: (config) => {
-          // Forward explicit options before Vite adds client-only resolver defaults.
-          serverResolve = { ...config.resolve };
+      configEnvironment: {
+        handler: (name, config) => {
+          if (name === "client") {
+            // Capture all config hooks before Vite adds client-only resolver defaults.
+            serverResolve = { ...config.resolve };
+          }
         },
         order: "post",
       },
