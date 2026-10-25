@@ -1,0 +1,21 @@
+packages/api-platform/src/deployments/verification.ts
+  s_a4ab864e2ae698::t_c040e949b31165 319-320
+packages/api-platform/README.md
+  s_a4ab864e2ae698::t_c040e949b31165 31-75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "92a3cccaffdad7334eb103f29abf28d2ec02cffc",
+  "prompts": {},
+  "sessions": {
+    "s_a4ab864e2ae698": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1707e-286e-79f2-aad6-1a5078b54092",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
