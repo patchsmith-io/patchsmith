@@ -219,6 +219,7 @@ it.each([
         'import { defineRouter, fn } from "patchsmith/server"; import { label } from "#labels"; export default defineRouter({ read: fn.query.handler(() => label) });'
       );
       const warnings: string[] = [];
+      const serverResolvers: NonNullable<UserConfig["resolve"]>[] = [];
       const logger = createLogger("silent");
       logger.warn = (message) => {
         warnings.push(message);
@@ -233,6 +234,10 @@ it.each([
                 config.build.ssr !== false &&
                 config.build.ssr !== "";
 
+              if (isServerBuild) {
+                serverResolvers.push({ ...config.resolve });
+              }
+
               return isServerBuild ? { customLogger: logger } : undefined;
             },
             name: "capture-server-warnings",
@@ -240,6 +245,17 @@ it.each([
         ],
         resolve,
       });
+      expect(serverResolvers).toHaveLength(2);
+
+      for (const serverResolver of serverResolvers) {
+        expect(serverResolver.conditions).toBeUndefined();
+        expect(serverResolver.mainFields).toBeUndefined();
+        expect(serverResolver.builtins).toEqual(resolve?.builtins);
+        expect(serverResolver.alias).toEqual({
+          "#labels": path.join(root, "src/labels.ts"),
+        });
+      }
+
       expect(
         warnings.filter((message) =>
           message.includes("Automatically externalized")

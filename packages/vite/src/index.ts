@@ -281,6 +281,8 @@ export const patchsmith = (options: PatchsmithPluginOptions = {}): Plugin[] => {
           if (name === "client") {
             // Capture all config hooks before Vite adds client-only resolver defaults.
             serverResolve = { ...config.resolve };
+            delete serverResolve.conditions;
+            delete serverResolve.mainFields;
           }
         },
         order: "post",
