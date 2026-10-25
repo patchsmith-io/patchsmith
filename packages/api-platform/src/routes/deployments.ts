@@ -24,7 +24,7 @@ import { z } from "zod";
 import { appSelectorSchema } from "#app-selector";
 import {
   hexToBase64,
-  verifyDeploymentFilesEffect,
+  verifyAndPublishDeploymentEffect,
 } from "#deployments/verification";
 import { paginatedOutput, paginationQuery } from "#pagination";
 import { o, cliRouter, requireApp, requireAppInScopes } from "#procedures";
@@ -38,6 +38,7 @@ import {
 import { attempt, PlatformDatabase, PlatformIds } from "#services";
 
 import { getRuntimeBundle, publishRuntimeMetadataEffect } from "./app-runtime";
+import { verificationUnavailableMessage } from "./deployment-effects";
 import {
   deploymentStaticAssets,
   linkStaticAssets,
@@ -526,6 +527,13 @@ const publishAppDeployment = cliRouter
       path: "/deployments/{deploymentId}",
     })
   )
+  .errors({
+    BAD_REQUEST: {
+      message:
+        "Invalid deployment upload. Correct the upload before publishing again.",
+    },
+    SERVICE_UNAVAILABLE: { message: verificationUnavailableMessage },
+  })
   .input(
     z.object({
       body: z.object({
@@ -550,27 +558,8 @@ const publishAppDeployment = cliRouter
 
       const { deployment } = context;
 
-      const files = yield* verifyDeploymentFilesEffect(
-        deployment,
-        context.storage
-      );
-
-      const [publishedDeployment] = yield* attempt(
-        async () =>
-          await db
-            .update(appDeployment)
-            .set({ status: "published" })
-            .where(eq(appDeployment.id, deployment.id))
-            .returning()
-      );
-
-      if (!publishedDeployment) {
-        return yield* Effect.fail(
-          new ORPCError("BAD_REQUEST", {
-            message: "Failed to publish deployment.",
-          })
-        );
-      }
+      const { files, publishedDeployment } =
+        yield* verifyAndPublishDeploymentEffect(deployment, context.storage);
 
       if (input.body.rollout) {
         yield* attempt(

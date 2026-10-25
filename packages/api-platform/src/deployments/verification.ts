@@ -4,100 +4,80 @@ import type { AppDeployment } from "@patchsmith/db/schema/apps";
 import { appDeployment, appDeploymentFile } from "@patchsmith/db/schema/apps";
 import { eq } from "drizzle-orm";
 import { Effect, Exit } from "effect";
+import { z } from "zod";
 
 import type { Context } from "#context";
+import {
+  inspectUploadedAsset,
+  uploadedAssetMetadata,
+  UploadValidationError,
+  verificationFailure,
+} from "#routes/deployment-effects";
 import {
   deploymentStaticAssets,
   verifyStaticAssets,
 } from "#routes/static-assets";
-import { attempt, PlatformDatabase, PlatformHttp } from "#services";
+import { attempt, PlatformDatabase } from "#services";
 
-const bundleInspectionTimeoutMs = 10_000;
+export const hexToBase64 = (hex: string) =>
+  Buffer.from(hex, "hex").toString("base64");
 
-export const hexToBase64 = (hex: string): string => {
-  const bytes = new Uint8Array(hex.length / 2);
-
-  for (let index = 0; index < bytes.length; index += 1) {
-    bytes[index] = Number.parseInt(hex.slice(index * 2, index * 2 + 2), 16);
-  }
-
-  return Buffer.from(bytes).toString("base64");
-};
-
-const inspectCompressedBundle = async (
+const inspectCompressedBundle = (
   storage: Context["storage"],
   objectKey: string,
-  remainingBytes: number,
-  fetch: typeof globalThis.fetch,
-  signal: AbortSignal
-) => {
-  const download = await storage.createDownloadUrl({
-    expiresInSeconds: 60,
-    key: objectKey,
-  });
-
-  const downloadUrl = new URL(download.url);
-
-  if (downloadUrl.protocol !== "https:") {
-    throw new Error("Bundle download URL must use HTTPS.");
-  }
-
-  const controller = new AbortController();
-
-  const timeout = setTimeout(() => {
-    controller.abort();
-  }, bundleInspectionTimeoutMs);
-
-  try {
-    const response = await fetch(downloadUrl, {
-      redirect: "error",
-      signal: AbortSignal.any([signal, controller.signal]),
-    });
-
-    if (!response.ok || !response.body) {
-      throw new Error("Failed to inspect uploaded bundle.");
-    }
-
+  remainingBytes: number
+) =>
+  inspectUploadedAsset(storage, objectKey, "Bundle", async (body) => {
     // Node fetch decodes R2's Content-Encoding before exposing the response body.
-    // Count chunks instead of buffering an arbitrarily large inflated bundle.
     let contentLength = 0;
 
-    for await (const value of response.body) {
-      contentLength += value.byteLength;
+    try {
+      for await (const value of body) {
+        contentLength += value.byteLength;
 
-      if (contentLength > remainingBytes) {
-        throw new Error(
-          `Combined deployment assets cannot exceed ${maxDeploymentBytes} bytes after decompression.`
+        if (contentLength > remainingBytes) {
+          throw new UploadValidationError(
+            `Combined deployment assets cannot exceed ${maxDeploymentBytes} bytes after decompression.`
+          );
+        }
+      }
+    } catch (error) {
+      // Node fetch wraps decompression failures in a TypeError. Stream/network
+      // errors without a known zlib code remain retryable infrastructure errors.
+      const invalidGzip = z.object({
+        code: z.enum(["Z_DATA_ERROR", "Z_BUF_ERROR"]),
+      });
+
+      const wrapped = z.object({ cause: invalidGzip }).safeParse(error);
+
+      if (invalidGzip.safeParse(error).success || wrapped.success) {
+        throw new UploadValidationError(
+          "Uploaded bundle is not valid gzip content.",
+          error
         );
       }
+
+      throw error;
     }
 
     if (contentLength === 0) {
-      throw new Error("Failed to inspect uploaded bundle.");
+      throw new UploadValidationError("Uploaded bundle is empty.");
     }
 
     return contentLength;
-  } finally {
-    controller.abort();
-    clearTimeout(timeout);
-  }
-};
+  });
 
-export const verifyDeploymentFilesEffect = (
+export const verifyAndPublishDeploymentEffect = (
   deployment: Pick<AppDeployment, "id" | "logoDarkPath" | "logoLightPath">,
   storage: Context["storage"]
 ) =>
-  Effect.gen(function* verifyDeploymentFiles() {
+  Effect.gen(function* verifyAndPublishDeployment() {
     const db = yield* PlatformDatabase;
-    const { fetch } = yield* PlatformHttp;
 
-    const files = yield* attempt(
-      async () =>
-        await db.query.appDeploymentFile.findMany({
-          where: {
-            appDeploymentId: deployment.id,
-          },
-        })
+    const files = yield* attempt(() =>
+      db.query.appDeploymentFile.findMany({
+        where: { appDeploymentId: deployment.id },
+      })
     );
 
     if (files.length === 0) {
@@ -115,10 +95,9 @@ export const verifyDeploymentFilesEffect = (
       0
     );
 
-    const storedBytes = files.reduce(
-      (total, file) => total + file.contentLength,
-      staticBytes
-    );
+    const storedBytes =
+      staticBytes +
+      files.reduce((total, file) => total + file.contentLength, 0);
 
     if (storedBytes > maxDeploymentBytes) {
       return yield* Effect.fail(
@@ -130,43 +109,46 @@ export const verifyDeploymentFilesEffect = (
 
     let deploymentBytes = staticBytes;
 
-    yield* attempt(
-      async () =>
-        await db
+    // Finish status writes before interruption cleanup can reset them. Storage
+    // and inspection remain interruptible, and cannot resume this effect late.
+    const publishedDeployment = yield* Effect.gen(function* verifyDeployment() {
+      yield* attempt(() =>
+        db
           .update(appDeployment)
           .set({ status: "verifying" })
           .where(eq(appDeployment.id, deployment.id))
-    );
+      ).pipe(Effect.uninterruptible);
+      yield* Effect.forEach(
+        files,
+        (file) =>
+          Effect.uninterruptibleMask((restore) =>
+            Effect.gen(function* verifyBundle() {
+              yield* attempt(async () => {
+                await db
+                  .update(appDeploymentFile)
+                  .set({ status: "verifying" })
+                  .where(eq(appDeploymentFile.id, file.id));
+              });
 
-    yield* Effect.forEach(
-      files,
-      (file) =>
-        Effect.uninterruptibleMask((restore) =>
-          Effect.gen(function* verifyFile() {
-            yield* attempt(async () => {
-              await db
-                .update(appDeploymentFile)
-                .set({ status: "verifying" })
-                .where(eq(appDeploymentFile.id, file.id));
-            });
-            yield* restore(
-              attempt(async (signal) => {
-                const object = await storage.head({
-                  key: file.objectKey,
-                });
+              const verification = Effect.gen(function* inspectBundle() {
+                const object = yield* uploadedAssetMetadata(
+                  storage,
+                  file.objectKey
+                );
 
-                signal.throwIfAborted();
-                const { contentLength } = object;
-
-                if (contentLength !== file.contentLength) {
-                  throw new Error(
-                    "Uploaded file content length does not match deployment record."
+                if (object.contentLength !== file.contentLength) {
+                  return yield* Effect.fail(
+                    new UploadValidationError(
+                      "Uploaded file content length does not match deployment record."
+                    )
                   );
                 }
 
                 if (object.contentType !== file.contentType) {
-                  throw new Error(
-                    "Uploaded file content type does not match deployment record."
+                  return yield* Effect.fail(
+                    new UploadValidationError(
+                      "Uploaded file content type does not match deployment record."
+                    )
                   );
                 }
 
@@ -174,90 +156,114 @@ export const verifyDeploymentFilesEffect = (
                   (object.contentEncoding ?? undefined) !==
                   (file.encoding === "gzip" ? "gzip" : undefined)
                 ) {
-                  throw new Error(
-                    "Uploaded file content encoding does not match deployment record."
+                  return yield* Effect.fail(
+                    new UploadValidationError(
+                      "Uploaded file content encoding does not match deployment record."
+                    )
                   );
                 }
 
                 if (
-                  !(
-                    file.checksum !== undefined &&
-                    file.checksum !== null &&
-                    file.checksum !== ""
-                  ) ||
+                  file.checksum === null ||
+                  file.checksum === "" ||
                   object.checksumSha256 !== hexToBase64(file.checksum)
                 ) {
-                  throw new Error(
-                    "Uploaded file checksum does not match deployment record."
+                  return yield* Effect.fail(
+                    new UploadValidationError(
+                      "Uploaded file checksum does not match deployment record."
+                    )
                   );
                 }
 
                 const decodedBytes =
                   file.encoding === "gzip"
-                    ? await inspectCompressedBundle(
+                    ? yield* inspectCompressedBundle(
                         storage,
                         file.objectKey,
-                        maxDeploymentBytes - deploymentBytes,
-                        fetch,
-                        signal
+                        maxDeploymentBytes - deploymentBytes
                       )
-                    : contentLength;
+                    : file.contentLength;
 
                 deploymentBytes += decodedBytes;
 
                 if (deploymentBytes > maxDeploymentBytes) {
-                  throw new Error(
-                    `Combined deployment assets cannot exceed ${maxDeploymentBytes} bytes after decompression.`
+                  return yield* Effect.fail(
+                    new UploadValidationError(
+                      `Combined deployment assets cannot exceed ${maxDeploymentBytes} bytes after decompression.`
+                    )
                   );
                 }
-              }).pipe(
-                Effect.tap(() =>
-                  attempt(async () => {
-                    await db
-                      .update(appDeploymentFile)
-                      .set({ status: "verified" })
-                      .where(eq(appDeploymentFile.id, file.id));
-                  })
-                )
-              )
-            ).pipe(
-              Effect.onExit((exit) =>
-                Exit.isSuccess(exit)
-                  ? Effect.void
-                  : attempt(async () => {
+
+                return decodedBytes;
+              });
+
+              yield* restore(
+                verification.pipe(
+                  Effect.tap(() =>
+                    attempt(async () => {
                       await db
                         .update(appDeploymentFile)
-                        .set({ status: "failed" })
+                        .set({ status: "verified" })
                         .where(eq(appDeploymentFile.id, file.id));
-                      await db
-                        .update(appDeployment)
-                        .set({ status: "uploading" })
-                        .where(eq(appDeployment.id, deployment.id));
-                    }).pipe(Effect.orDie)
-              ),
-              Effect.mapError(
-                (error) =>
-                  new ORPCError("BAD_REQUEST", { message: error.message })
-              )
-            );
-          })
-        ),
-      { concurrency: 1, discard: true }
-    );
+                    })
+                  )
+                )
+              ).pipe(
+                Effect.onExit((exit) =>
+                  Exit.isSuccess(exit)
+                    ? Effect.void
+                    : attempt(async () => {
+                        await db
+                          .update(appDeploymentFile)
+                          .set({ status: "failed" })
+                          .where(eq(appDeploymentFile.id, file.id));
+                        await db
+                          .update(appDeployment)
+                          .set({ status: "uploading" })
+                          .where(eq(appDeployment.id, deployment.id));
+                      }).pipe(Effect.orDie)
+                ),
+                Effect.mapError(verificationFailure)
+              );
+            })
+          ),
+        { discard: true }
+      );
+      yield* verifyStaticAssets(storage, staticAssets, [
+        deployment.logoDarkPath,
+        deployment.logoLightPath,
+      ]);
 
-    yield* verifyStaticAssets(storage, staticAssets, [
-      deployment.logoDarkPath,
-      deployment.logoLightPath,
-    ]).pipe(
-      Effect.onError(() =>
-        attempt(async () => {
-          await db
-            .update(appDeployment)
-            .set({ status: "uploading" })
-            .where(eq(appDeployment.id, deployment.id));
-        }).pipe(Effect.orDie)
+      const [published] = yield* attempt(() =>
+        db
+          .update(appDeployment)
+          .set({ status: "published" })
+          .where(eq(appDeployment.id, deployment.id))
+          .returning()
+      ).pipe(Effect.uninterruptible);
+
+      if (!published) {
+        return yield* Effect.fail(
+          new ORPCError("BAD_REQUEST", {
+            message: "Failed to publish deployment.",
+          })
+        );
+      }
+
+      return published;
+    }).pipe(
+      Effect.mapError(verificationFailure),
+      Effect.onExit((exit) =>
+        Exit.isSuccess(exit)
+          ? Effect.void
+          : attempt(async () => {
+              await db
+                .update(appDeployment)
+                .set({ status: "uploading" })
+                .where(eq(appDeployment.id, deployment.id));
+            }).pipe(Effect.orDie)
       )
     );
 
-    return files;
+    return { files, publishedDeployment };
   });
