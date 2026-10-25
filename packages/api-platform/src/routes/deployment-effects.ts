@@ -4,6 +4,10 @@ import { z } from "zod";
 
 import type { Context } from "#context";
 
+const isDeploymentError = (
+  cause: unknown
+): cause is ORPCError<string, unknown> => cause instanceof ORPCError;
+
 /** A 400 requires correcting/re-uploading invalid bytes; a 503 can retry publication. */
 /* oxlint-disable unicorn/custom-error-definition -- ORPCError has a branded readonly name that subclasses must preserve. */
 export class UploadValidationError extends ORPCError<"BAD_REQUEST", undefined> {
@@ -61,7 +65,7 @@ export const deploymentOperation = <A>(
 ) =>
   Effect.tryPromise({
     catch: (cause) =>
-      cause instanceof ORPCError
+      isDeploymentError(cause)
         ? cause
         : new ORPCError("INTERNAL_SERVER_ERROR", {
             cause,

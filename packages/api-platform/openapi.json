@@ -5784,6 +5784,23 @@
               }
             }
           },
+          "409": {
+            "description": "Deployment publication is already in progress.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Conflict"
+                    },
+                    {
+                      "$ref": "#/components/schemas/UndefinedError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "503": {
             "description": "Deployment verification is temporarily unavailable. Retry publishing this deployment.",
             "content": {
@@ -5967,6 +5984,23 @@
           },
           "code": {
             "const": "BAD_REQUEST"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {}
+        },
+        "required": ["defined", "code", "message"]
+      },
+      "Conflict": {
+        "title": "CONFLICT",
+        "type": "object",
+        "properties": {
+          "defined": {
+            "const": true
+          },
+          "code": {
+            "const": "CONFLICT"
           },
           "message": {
             "type": "string"

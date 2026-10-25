@@ -11,9 +11,12 @@ import {
   staticAssetContentType,
 } from "@patchsmith/asset-delivery/static-assets";
 import { db } from "@patchsmith/db";
+import type { relations } from "@patchsmith/db/relations";
 import type { AppAsset } from "@patchsmith/db/schema/apps";
 import { appAsset, appDeploymentAsset } from "@patchsmith/db/schema/apps";
 import { inArray } from "drizzle-orm";
+import type { PgQueryResultHKT } from "drizzle-orm/pg-core";
+import type { PgAsyncDatabase } from "drizzle-orm/pg-core/async";
 import { Effect } from "effect";
 import { z } from "zod";
 
@@ -193,10 +196,13 @@ export const linkStaticAssets = (
     return uploads;
   });
 
-export const deploymentStaticAssets = (deploymentId: string) =>
+export const deploymentStaticAssets = (
+  deploymentId: string,
+  query: typeof db.query = db.query
+): Effect.Effect<AppAsset[], ORPCError<string, unknown>> =>
   Effect.gen(function* readAssets() {
     const references = yield* deploymentOperation(() =>
-      db.query.appDeploymentAsset.findMany({
+      query.appDeploymentAsset.findMany({
         where: { appDeploymentId: deploymentId },
         with: { asset: true },
       })
@@ -219,10 +225,11 @@ export const deploymentStaticAssets = (deploymentId: string) =>
   });
 
 /** Signed uploads bind SHA-256 to the bytes; publication also verifies R2 metadata. */
-export const verifyStaticAssets = (
+export const verifyStaticAssets = <TResult extends PgQueryResultHKT>(
   storage: Context["storage"],
   assets: AppAsset[],
-  logoPaths: (string | null)[]
+  logoPaths: (string | null)[],
+  database: PgAsyncDatabase<TResult, typeof relations>
 ) =>
   Effect.gen(function* verifyAssets() {
     const verifiedIds = yield* Effect.forEach(
@@ -295,7 +302,7 @@ export const verifyStaticAssets = (
     if (verifiedIds.length > 0) {
       // Do not leave a database write running after cancellation has returned.
       yield* deploymentOperation(() =>
-        db
+        database
           .update(appAsset)
           .set({ status: "verified" })
           .where(inArray(appAsset.id, verifiedIds))
