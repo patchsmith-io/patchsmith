@@ -28,6 +28,26 @@ export type GatewayTimeout = {
   data?: unknown;
 };
 
+/**
+ * BAD_REQUEST
+ */
+export type BadRequest = {
+  defined: true;
+  code: 'BAD_REQUEST';
+  message: string;
+  data?: unknown;
+};
+
+/**
+ * SERVICE_UNAVAILABLE
+ */
+export type ServiceUnavailable = {
+  defined: true;
+  code: 'SERVICE_UNAVAILABLE';
+  message: string;
+  data?: unknown;
+};
+
 export type AppAgentChatData = {
   body: {
     app: {
@@ -1424,6 +1444,19 @@ export type DeploymentsPublishData = {
   query?: never;
   url: '/deployments/{deploymentId}';
 };
+
+export type DeploymentsPublishErrors = {
+  /**
+   * Invalid deployment upload. Correct the upload before publishing again.
+   */
+  400: BadRequest | UndefinedError;
+  /**
+   * Deployment verification is temporarily unavailable. Retry publishing this deployment.
+   */
+  503: ServiceUnavailable | UndefinedError;
+};
+
+export type DeploymentsPublishError = DeploymentsPublishErrors[keyof DeploymentsPublishErrors];
 
 export type DeploymentsPublishResponses = {
   /**
