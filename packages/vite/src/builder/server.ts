@@ -47,30 +47,55 @@ const overlaps = (source: string, destination: string) => {
   return contains(source, destination) || contains(destination, source);
 };
 
+const canonicalBuildPath = async (filename: string): Promise<string> => {
+  try {
+    return await realpath(filename);
+  } catch (error) {
+    const parent = path.dirname(filename);
+
+    if (!isMissingFile(error) || parent === filename) {
+      throw error;
+    }
+
+    return path.join(await canonicalBuildPath(parent), path.basename(filename));
+  }
+};
+
 /** Check before either build can empty an output directory. */
-export const validateServerBuildOutput = (
+export const validateServerBuildOutput = async (
   loaded: LoadedPatchsmithConfig,
   output: string
 ) => {
-  const migrationsDirectory = appDatabasePaths(
-    loaded.root,
-    loaded.config.server?.migrations
-  ).migrations;
+  const [canonicalOutput, migrationsDirectory, configPath, protectedPaths] =
+    await Promise.all([
+      canonicalBuildPath(path.resolve(output)),
+      canonicalBuildPath(
+        appDatabasePaths(loaded.root, loaded.config.server?.migrations)
+          .migrations
+      ),
+      canonicalBuildPath(path.resolve(loaded.filepath)),
+      Promise.all(
+        ["src", "assets", "node_modules"].map(
+          async (name) =>
+            await canonicalBuildPath(path.resolve(loaded.root, name))
+        )
+      ),
+    ]);
 
-  if (overlaps(migrationsDirectory, output)) {
+  if (overlaps(migrationsDirectory, canonicalOutput)) {
     throw new Error("App build output must not overlap migration source");
   }
 
-  for (const name of ["src", "assets", "node_modules"]) {
-    if (overlaps(path.join(loaded.root, name), output)) {
+  for (const protectedPath of protectedPaths) {
+    if (overlaps(protectedPath, canonicalOutput)) {
       throw new Error(
         "App build output must not overlap source or dependency directories"
       );
     }
   }
 
-  if (containsImplementation(output, loaded.filepath)) {
-    throw new Error("App build output must not contain the app config");
+  if (overlaps(configPath, canonicalOutput)) {
+    throw new Error("App build output must not overlap the app config");
   }
 };
 
@@ -107,7 +132,7 @@ export const buildServer = async (
 
   const migrationsOutput = path.join(output, "migrations");
   const temporaryRoot = path.join(output, "tmp");
-  validateServerBuildOutput(loaded, output);
+  await validateServerBuildOutput(loaded, output);
   await rm(directory, { force: true, recursive: true });
   await mkdir(directory, { recursive: true });
   await mkdir(temporaryRoot, { recursive: true });

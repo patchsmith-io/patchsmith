@@ -178,7 +178,7 @@ it.each([".patchsmith", ".patchsmith/custom"])(
   }
 );
 
-it("rejects output paths that would erase source, dependencies or configuration", () => {
+it("rejects output paths that would erase source, dependencies or configuration", async () => {
   const root = path.join(tmpdir(), "patchsmith-output-guard");
 
   const loaded = {
@@ -192,7 +192,7 @@ it("rejects output paths that would erase source, dependencies or configuration"
     root,
   };
 
-  for (const directory of [
+  const rejectedDirectories = [
     ".",
     "..",
     "src",
@@ -202,16 +202,83 @@ it("rejects output paths that would erase source, dependencies or configuration"
     "database",
     "database/history/nested",
     "config",
-  ]) {
-    expect(() => {
-      validateServerBuildOutput(loaded, path.resolve(root, directory));
-    }).toThrow("App build output must not");
-  }
+    "config/patchsmith.config.mjs/nested",
+  ];
 
-  expect(() => {
-    validateServerBuildOutput(loaded, path.join(root, ".patchsmith/custom"));
-  }).not.toThrow();
+  await Promise.all(
+    rejectedDirectories.map(async (directory) => {
+      await expect(
+        validateServerBuildOutput(loaded, path.resolve(root, directory))
+      ).rejects.toThrow("App build output must not");
+    })
+  );
+
+  await expect(
+    validateServerBuildOutput(loaded, path.join(root, ".patchsmith/custom"))
+  ).resolves.toBeUndefined();
 });
+
+it.each(["src", "assets", "node_modules", "database/history", "config.mjs"])(
+  "rejects output overlapping the canonical target of %s",
+  async (protectedPath) => {
+    const root = await realpath(
+      await mkdtemp(path.join(tmpdir(), "patchsmith-canonical-output-"))
+    );
+
+    try {
+      const target = path.join(root, "retained");
+      await mkdir(target);
+      await writeFile(path.join(target, "keep.txt"), "keep");
+      await mkdir(path.dirname(path.join(root, protectedPath)), {
+        recursive: true,
+      });
+
+      const isConfig = protectedPath === "config.mjs";
+      const configTarget = path.join(target, "app.mjs");
+
+      if (isConfig) {
+        await writeFile(configTarget, "export default {};");
+      }
+
+      await symlink(
+        isConfig ? configTarget : target,
+        path.join(root, protectedPath),
+        isConfig ? "file" : "dir"
+      );
+
+      const loaded = {
+        config: {
+          host: "https://host.test",
+          name: "Test App",
+          server: { migrations: "database/history" },
+          slug: "test-app",
+        },
+        filepath: path.join(root, "config.mjs"),
+        root,
+      };
+
+      await expect(validateServerBuildOutput(loaded, target)).rejects.toThrow(
+        "App build output must not overlap"
+      );
+
+      if (!isConfig) {
+        await expect(
+          validateServerBuildOutput(loaded, path.join(target, "missing/nested"))
+        ).rejects.toThrow("App build output must not overlap");
+        await symlink(target, path.join(root, "output-alias"), "dir");
+        await expect(
+          validateServerBuildOutput(loaded, path.join(root, "output-alias/new"))
+        ).rejects.toThrow("App build output must not overlap");
+      }
+
+      expect(await readFile(path.join(target, "keep.txt"), "utf-8")).toBe(
+        "keep"
+      );
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  }
+);
 
 it.each([
   {

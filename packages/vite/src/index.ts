@@ -383,7 +383,7 @@ export const patchsmith = (options: PatchsmithPluginOptions = {}): Plugin[] => {
         preactVersion = getInstalledPreactVersion(loaded.root);
         assertSupportedPreactVersion(preactVersion);
         resolvedOutDir = path.resolve(loaded.root, outputDirectory);
-        validateServerBuildOutput(loaded, resolvedOutDir);
+        await validateServerBuildOutput(loaded, resolvedOutDir);
         clientOutDir = path.join(resolvedOutDir, "client");
 
         await rejectSymlinkedOutput(resolvedOutDir);
