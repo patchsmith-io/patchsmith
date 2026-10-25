@@ -515,10 +515,7 @@ it("builds file routes with discovered functions and blocks server imports from 
 
     // The host deployment tool must build beneath the app so the generated
     // temporary server entry can resolve patchsmith/server from node_modules.
-    const deploymentOutput = path.join(
-      await realpath(root),
-      ".patchsmith/agent-deployment"
-    );
+    const deploymentOutput = path.join(root, ".patchsmith/agent-deployment");
 
     await buildFixture({ cwd: root, outDir: deploymentOutput });
     expect(
@@ -820,6 +817,43 @@ describe("database app builds", () => {
     });
   });
 
+  it.each(["app", "parent"])(
+    "normalizes an absolute output's inherited %s symlink",
+    async (prefix) => {
+      await withDatabaseApp(async (root) => {
+        const external = await mkdtemp(
+          path.join(tmpdir(), "patchsmith-output-")
+        );
+
+        try {
+          const alias = path.join(root, "alias");
+          await symlink(
+            prefix === "app" ? root : path.dirname(root),
+            alias,
+            "dir"
+          );
+
+          const cwd =
+            prefix === "app" ? alias : path.join(alias, path.basename(root));
+
+          const outDir =
+            prefix === "app"
+              ? path.join(cwd, ".patchsmith/custom")
+              : path.join(alias, path.basename(external), "custom");
+
+          await buildFixture({ cwd, outDir });
+          expect(
+            await readFile(path.join(outDir, "client/client.js"), "utf-8")
+          ).toContain("globalThis.__patchsmithAssets");
+          const stats = await lstat(alias);
+          expect(stats.isSymbolicLink()).toBe(true);
+        } finally {
+          await rm(external, { force: true, recursive: true });
+        }
+      });
+    }
+  );
+
   it.each(["linked", "linked/output", "linked/missing/output"])(
     "rejects symlinked build output at %s without deleting target files",
     async (outDir) => {
@@ -833,6 +867,9 @@ describe("database app builds", () => {
         await expect(buildFixture({ cwd: root, outDir })).rejects.toThrow(
           "App build output must not traverse a symlink"
         );
+        await expect(
+          buildFixture({ cwd: root, outDir: path.resolve(root, outDir) })
+        ).rejects.toThrow("App build output must not traverse a symlink");
         expect(await readFile(sentinel, "utf-8")).toBe("keep");
         const linkStats = await lstat(path.join(root, "linked"));
         expect(linkStats.isSymbolicLink()).toBe(true);

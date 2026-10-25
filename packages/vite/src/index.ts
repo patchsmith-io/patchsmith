@@ -36,6 +36,36 @@ const requireValue = <T>(value: T | null | undefined): T => {
 
 const preactPackageJson = "preact/package.json";
 
+const normalizeAbsoluteOutput = async (
+  root: string,
+  configuredRoot: string,
+  output: string
+) => {
+  let shared =
+    (await realpath(configuredRoot)) === root ? configuredRoot : root;
+
+  let relative = path.relative(shared, output);
+
+  while (
+    relative === ".." ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative)
+  ) {
+    const parent = path.dirname(shared);
+
+    if (parent === shared) {
+      return output;
+    }
+
+    shared = parent;
+    relative = path.relative(shared, output);
+  }
+
+  // Only normalize the prefix inherited from the app root. Output-specific
+  // path components must remain visible to rejectSymlinkedOutput.
+  return path.resolve(await realpath(shared), relative);
+};
+
 const rejectSymlinkedOutput = async (output: string) => {
   const paths = [output];
   let current = output;
@@ -127,6 +157,7 @@ export const patchsmith = (options: PatchsmithPluginOptions = {}): Plugin[] => {
   let loaded: LoadedPatchsmithConfig;
   let preactVersion: string;
   let outputDirectory: string;
+  let configuredRoot: string;
 
   let resolvedOutDir: string;
   let clientOutDir: string;
@@ -337,6 +368,8 @@ export const patchsmith = (options: PatchsmithPluginOptions = {}): Plugin[] => {
         );
         watching = Boolean(config.build?.watch);
         outputDirectory = config.build?.outDir ?? ".patchsmith";
+        // Vite canonicalizes config.root before configResolved runs.
+        configuredRoot = path.resolve(config.root ?? ".");
 
         return {
           build: {
@@ -382,7 +415,13 @@ export const patchsmith = (options: PatchsmithPluginOptions = {}): Plugin[] => {
         loaded.root = await realpath(root);
         preactVersion = getInstalledPreactVersion(loaded.root);
         assertSupportedPreactVersion(preactVersion);
-        resolvedOutDir = path.resolve(loaded.root, outputDirectory);
+        resolvedOutDir = path.isAbsolute(outputDirectory)
+          ? await normalizeAbsoluteOutput(
+              loaded.root,
+              configuredRoot,
+              outputDirectory
+            )
+          : path.resolve(loaded.root, outputDirectory);
         await validateServerBuildOutput(loaded, resolvedOutDir);
         clientOutDir = path.join(resolvedOutDir, "client");
 
