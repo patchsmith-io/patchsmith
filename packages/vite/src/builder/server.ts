@@ -57,10 +57,20 @@ export const validateServerBuildOutput = (
     loaded.config.server?.migrations
   ).migrations;
 
-  for (const name of ["server", "client", "migrations", "tmp"]) {
-    if (overlaps(migrationsDirectory, path.join(output, name))) {
-      throw new Error("App build output must not overlap migration source");
+  if (overlaps(migrationsDirectory, output)) {
+    throw new Error("App build output must not overlap migration source");
+  }
+
+  for (const name of ["src", "assets", "node_modules"]) {
+    if (overlaps(path.join(loaded.root, name), output)) {
+      throw new Error(
+        "App build output must not overlap source or dependency directories"
+      );
     }
+  }
+
+  if (containsImplementation(output, loaded.filepath)) {
+    throw new Error("App build output must not contain the app config");
   }
 };
 

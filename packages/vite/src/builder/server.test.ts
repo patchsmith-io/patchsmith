@@ -32,7 +32,7 @@ import { patchsmith } from "#index";
 import { linkTestDependencies, createDatabaseTestApp } from "#test-utils";
 
 import { readClientManifest } from "./client-views";
-import { runtimeManifest } from "./server";
+import { runtimeManifest, validateServerBuildOutput } from "./server";
 import { patchsmithUploadManifestSchema } from "./upload-manifest";
 
 const requireValue = <T>(value: T | null | undefined): T => {
@@ -96,7 +96,7 @@ const router = (
       export default defineRouter({ ${keys} });`;
 
 it.each([".patchsmith", ".patchsmith/custom"])(
-  "replaces a legacy logo manifest when rebuilding into %s",
+  "clears previous build artifacts and replaces a legacy logo manifest in %s",
   async (outDir) => {
     const root = await mkdtemp(
       path.join(tmpdir(), "patchsmith-stale-manifest-")
@@ -120,6 +120,18 @@ it.each([".patchsmith", ".patchsmith/custom"])(
         path.join(root, "assets/logo.svg"),
         '<svg xmlns="http://www.w3.org/2000/svg"/>'
       );
+
+      await Promise.all(
+        ["logos", "assets", "tmp/interrupted-build"].map(async (directory) => {
+          await mkdir(path.join(root, outDir, directory), { recursive: true });
+          await writeFile(
+            path.join(root, outDir, directory, "obsolete.txt"),
+            "old"
+          );
+        })
+      );
+
+      await writeFile(path.join(root, outDir, "obsolete.txt"), "old");
       const manifestPath = path.join(root, outDir, "patchsmith-upload.json");
       await writeFile(
         manifestPath,
@@ -142,11 +154,61 @@ it.each([".patchsmith", ".patchsmith/custom"])(
         expect.objectContaining({ path: "logo.svg" }),
       ]);
       expect(manifest.hooks).toEqual([]);
+
+      const outputFiles = await readdir(path.join(root, outDir));
+
+      expect(outputFiles.toSorted()).toEqual([
+        "assets",
+        "client",
+        "migrations",
+        "patchsmith-upload.json",
+        "server",
+        "tmp",
+      ]);
+      expect(await readdir(path.join(root, outDir, "assets"))).toEqual([
+        "logo.svg",
+      ]);
+      expect(await readdir(path.join(root, outDir, "tmp"))).toEqual([]);
     } finally {
       await rm(root, { force: true, recursive: true });
     }
   }
 );
+
+it("rejects output paths that would erase source, dependencies or configuration", () => {
+  const root = path.join(tmpdir(), "patchsmith-output-guard");
+
+  const loaded = {
+    config: {
+      host: "https://host.test",
+      name: "Test App",
+      server: { migrations: "database/history" },
+      slug: "test-app",
+    },
+    filepath: path.join(root, "config/patchsmith.config.mjs"),
+    root,
+  };
+
+  for (const directory of [
+    ".",
+    "..",
+    "src",
+    "src/build",
+    "assets",
+    "node_modules",
+    "database",
+    "database/history/nested",
+    "config",
+  ]) {
+    expect(() => {
+      validateServerBuildOutput(loaded, path.resolve(root, directory));
+    }).toThrow("App build output must not");
+  }
+
+  expect(() => {
+    validateServerBuildOutput(loaded, path.join(root, ".patchsmith/custom"));
+  }).not.toThrow();
+});
 
 it.each([
   {

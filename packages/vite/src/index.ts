@@ -152,11 +152,6 @@ export const patchsmith = (options: PatchsmithPluginOptions = {}): Plugin[] => {
       await serverWatcher.close();
     }
 
-    // The server build must not validate a previous build's upload manifest.
-    await rm(path.join(resolvedOutDir, "patchsmith-upload.json"), {
-      force: true,
-    });
-
     const hooks = await discoverHooks(loaded.root);
 
     const viteConfig = {
@@ -354,6 +349,8 @@ export const patchsmith = (options: PatchsmithPluginOptions = {}): Plugin[] => {
         resolvedOutDir = path.resolve(loaded.root, outputDirectory);
         validateServerBuildOutput(loaded, resolvedOutDir);
         clientOutDir = path.join(resolvedOutDir, "client");
+
+        await rm(resolvedOutDir, { force: true, recursive: true });
 
         functionEntry = await createFileFunctionEntry(
           loaded.root,
