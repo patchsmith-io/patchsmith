@@ -1,0 +1,34 @@
+packages/vite/src/builder/hooks.ts
+  s_b4bfa41e55b603::t_d273059d167b40 11,88,114,116-117
+packages/vite/src/builder/file-functions.ts
+  s_b4bfa41e55b603::t_d273059d167b40 17,192-194
+  s_b4bfa41e55b603::t_74a5305a49da2d 196-203
+packages/vite/src/builder/watch-source-directory.test.ts
+  s_b4bfa41e55b603::t_4c8b6b4ae843d5 1-79
+  s_b4bfa41e55b603::t_68fb4b9502f4c7 80-82
+  s_b4bfa41e55b603::t_57185ebb4c0f3f 83-120
+packages/vite/src/builder/watch-source-directory.ts
+  s_b4bfa41e55b603::t_4c8b6b4ae843d5 7
+  s_b4bfa41e55b603::t_d273059d167b40 1-6,8-60
+  s_b4bfa41e55b603::t_f2c5a3dc2a937a 61-63
+  s_b4bfa41e55b603::t_b82da7ebc7c444 64-67
+packages/vite/src/builder/file-routes.ts
+  s_b4bfa41e55b603::t_d273059d167b40 1,12,341-343
+  s_b4bfa41e55b603::t_85b4f419c3f23a 345-352
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c8b5883da451ddd40c2379c4085addc0395d0e86",
+  "prompts": {},
+  "sessions": {
+    "s_b4bfa41e55b603": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a170ae-5946-7523-87d6-7e1151f002c4",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
