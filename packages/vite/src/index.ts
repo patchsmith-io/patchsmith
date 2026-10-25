@@ -1,4 +1,4 @@
-import { realpath, writeFile } from "node:fs/promises";
+import { realpath, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 
@@ -151,6 +151,11 @@ export const patchsmith = (options: PatchsmithPluginOptions = {}): Plugin[] => {
     if (serverWatcher && "close" in serverWatcher) {
       await serverWatcher.close();
     }
+
+    // The server build must not validate a previous build's upload manifest.
+    await rm(path.join(resolvedOutDir, "patchsmith-upload.json"), {
+      force: true,
+    });
 
     const hooks = await discoverHooks(loaded.root);
 

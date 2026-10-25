@@ -33,6 +33,7 @@ import { linkTestDependencies, createDatabaseTestApp } from "#test-utils";
 
 import { readClientManifest } from "./client-views";
 import { runtimeManifest } from "./server";
+import { patchsmithUploadManifestSchema } from "./upload-manifest";
 
 const requireValue = <T>(value: T | null | undefined): T => {
   if (value === null || value === undefined) {
@@ -93,6 +94,59 @@ const router = (
 ) => `import { defineRouter, fn } from "patchsmith/server";
       const read = fn.query.handler(() => { throw new Error("HANDLERS_MUST_NOT_RUN_DURING_BUILDS"); });
       export default defineRouter({ ${keys} });`;
+
+it.each([".patchsmith", ".patchsmith/custom"])(
+  "replaces a legacy logo manifest when rebuilding into %s",
+  async (outDir) => {
+    const root = await mkdtemp(
+      path.join(tmpdir(), "patchsmith-stale-manifest-")
+    );
+
+    try {
+      await linkTestDependencies(root);
+      await mkdir(path.join(root, "src"));
+      await mkdir(path.join(root, "assets"));
+      await mkdir(path.join(root, outDir), { recursive: true });
+      await writeFile(path.join(root, "package.json"), '{"type":"module"}');
+      await writeFile(
+        path.join(root, "patchsmith.config.mjs"),
+        'export default { name: "Test App", slug: "test-app", host: "https://host.test", logos: { light: "logo.svg" } };'
+      );
+      await writeFile(
+        path.join(root, "src/root.tsx"),
+        'import { defineRoute } from "patchsmith/client"; export default defineRoute({ shellComponent: () => "client" });'
+      );
+      await writeFile(
+        path.join(root, "assets/logo.svg"),
+        '<svg xmlns="http://www.w3.org/2000/svg"/>'
+      );
+      const manifestPath = path.join(root, outDir, "patchsmith-upload.json");
+      await writeFile(
+        manifestPath,
+        JSON.stringify({
+          assets: { client: "client/client.js", logos: { light: "logo.svg" } },
+          hooks: ["obsolete"],
+          version: 1,
+        })
+      );
+
+      await buildFixture({ cwd: root, outDir });
+
+      const manifest = v.parse(
+        patchsmithUploadManifestSchema,
+        JSON.parse(await readFile(manifestPath, "utf-8"))
+      );
+
+      expect(manifest.assets.logos).toEqual({ light: "logo.svg" });
+      expect(manifest.assets.static).toEqual([
+        expect.objectContaining({ path: "logo.svg" }),
+      ]);
+      expect(manifest.hooks).toEqual([]);
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  }
+);
 
 it.each([
   {
