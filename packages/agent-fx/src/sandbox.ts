@@ -1,4 +1,3 @@
-import { createVercelNetworkSandboxSessionFromNativeSandbox } from "@ai-sdk/sandbox-vercel";
 import { APIError, Drive, Sandbox } from "@vercel/sandbox";
 
 import type { AppAgentInput } from "./input";
@@ -16,16 +15,6 @@ export const getSandbox = async (name: string) => {
   }
 
   return sandbox;
-};
-
-export const sandboxSession = (sandbox: Sandbox) => {
-  const session = createVercelNetworkSandboxSessionFromNativeSandbox(sandbox);
-  // The adapter has no cwd option; relative fx paths must point at the mounted app.
-  Object.defineProperty(session, "defaultWorkingDirectory", {
-    value: "/workspace/app",
-  });
-
-  return session;
 };
 
 const prepareWorkspace = async (sandbox: Sandbox) => {
@@ -101,13 +90,17 @@ export const prepareSandbox = async (input: AppAgentInput, resume: boolean) => {
   return await prepareWorkspace(sandbox);
 };
 
-export const deleteSandbox = async (threadId: string) => {
+export const deleteSandboxByName = async (name: string) => {
   try {
-    const sandbox = await Sandbox.get({ name: sandboxName(threadId) });
+    const sandbox = await Sandbox.get({ name });
     await sandbox.delete({ deleteOrphanSnapshots: true });
   } catch (error) {
     if (!(error instanceof APIError && error.response.status === 404)) {
       throw error;
     }
   }
+};
+
+export const deleteSandbox = async (threadId: string) => {
+  await deleteSandboxByName(sandboxName(threadId));
 };

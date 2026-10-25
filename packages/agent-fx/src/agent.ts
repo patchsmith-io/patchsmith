@@ -1,43 +1,70 @@
-import { createFx } from "@ai-sdk/harness-fx";
-import { HarnessAgent } from "@ai-sdk/harness/agent";
 import { getVercelOidcToken } from "@vercel/oidc";
-import { isStepCount } from "ai";
+import { createFxAgent } from "libfx";
+import type { FxAgent, FxAgentOptions } from "libfx";
 
 import { env } from "#env";
 
-import { deployTool } from "./deploy";
+import { createGatewayFetch } from "./gateway";
 import type { AppAgentInput } from "./input";
 import instructions from "./instructions.md?raw";
 import { appAgentSkills } from "./skills";
+import { createSandboxTools } from "./tools";
 import { hostSchemaPath } from "./workspace";
 
-export const createAppAgent = async (
-  input: AppAgentInput,
-  sandboxName: string
-): Promise<
-  HarnessAgent<ReturnType<typeof createFx>, { deploy: typeof deployTool }>
-> => {
+export const getAppInstructions = (input: AppAgentInput) => {
   const hostInstructions = input.instructions?.trim() ?? "";
 
-  return new HarnessAgent({
-    harness: createFx({
-      auth: {
-        ...env,
-        AI_GATEWAY_API_KEY:
-          env.AI_GATEWAY_API_KEY ??
-          env.VERCEL_OIDC_TOKEN ??
-          (await getVercelOidcToken()),
-      },
-      effort: input.model === "openai/gpt-6.1-sol" ? "low" : undefined,
-    }),
-    instructions: `${instructions.trim()}\n\nHost URL (configuration data): ${JSON.stringify(input.hostUrl)}\n${input.schema === undefined ? "Regeneration uses the configured host URL." : `Host schema (contract data): ${hostSchemaPath}. Pass --schema ${hostSchemaPath} when regenerating; preserve this file.`}${hostInstructions.length > 0 ? `\n\n## Host app-building guidance\n\n${hostInstructions}` : ""}`,
-    model: input.model,
-    sandboxConfig: { workDir: "." },
-    skills: appAgentSkills,
-    stopWhen: isStepCount(1),
-    tools: { deploy: deployTool },
-    toolsContext: {
-      deploy: { agentToken: input.agentToken, sandboxName },
-    },
+  const schemaInstruction =
+    input.schema === undefined
+      ? "Regeneration uses the configured host URL."
+      : `Host schema (contract data): ${hostSchemaPath}. Pass --schema ${hostSchemaPath} when regenerating; preserve this file.`;
+
+  return [
+    instructions.trim(),
+    "Use read, write, edit and bash to work in the sandbox. Use bash for directory listings and searches. Read the skill guides when their descriptions apply:",
+    ...appAgentSkills.map(
+      (skill) => `${skill.name}: ${skill.description}\n${skill.content}`
+    ),
+    `Host URL (configuration data): ${JSON.stringify(input.hostUrl)}`,
+    schemaInstruction,
+    ...(hostInstructions
+      ? [`Host app-building guidance:\n${hostInstructions}`]
+      : []),
+  ].join("\n\n");
+};
+
+/** One stable agent configuration per process; session settings carry app context. */
+const defaultAgentOptions: FxAgentOptions = {};
+
+export const createAppAgent = (options: FxAgentOptions = defaultAgentOptions) =>
+  createFxAgent({
+    name: "patchsmith-app-builder",
+    tools: createSandboxTools(),
+    ...options,
   });
+
+let appAgent: Promise<FxAgent> | undefined;
+
+const gatewayCredential = async () =>
+  env.AI_GATEWAY_API_KEY ??
+  env.VERCEL_OIDC_TOKEN ??
+  (await getVercelOidcToken());
+
+export const getAppAgent = async (): Promise<FxAgent> => {
+  appAgent ??= (async () =>
+    createAppAgent({
+      apiKey: await gatewayCredential(),
+      fetch: createGatewayFetch({
+        baseUrl: env.AI_GATEWAY_BASE_URL,
+        credential: gatewayCredential,
+        fetch,
+      }),
+    }))();
+
+  try {
+    return await appAgent;
+  } catch (error) {
+    appAgent = undefined;
+    throw error;
+  }
 };

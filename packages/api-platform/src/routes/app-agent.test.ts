@@ -12,6 +12,7 @@ import { readUIMessageStream } from "ai";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { createAgentStreamToken } from "#agent-stream-token";
+import { fixtureAgentStream } from "#agent-stream.test-utils";
 import type { Context } from "#context";
 import { env } from "#env";
 import { canonicalizeScope } from "#scope";
@@ -35,7 +36,7 @@ const mocks = vi.hoisted(() => ({
     ) => Promise<{
       runId: string;
       cancel?: () => void | Promise<void>;
-      getReadable: (...args: never[]) => ReadableStream;
+      getReadable: (options?: { startIndex: number }) => ReadableStream;
       returnValue: Promise<unknown>;
     }>
   >(),
@@ -63,6 +64,29 @@ vi.mock("@patchsmith/api-utils/rate-limiting", () => ({
     () =>
     async <TResult>({ next }: { next: () => TResult }) =>
       await next(),
+}));
+
+vi.mock("@patchsmith/agent-fx", () => ({
+  getAppAgentStream: (
+    _appId: string,
+    _threadId: string,
+    _runId: string,
+    startIndex?: number
+  ) => {
+    const resumed = mocks.getRun.mock.results.at(-1);
+
+    if (resumed?.type === "return") {
+      return fixtureAgentStream(resumed.value, startIndex);
+    }
+
+    const started = mocks.start.mock.results.at(-1);
+
+    if (started?.type !== "return") {
+      throw new Error("Missing test run.");
+    }
+
+    return fixtureAgentStream(started.value, startIndex);
+  },
 }));
 
 vi.mock("@patchsmith/agent-fx/workflows", () => ({ appAgent: vi.fn() }));

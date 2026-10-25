@@ -19,30 +19,33 @@
     "./workflows": {
       "types": "./dist/workflows.d.mts",
       "import": "./src/workflows.ts"
+    },
+    "./server": {
+      "types": "./dist/server.d.mts",
+      "import": "./dist/server.mjs"
     }
   },
   "scripts": {
-    "build": "vp pack src/index.ts src/workflows.ts --format esm --dts --clean",
+    "build": "vp pack src/index.ts src/workflows.ts src/server.ts --format esm --dts --clean",
     "check-types": "tsc --noEmit",
     "test": "vp test run",
     "lint": "vp lint .",
     "lint:fix": "vp lint --fix ."
   },
   "dependencies": {
-    "@ai-sdk/harness": "1.0.154",
-    "@ai-sdk/harness-fx": "1.0.69",
-    "@ai-sdk/sandbox-vercel": "1.0.154",
-    "@ai-sdk/workflow-harness": "1.0.154",
+    "@patchsmith/api-utils": "workspace:*",
     "@patchsmith/db": "workspace:*",
     "@patchsmith/env": "workspace:*",
     "@vercel/oidc": "4.0.1",
     "@vercel/sandbox": "3.8.0",
     "ai": "catalog:fx",
     "drizzle-orm": "catalog:",
+    "libfx": "0.0.14",
     "workflow": "5.2.2",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.10",
     "@patchsmith/config": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:",

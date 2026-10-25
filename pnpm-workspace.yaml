@@ -4,7 +4,6 @@ minimumReleaseAgeStrict: true
 minimumReleaseAgeExclude:
   - ultracite@8.0.0
   # Native libfx and isolated runtime auth require these releases (older fx uses ACP).
-  - "@ai-sdk/harness-fx@1.0.69"
   - "@ai-sdk/harness@1.0.154"
   - "@ai-sdk/mcp@2.0.78"
   - "@ai-sdk/provider@4.0.29"
@@ -31,7 +30,7 @@ packages:
   - playground/apps/*
   - packages/*
 
-# fx requires a newer AI SDK; keep the existing agent on its original catalog.
+# Keep the native FX transport on the existing AI SDK UI types.
 catalogs:
   fx:
     ai: 7.0.143
@@ -108,5 +107,3 @@ peerDependencyRules:
     - vite
   allowedVersions:
     vite: "*"
-patchedDependencies:
-  "@ai-sdk/harness-fx@1.0.69": patches/@ai-sdk__harness-fx@1.0.69.patch

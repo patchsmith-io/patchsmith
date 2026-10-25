@@ -1,73 +1,117 @@
-import type { HarnessV1ResumeSessionState } from "@ai-sdk/harness";
-import {
-  createHarnessWorkflowState,
-  finalizeHarnessWorkflow,
-} from "@ai-sdk/workflow-harness";
-import { FatalError, getWorkflowMetadata } from "workflow";
+import { FatalError, getWorkflowMetadata, sleep } from "workflow";
 
-import { agentStep } from "./agent-step";
 import type { AppAgentInput } from "./input";
+import type { NativeSessionState } from "./native-state";
 
-const start = async (input: AppAgentInput, runId: string) => {
+const prepare = async (input: AppAgentInput, runId: string) => {
   "use step";
   const { startTurn } = await import("./session");
 
   return await startTurn(input, runId);
 };
 
-const finish = async (
+const submit = async (
   input: AppAgentInput,
   runId: string,
-  resumeFrom: HarnessV1ResumeSessionState
+  state: NativeSessionState
 ) => {
   "use step";
-  const { finishTurn } = await import("./session");
-  await finishTurn(input, runId, resumeFrom);
+  const { submitTurn } = await import("./turn");
+  const { assertOwnership } = await import("./session");
+  await assertOwnership(input.appId, runId);
+  await submitTurn(input, runId, state);
 };
 
-export const cancelAppAgent = async (appId: string, runId: string) => {
+const observe = async (
+  state: NativeSessionState,
+  runId: string,
+  cursor: number
+) => {
   "use step";
-  const { cancelTurn } = await import("./session");
-  await cancelTurn(appId, runId);
+  const { observeTurn } = await import("./turn");
+
+  return await observeTurn(state.sessionId, runId, cursor);
 };
 
-/** One durable step per model step, using fx's own session checkpoints. */
+const cleanup = async (appId: string, runId: string, cancelled: boolean) => {
+  "use step";
+  const { finishTurn } = await import("./session");
+  await finishTurn(appId, runId, cancelled);
+};
+
+cleanup.maxRetries = 10;
+
+/** Lifecycle only. libfx owns the whole turn, tool results, recovery and output. */
 export const appAgent = async (input: AppAgentInput) => {
   "use workflow";
   const runId = getWorkflowMetadata().workflowRunId;
   const deadline = Date.now() + 30 * 60_000;
 
   try {
-    const resumeFrom = await start(input, runId);
+    const state = await prepare(input, runId);
+    await submit(input, runId, state);
+    let cursor = 0;
 
-    let state = createHarnessWorkflowState({
-      messages: input.messages,
-      resumeFrom,
-      sessionId: input.threadId,
-    });
-
-    do {
+    for (;;) {
       if (Date.now() >= deadline) {
         throw new FatalError(
           "The app agent exceeded its 30-minute turn budget."
         );
       }
 
-      // oxlint-disable-next-line no-await-in-loop -- Each model step continues the preceding checkpoint.
-      state = await agentStep(state, input, runId);
-    } while (state.status === "ready_for_next_step");
+      // oxlint-disable-next-line no-await-in-loop -- Observe one native turn until its persisted terminal event arrives.
+      const progress = await observe(state, runId, cursor);
+      ({ cursor } = progress);
 
-    const result = finalizeHarnessWorkflow(state);
+      if (progress.terminal) {
+        const { stopReason, error } = progress.terminal;
 
-    if (!state.resumeFrom) {
-      throw new FatalError("fx did not return resumable session state.");
+        if (stopReason === "error" || stopReason === "cancelled") {
+          throw new FatalError(
+            error?.message ?? "App agent turn was cancelled."
+          );
+        }
+
+        // oxlint-disable-next-line no-await-in-loop -- Finalize once the observed native turn is terminal.
+        await cleanup(input.appId, runId, false);
+
+        return {
+          finishReason: stopReason === "max_output_tokens" ? "length" : "stop",
+          sessionId: state.sessionId,
+          threadId: input.threadId,
+        };
+      }
+
+      // oxlint-disable-next-line no-await-in-loop -- Durable sleep releases the function while native libfx runs independently.
+      await sleep("1s");
     }
-
-    await finish(input, runId, state.resumeFrom);
-
-    return { ...result, threadId: input.threadId };
   } catch (error) {
-    await cancelAppAgent(input.appId, runId);
+    await cleanup(input.appId, runId, true);
     throw error;
   }
+};
+
+export const cleanupAppAgent = async (appId: string, runId: string) => {
+  "use workflow";
+  await cleanup(appId, runId, true);
+};
+
+/** External cancellation skips workflow catch blocks; start independent durable cleanup. */
+export const cancelAppAgent = async (appId: string, runId: string) => {
+  const { start } = await import("workflow/api");
+  const run = await start(cleanupAppAgent, [appId, runId]);
+  await run.returnValue;
+};
+
+const reconcile = async () => {
+  "use step";
+  const { reconcileTurns } = await import("./session");
+
+  return await reconcileTurns();
+};
+
+export const reconcileAppAgents = async () => {
+  "use workflow";
+
+  return await reconcile();
 };

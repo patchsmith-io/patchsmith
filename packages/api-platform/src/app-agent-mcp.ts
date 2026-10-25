@@ -115,10 +115,12 @@ export const handleAppAgentMcpRequest = async (
 
     // Discovery and tool definitions do not execute an agent. Keep workflow
     // startup and stream processing out of those requests' import graph.
-    const [{ appAgent, cancelAppAgent }, { start }] = await Promise.all([
-      import("@patchsmith/agent-fx/workflows"),
-      import("workflow/api"),
-    ]);
+    const [{ appAgent, cancelAppAgent }, { start }, { getAppAgentStream }] =
+      await Promise.all([
+        import("@patchsmith/agent-fx/workflows"),
+        import("workflow/api"),
+        import("@patchsmith/agent-fx"),
+      ]);
 
     execution.signal.throwIfAborted();
 
@@ -232,11 +234,12 @@ export const handleAppAgentMcpRequest = async (
       let answer = "";
       const { runId } = run;
 
-      const stream = run
-        .getReadable<UIMessageChunk>()
-        .pipeThrough(new TransformStream<UIMessageChunk, UIMessageChunk>(), {
+      const stream = getAppAgentStream(app.id, threadId, run.runId).pipeThrough(
+        new TransformStream<UIMessageChunk, UIMessageChunk>(),
+        {
           signal,
-        });
+        }
+      );
 
       for await (const chunk of stream) {
         // oxlint-disable-next-line no-await-in-loop -- Preserve the order of progress updates from the agent.

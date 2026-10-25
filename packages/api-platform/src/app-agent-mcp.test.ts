@@ -6,6 +6,8 @@ import { verifyAgentToken } from "@patchsmith/api-utils/agent-token";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
 
+import { fixtureAgentStream } from "#agent-stream.test-utils";
+
 import type { Context } from "./context";
 import { env } from "./env";
 import { scopeSchema, canonicalizeScope } from "./scope";
@@ -46,7 +48,7 @@ const mocks = vi.hoisted(() => ({
     ) => Promise<{
       runId: string;
       cancel?: () => void | Promise<void>;
-      getReadable: (...args: never[]) => ReadableStream;
+      getReadable: (options?: { startIndex: number }) => ReadableStream;
       returnValue: Promise<unknown>;
     }>
   >(),
@@ -92,6 +94,23 @@ vi.mock("./routes/apps", () => ({
       .handler(mocks.list),
   },
   createAppRecord: mocks.create,
+}));
+
+vi.mock("@patchsmith/agent-fx", () => ({
+  getAppAgentStream: (
+    _appId: string,
+    _threadId: string,
+    _runId: string,
+    startIndex?: number
+  ) => {
+    const result = mocks.start.mock.results.at(-1);
+
+    if (result?.type !== "return") {
+      throw new Error("Missing test run.");
+    }
+
+    return fixtureAgentStream(result.value, startIndex);
+  },
 }));
 
 vi.mock("@patchsmith/agent-fx/workflows", () => ({

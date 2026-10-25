@@ -14,6 +14,8 @@ import {
 } from "vite-plus/test";
 import type { z } from "zod";
 
+import { fixtureAgentStream } from "#agent-stream.test-utils";
+
 import type { Context } from "./context";
 import { env } from "./env";
 import { canonicalizeScope } from "./scope";
@@ -38,7 +40,7 @@ const state = vi.hoisted(() => ({
     ) => Promise<{
       runId: string;
       cancel?: () => void | Promise<void>;
-      getReadable: (...args: never[]) => ReadableStream;
+      getReadable: (options?: { startIndex: number }) => ReadableStream;
       returnValue: Promise<unknown>;
     }>
   >(),
@@ -51,6 +53,23 @@ vi.mock("@patchsmith/db", () => ({
 }));
 
 vi.mock("@patchsmith/kv", () => ({ getKV: () => {} }));
+
+vi.mock("@patchsmith/agent-fx", () => ({
+  getAppAgentStream: (
+    _appId: string,
+    _threadId: string,
+    _runId: string,
+    startIndex?: number
+  ) => {
+    const result = state.start.mock.results.at(-1);
+
+    if (result?.type !== "return") {
+      throw new Error("Missing test run.");
+    }
+
+    return fixtureAgentStream(result.value, startIndex);
+  },
+}));
 
 vi.mock("@patchsmith/agent-fx/workflows", () => ({
   appAgent: vi.fn(),
