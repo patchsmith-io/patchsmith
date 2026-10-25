@@ -1,0 +1,56 @@
+.changeset/fresh-upload-manifest.md
+  h_18044dd1b61a81 1-5
+.changeset/open-phones-count.md
+  h_18044dd1b61a81 1-5
+.changeset/quiet-server-resolver.md
+  h_18044dd1b61a81 1-5
+docs/writing-apps/overview.mdx
+  h_18044dd1b61a81 65-66
+packages/api-platform/README.md
+  h_18044dd1b61a81 62-114
+packages/api-platform/openapi.json
+  h_18044dd1b61a81 5787-5803,5995-6011
+packages/api-platform/src/app-discovery.ts
+  h_18044dd1b61a81 1,31-39
+packages/api-platform/src/deployments/verification.ts
+  h_18044dd1b61a81 2,4-14,17,20,30,80-98,100-101,103-104,138,142-154,156-160,162,164-200,202,204,206-209,211-232,236,240-284,286,288-352,355-386,389-395,397-411
+packages/api-platform/src/routes/app-runtime.ts
+  h_18044dd1b61a81 431-440
+packages/api-platform/src/routes/apps-crud.test.ts
+  h_18044dd1b61a81 11,105-142
+packages/api-platform/src/routes/deployment-effects.ts
+  h_18044dd1b61a81 8-11,69
+packages/api-platform/src/routes/deployments-publication.test.ts
+  h_18044dd1b61a81 1-366
+packages/api-platform/src/routes/deployments-verification.test.ts
+  h_18044dd1b61a81 19,1087-1088,1091-1092,1098-1100,1119-1121
+packages/api-platform/src/routes/deployments.ts
+  h_18044dd1b61a81 19,24,36,531,553-554,556-565
+packages/client-platform/src/client/index.ts
+  h_18044dd1b61a81 4
+packages/client-platform/src/client/types.gen.ts
+  h_18044dd1b61a81 41-50,1463-1466
+packages/vite/src/builder/server.test.ts
+  h_18044dd1b61a81 11-13,38-39,101-282,515,519,820-892
+packages/vite/src/builder/server.ts
+  h_18044dd1b61a81 50-63,65,69-83,85-93,96-99,135
+packages/vite/src/builder/static-assets.test.ts
+  h_18044dd1b61a81 6,18-46
+packages/vite/src/builder/static-assets.ts
+  h_18044dd1b61a81 2-9,122-123
+packages/vite/src/index.ts
+  h_18044dd1b61a81 1,11,39-104,160,173,229,345-358,386-387,433-440,443-445
+packages/vite/src/static-instances.test.ts
+  h_18044dd1b61a81 6-7,69-73,80,82-85,117-276
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0f32d57f15e48d379e9126dccf2b05c41cdf9795",
+  "prompts": {},
+  "humans": {
+    "h_18044dd1b61a81": {
+      "author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
