@@ -153,9 +153,7 @@ export type AppAgentCreateResponses = {
       createdAt: string;
       hooks: Array<string>;
       id: string;
-      logoDarkFileId: string | null;
       logoDarkPath: string | null;
-      logoLightFileId: string | null;
       logoLightPath: string | null;
       shortId: string;
       status: 'uploading' | 'deploying' | 'verifying' | 'published';
@@ -247,9 +245,7 @@ export type AppsCreateResponses = {
       createdAt: string;
       hooks: Array<string>;
       id: string;
-      logoDarkFileId: string | null;
       logoDarkPath: string | null;
-      logoLightFileId: string | null;
       logoLightPath: string | null;
       shortId: string;
       status: 'uploading' | 'deploying' | 'verifying' | 'published';
@@ -381,9 +377,7 @@ export type AppsDeployResponses = {
       createdAt: string;
       hooks: Array<string>;
       id: string;
-      logoDarkFileId: string | null;
       logoDarkPath: string | null;
-      logoLightFileId: string | null;
       logoLightPath: string | null;
       shortId: string;
       status: 'uploading' | 'deploying' | 'verifying' | 'published';
@@ -479,9 +473,7 @@ export type AppsGetResponses = {
       createdAt: string;
       hooks: Array<string>;
       id: string;
-      logoDarkFileId: string | null;
       logoDarkPath: string | null;
-      logoLightFileId: string | null;
       logoLightPath: string | null;
       shortId: string;
       status: 'uploading' | 'deploying' | 'verifying' | 'published';
@@ -581,9 +573,7 @@ export type AppsInstallResponses = {
       createdAt: string;
       hooks: Array<string>;
       id: string;
-      logoDarkFileId: string | null;
       logoDarkPath: string | null;
-      logoLightFileId: string | null;
       logoLightPath: string | null;
       shortId: string;
       status: 'uploading' | 'deploying' | 'verifying' | 'published';
@@ -672,9 +662,7 @@ export type AppsListResponses = {
         createdAt: string;
         hooks: Array<string>;
         id: string;
-        logoDarkFileId: string | null;
         logoDarkPath: string | null;
-        logoLightFileId: string | null;
         logoLightPath: string | null;
         shortId: string;
         status: 'uploading' | 'deploying' | 'verifying' | 'published';
@@ -804,9 +792,7 @@ export type AppsRuntimeResolveResponses = {
           createdAt: string;
           hooks: Array<string>;
           id: string;
-          logoDarkFileId: string | null;
           logoDarkPath: string | null;
-          logoLightFileId: string | null;
           logoLightPath: string | null;
           shortId: string;
           status: 'uploading' | 'deploying' | 'verifying' | 'published';
@@ -976,9 +962,7 @@ export type AppsUpdateResponses = {
       createdAt: string;
       hooks: Array<string>;
       id: string;
-      logoDarkFileId: string | null;
       logoDarkPath: string | null;
-      logoLightFileId: string | null;
       logoLightPath: string | null;
       shortId: string;
       status: 'uploading' | 'deploying' | 'verifying' | 'published';
@@ -1237,9 +1221,7 @@ export type DeploymentsCreateResponses = {
       createdAt: string;
       hooks: Array<string>;
       id: string;
-      logoDarkFileId: string | null;
       logoDarkPath: string | null;
-      logoLightFileId: string | null;
       logoLightPath: string | null;
       shortId: string;
       status: 'uploading' | 'deploying' | 'verifying' | 'published';
@@ -1325,9 +1307,7 @@ export type DeploymentsGetResponses = {
     createdAt: string;
     hooks: Array<string>;
     id: string;
-    logoDarkFileId: string | null;
     logoDarkPath: string | null;
-    logoLightFileId: string | null;
     logoLightPath: string | null;
     shortId: string;
     status: 'uploading' | 'deploying' | 'verifying' | 'published';
@@ -1399,9 +1379,7 @@ export type DeploymentsListResponses = {
       createdAt: string;
       hooks: Array<string>;
       id: string;
-      logoDarkFileId: string | null;
       logoDarkPath: string | null;
-      logoLightFileId: string | null;
       logoLightPath: string | null;
       shortId: string;
       status: 'uploading' | 'deploying' | 'verifying' | 'published';
@@ -1457,9 +1435,7 @@ export type DeploymentsPublishResponses = {
     createdAt: string;
     hooks: Array<string>;
     id: string;
-    logoDarkFileId: string | null;
     logoDarkPath: string | null;
-    logoLightFileId: string | null;
     logoLightPath: string | null;
     shortId: string;
     status: 'uploading' | 'deploying' | 'verifying' | 'published';

@@ -465,32 +465,8 @@
                               "format": "uuid",
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                             },
-                            "logoDarkFileId": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "format": "uuid",
-                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
                             "logoDarkPath": {
                               "type": ["string", "null"]
-                            },
-                            "logoLightFileId": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "format": "uuid",
-                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
                             },
                             "logoLightPath": {
                               "type": ["string", "null"]
@@ -573,9 +549,7 @@
                             "createdAt",
                             "hooks",
                             "id",
-                            "logoDarkFileId",
                             "logoDarkPath",
-                            "logoLightFileId",
                             "logoLightPath",
                             "shortId",
                             "status",
@@ -878,32 +852,8 @@
                               "format": "uuid",
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                             },
-                            "logoDarkFileId": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "format": "uuid",
-                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
                             "logoDarkPath": {
                               "type": ["string", "null"]
-                            },
-                            "logoLightFileId": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "format": "uuid",
-                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
                             },
                             "logoLightPath": {
                               "type": ["string", "null"]
@@ -986,9 +936,7 @@
                             "createdAt",
                             "hooks",
                             "id",
-                            "logoDarkFileId",
                             "logoDarkPath",
-                            "logoLightFileId",
                             "logoLightPath",
                             "shortId",
                             "status",
@@ -1416,32 +1364,8 @@
                               "format": "uuid",
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                             },
-                            "logoDarkFileId": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "format": "uuid",
-                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
                             "logoDarkPath": {
                               "type": ["string", "null"]
-                            },
-                            "logoLightFileId": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "format": "uuid",
-                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
                             },
                             "logoLightPath": {
                               "type": ["string", "null"]
@@ -1524,9 +1448,7 @@
                             "createdAt",
                             "hooks",
                             "id",
-                            "logoDarkFileId",
                             "logoDarkPath",
-                            "logoLightFileId",
                             "logoLightPath",
                             "shortId",
                             "status",
@@ -1853,32 +1775,8 @@
                               "format": "uuid",
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                             },
-                            "logoDarkFileId": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "format": "uuid",
-                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
                             "logoDarkPath": {
                               "type": ["string", "null"]
-                            },
-                            "logoLightFileId": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "format": "uuid",
-                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
                             },
                             "logoLightPath": {
                               "type": ["string", "null"]
@@ -1961,9 +1859,7 @@
                             "createdAt",
                             "hooks",
                             "id",
-                            "logoDarkFileId",
                             "logoDarkPath",
-                            "logoLightFileId",
                             "logoLightPath",
                             "shortId",
                             "status",
@@ -2292,32 +2188,8 @@
                               "format": "uuid",
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                             },
-                            "logoDarkFileId": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "format": "uuid",
-                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
                             "logoDarkPath": {
                               "type": ["string", "null"]
-                            },
-                            "logoLightFileId": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "format": "uuid",
-                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
                             },
                             "logoLightPath": {
                               "type": ["string", "null"]
@@ -2400,9 +2272,7 @@
                             "createdAt",
                             "hooks",
                             "id",
-                            "logoDarkFileId",
                             "logoDarkPath",
-                            "logoLightFileId",
                             "logoLightPath",
                             "shortId",
                             "status",
@@ -2704,32 +2574,8 @@
                                     "format": "uuid",
                                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                                   },
-                                  "logoDarkFileId": {
-                                    "anyOf": [
-                                      {
-                                        "type": "string",
-                                        "format": "uuid",
-                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ]
-                                  },
                                   "logoDarkPath": {
                                     "type": ["string", "null"]
-                                  },
-                                  "logoLightFileId": {
-                                    "anyOf": [
-                                      {
-                                        "type": "string",
-                                        "format": "uuid",
-                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ]
                                   },
                                   "logoLightPath": {
                                     "type": ["string", "null"]
@@ -2816,9 +2662,7 @@
                                   "createdAt",
                                   "hooks",
                                   "id",
-                                  "logoDarkFileId",
                                   "logoDarkPath",
-                                  "logoLightFileId",
                                   "logoLightPath",
                                   "shortId",
                                   "status",
@@ -3274,32 +3118,8 @@
                                             "format": "uuid",
                                             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                                           },
-                                          "logoDarkFileId": {
-                                            "anyOf": [
-                                              {
-                                                "type": "string",
-                                                "format": "uuid",
-                                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                                              },
-                                              {
-                                                "type": "null"
-                                              }
-                                            ]
-                                          },
                                           "logoDarkPath": {
                                             "type": ["string", "null"]
-                                          },
-                                          "logoLightFileId": {
-                                            "anyOf": [
-                                              {
-                                                "type": "string",
-                                                "format": "uuid",
-                                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                                              },
-                                              {
-                                                "type": "null"
-                                              }
-                                            ]
                                           },
                                           "logoLightPath": {
                                             "type": ["string", "null"]
@@ -3386,9 +3206,7 @@
                                           "createdAt",
                                           "hooks",
                                           "id",
-                                          "logoDarkFileId",
                                           "logoDarkPath",
-                                          "logoLightFileId",
                                           "logoLightPath",
                                           "shortId",
                                           "status",
@@ -4015,32 +3833,8 @@
                               "format": "uuid",
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                             },
-                            "logoDarkFileId": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "format": "uuid",
-                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
                             "logoDarkPath": {
                               "type": ["string", "null"]
-                            },
-                            "logoLightFileId": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "format": "uuid",
-                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
                             },
                             "logoLightPath": {
                               "type": ["string", "null"]
@@ -4123,9 +3917,7 @@
                             "createdAt",
                             "hooks",
                             "id",
-                            "logoDarkFileId",
                             "logoDarkPath",
-                            "logoLightFileId",
                             "logoLightPath",
                             "shortId",
                             "status",
@@ -4947,32 +4739,8 @@
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                         },
-                        "logoDarkFileId": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "uuid",
-                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                            },
-                            {
-                              "type": "null"
-                            }
-                          ]
-                        },
                         "logoDarkPath": {
                           "type": ["string", "null"]
-                        },
-                        "logoLightFileId": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "uuid",
-                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                            },
-                            {
-                              "type": "null"
-                            }
-                          ]
                         },
                         "logoLightPath": {
                           "type": ["string", "null"]
@@ -5055,9 +4823,7 @@
                         "createdAt",
                         "hooks",
                         "id",
-                        "logoDarkFileId",
                         "logoDarkPath",
-                        "logoLightFileId",
                         "logoLightPath",
                         "shortId",
                         "status",
@@ -5370,32 +5136,8 @@
                       "format": "uuid",
                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                     },
-                    "logoDarkFileId": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "format": "uuid",
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
                     "logoDarkPath": {
                       "type": ["string", "null"]
-                    },
-                    "logoLightFileId": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "format": "uuid",
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
                     },
                     "logoLightPath": {
                       "type": ["string", "null"]
@@ -5546,9 +5288,7 @@
                     "createdAt",
                     "hooks",
                     "id",
-                    "logoDarkFileId",
                     "logoDarkPath",
-                    "logoLightFileId",
                     "logoLightPath",
                     "shortId",
                     "status",
@@ -5710,32 +5450,8 @@
                             "format": "uuid",
                             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                           },
-                          "logoDarkFileId": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "format": "uuid",
-                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
                           "logoDarkPath": {
                             "type": ["string", "null"]
-                          },
-                          "logoLightFileId": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "format": "uuid",
-                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
                           },
                           "logoLightPath": {
                             "type": ["string", "null"]
@@ -5818,9 +5534,7 @@
                           "createdAt",
                           "hooks",
                           "id",
-                          "logoDarkFileId",
                           "logoDarkPath",
-                          "logoLightFileId",
                           "logoLightPath",
                           "shortId",
                           "status",
@@ -5957,32 +5671,8 @@
                       "format": "uuid",
                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                     },
-                    "logoDarkFileId": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "format": "uuid",
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
                     "logoDarkPath": {
                       "type": ["string", "null"]
-                    },
-                    "logoLightFileId": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "format": "uuid",
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
                     },
                     "logoLightPath": {
                       "type": ["string", "null"]
@@ -6065,9 +5755,7 @@
                     "createdAt",
                     "hooks",
                     "id",
-                    "logoDarkFileId",
                     "logoDarkPath",
-                    "logoLightFileId",
                     "logoLightPath",
                     "shortId",
                     "status",
