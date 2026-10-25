@@ -1,0 +1,23 @@
+packages/vite/src/static-instances.test.ts
+  s_bf88a8495e16af::t_c32823d6eae6d3 117-137,140,145-158
+  s_bf88a8495e16af::t_72153942031580 138-139
+  s_bf88a8495e16af::t_c02426b215ffa8 141-144
+packages/vite/src/index.ts
+  s_bf88a8495e16af::t_d535334b51b722 279-284
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6504b204b02dfba0998978f55cdf55c88dcb4979",
+  "prompts": {},
+  "sessions": {
+    "s_bf88a8495e16af": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1707b-9d13-7301-9812-f694c7e3035e",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
