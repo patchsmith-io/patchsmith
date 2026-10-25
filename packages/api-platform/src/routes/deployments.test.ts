@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
+import { setImmediate } from "node:timers/promises";
 import { gzipSync } from "node:zlib";
 
+import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { call } from "@orpc/server";
 import { maxDeploymentBytes } from "@patchsmith/asset-delivery";
 import { asyncFixture } from "@patchsmith/config/testing";
@@ -26,6 +28,8 @@ import {
 
 import type { Context } from "#context";
 import { createTestDb } from "#test/pglite";
+
+import { verificationUnavailableMessage } from "./deployment-effects";
 
 const requireValue = <T>(value: T | null | undefined): T => {
   if (value === null || value === undefined) {
@@ -1539,45 +1543,369 @@ describe("platform deployment uploads", () => {
     expect(currentApp?.currentDeploymentId).toBe(published.body.id);
   });
 
-  it.each(["stream-error", "missing-body", "upstream-failure"])(
-    "rejects gzip client inspection with %s",
-    async (failure) => {
+  it.each([
+    "stream-error",
+    "missing-body",
+    "upstream-failure",
+    "invalid-gzip",
+    "truncated-gzip",
+    "empty-bundle",
+  ])("rejects gzip client inspection with %s", async (failure) => {
+    const { context, created } = await createGzipClientDeployment(
+      new TextEncoder().encode("client-code")
+    );
+
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        if (failure === "empty-bundle") {
+          controller.close();
+
+          return;
+        }
+
+        const cause = Object.assign(
+          new Error("incorrect gzip header or length"),
+          {
+            code: failure === "invalid-gzip" ? "Z_DATA_ERROR" : "Z_BUF_ERROR",
+          }
+        );
+
+        controller.error(
+          failure === "stream-error"
+            ? new Error("Network interrupted")
+            : new TypeError("terminated", { cause })
+        );
+      },
+    });
+
+    const response =
+      failure === "stream-error" ||
+      failure === "invalid-gzip" ||
+      failure === "truncated-gzip" ||
+      failure === "empty-bundle"
+        ? new Response(body)
+        : new Response(null, {
+            status: failure === "upstream-failure" ? 503 : 200,
+          });
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(response);
+    await expect(
+      call(
+        deploymentRouter.publish,
+        {
+          body: { rollout: true, scope: productionScope },
+          params: { deploymentId: created.body.deployment.id },
+        },
+        { context }
+      )
+    ).rejects.toMatchObject({
+      code:
+        failure === "invalid-gzip" ||
+        failure === "truncated-gzip" ||
+        failure === "empty-bundle"
+          ? "BAD_REQUEST"
+          : "SERVICE_UNAVAILABLE",
+    });
+
+    const file = await db.query.appDeploymentFile.findFirst({
+      where: { appDeploymentId: created.body.deployment.id },
+    });
+
+    expect(file?.status).toBe("failed");
+  });
+
+  it("keeps a timed-out bundle failed when a late download succeeds", async () => {
+    const { context, created } = await createGzipClientDeployment(
+      new TextEncoder().encode("client-code")
+    );
+
+    vi.useFakeTimers();
+    const started = Promise.withResolvers<boolean>();
+    const release = Promise.withResolvers<Response>();
+    const cancel = vi.fn();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      started.resolve(true);
+
+      return await release.promise;
+    });
+
+    const publishing = call(
+      deploymentRouter.publish,
+      {
+        body: { rollout: true, scope: productionScope },
+        params: { deploymentId: created.body.deployment.id },
+      },
+      { context }
+    );
+
+    await started.promise;
+
+    const rejected = expect(publishing).rejects.toMatchObject({
+      code: "SERVICE_UNAVAILABLE",
+      message: verificationUnavailableMessage,
+    });
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    await rejected;
+    release.resolve(new Response(new ReadableStream<Uint8Array>({ cancel })));
+    await setImmediate();
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(await db.query.appDeployment.findFirst()).toMatchObject({
+      status: "uploading",
+    });
+    expect(await db.query.appDeploymentFile.findFirst()).toMatchObject({
+      status: "failed",
+    });
+    expect(await db.query.app.findFirst()).toMatchObject({
+      currentDeploymentId: null,
+    });
+  });
+
+  it.each(["head", "signing", "fetch"])(
+    "cleans up cancelled bundle %s operations and ignores their late results",
+    async (phase) => {
       const { context, created } = await createGzipClientDeployment(
         new TextEncoder().encode("client-code")
       );
 
-      const body = new ReadableStream<Uint8Array>({
-        start(controller) {
-          controller.error(new Error("Invalid gzip"));
-        },
+      const started = Promise.withResolvers<boolean>();
+      const release = Promise.withResolvers<boolean>();
+      const { head } = context.storage;
+      const sign = context.storage.createDownloadUrl;
+
+      if (phase === "head") {
+        context.storage.head = async (input) => {
+          started.resolve(true);
+          await release.promise;
+
+          return await head(input);
+        };
+      }
+
+      if (phase === "signing") {
+        context.storage.createDownloadUrl = async (input) => {
+          started.resolve(true);
+          await release.promise;
+
+          return await sign(input);
+        };
+      }
+
+      const cancel = vi.fn();
+
+      const fetchAsset = vi
+        .spyOn(globalThis, "fetch")
+        .mockImplementation(async () => {
+          if (phase === "fetch") {
+            started.resolve(true);
+            await release.promise;
+          }
+
+          return new Response(new ReadableStream<Uint8Array>({ cancel }));
+        });
+
+      const controller = new AbortController();
+
+      const input = {
+        body: { rollout: true, scope: productionScope },
+        params: { deploymentId: created.body.deployment.id },
+      };
+
+      const publishing = call(deploymentRouter.publish, input, {
+        context,
+        signal: controller.signal,
       });
 
-      const response =
-        failure === "stream-error"
-          ? new Response(body)
-          : new Response(null, {
-              status: failure === "upstream-failure" ? 503 : 200,
-            });
+      await started.promise;
+      const abortError = new Error("Publish cancelled");
+      const rejected = expect(publishing).rejects.toBe(abortError);
+      controller.abort(abortError);
+      await rejected;
+      release.resolve(true);
+      await setImmediate();
 
-      vi.spyOn(globalThis, "fetch").mockResolvedValue(response);
+      expect(
+        await db.query.appDeployment.findFirst({
+          where: { id: created.body.deployment.id },
+        })
+      ).toMatchObject({ status: "uploading" });
+      expect(
+        await db.query.appDeploymentFile.findFirst({
+          where: { appDeploymentId: created.body.deployment.id },
+        })
+      ).toMatchObject({ status: "failed" });
+      expect(await db.query.app.findFirst()).toMatchObject({
+        currentDeploymentId: null,
+      });
+
+      if (phase === "fetch") {
+        expect(cancel).toHaveBeenCalledOnce();
+      } else {
+        expect(fetchAsset).not.toHaveBeenCalled();
+      }
+
+      context.storage.head = head;
+      context.storage.createDownloadUrl = sign;
+      fetchAsset.mockResolvedValue(new Response("client-code"));
+      await expect(
+        call(deploymentRouter.publish, input, { context })
+      ).resolves.toMatchObject({ body: { status: "published" } });
+    }
+  );
+
+  it.each(["bundle-head", "asset-head", "signing", "fetch", "body"])(
+    "returns a sanitized HTTP error for %s failures and allows publication retry",
+    async (phase) => {
+      const deployment = await createLogoDeployment();
+
+      const context = publishContext(
+        "https://storage.test/private?credential=secret"
+      );
+
+      const { head } = context.storage;
+      const sign = context.storage.createDownloadUrl;
+      const cause = new Error("storage bucket private: credential=secret");
+      context.storage.head = async (input) => {
+        if (
+          (phase === "bundle-head" && input.key.endsWith("client.js")) ||
+          (phase === "asset-head" && input.key.endsWith("logo.svg"))
+        ) {
+          throw cause;
+        }
+
+        return await head(input);
+      };
+
+      if (phase === "signing") {
+        context.storage.createDownloadUrl = asyncFixture(() => {
+          throw cause;
+        });
+      }
+
+      const fetchAsset = vi.spyOn(globalThis, "fetch").mockImplementation(
+        asyncFixture(() => {
+          if (phase === "fetch") {
+            throw cause;
+          }
+
+          return new Response(
+            new ReadableStream<Uint8Array>({
+              start(stream) {
+                stream.error(cause);
+              },
+            })
+          );
+        })
+      );
+
+      const handler = new OpenAPIHandler({ deployments: deploymentRouter });
+
+      const result = await handler.handle(
+        new Request(`https://platform.test/deployments/${deployment.id}`, {
+          body: JSON.stringify({ rollout: true, scope: productionScope }),
+          headers: { "content-type": "application/json" },
+          method: "POST",
+        }),
+        { context }
+      );
+
+      const response = requireValue(result.response);
+      expect(response.status).toBe(503);
+      const responseBody: unknown = await response.json();
+      expect(responseBody).toEqual({
+        code: "SERVICE_UNAVAILABLE",
+        defined: true,
+        message: verificationUnavailableMessage,
+      });
+      expect(
+        await db.query.appDeployment.findFirst({ where: { id: deployment.id } })
+      ).toMatchObject({ status: "uploading" });
+      expect(await db.query.appAsset.findFirst()).toMatchObject({
+        status: "uploading",
+      });
+      expect(await db.query.app.findFirst()).toMatchObject({
+        currentDeploymentId: null,
+      });
+
+      context.storage.head = head;
+      context.storage.createDownloadUrl = sign;
+      fetchAsset.mockResolvedValue(new Response("<svg></svg>"));
       await expect(
         call(
           deploymentRouter.publish,
           {
             body: { rollout: true, scope: productionScope },
-            params: { deploymentId: created.body.deployment.id },
+            params: { deploymentId: deployment.id },
           },
           { context }
         )
-      ).rejects.toMatchObject({ code: "BAD_REQUEST" });
-
-      const file = await db.query.appDeploymentFile.findFirst({
-        where: { appDeploymentId: created.body.deployment.id },
-      });
-
-      expect(file?.status).toBe("failed");
+      ).resolves.toMatchObject({ body: { status: "published" } });
     }
   );
+
+  it.each([
+    { message: "content length", metadata: { contentLength: 12 } },
+    { message: "content type", metadata: { contentType: "text/plain" } },
+    { message: "content encoding", metadata: { contentEncoding: "gzip" } },
+    { message: "checksum", metadata: { checksumSha256: "different" } },
+  ])(
+    "returns an actionable validation error for mismatched $message",
+    async ({ metadata, message }) => {
+      const expectedMessage: unknown = expect.stringContaining(message);
+      const deployment = await createLogoDeployment();
+      const context = publishContext("https://storage.test/logo.svg");
+      const { head } = context.storage;
+      context.storage.head = async (input) => ({
+        ...(await head(input)),
+        ...metadata,
+      });
+      await expect(
+        call(
+          deploymentRouter.publish,
+          {
+            body: { rollout: false, scope: productionScope },
+            params: { deploymentId: deployment.id },
+          },
+          { context }
+        )
+      ).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+        message: expectedMessage,
+      });
+      expect(await db.query.appDeployment.findFirst()).toMatchObject({
+        status: "uploading",
+      });
+      expect(await db.query.appDeploymentFile.findFirst()).toMatchObject({
+        status: "failed",
+      });
+    }
+  );
+
+  it("keeps unsafe logo content a validation error with its internal cause", async () => {
+    const deployment = await createLogoDeployment();
+    const context = publishContext("https://storage.test/logo.svg");
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("<svg><script></script></svg>")
+    );
+    const expectedCause: unknown = expect.any(Error);
+    await expect(
+      call(
+        deploymentRouter.publish,
+        {
+          body: { rollout: false, scope: productionScope },
+          params: { deploymentId: deployment.id },
+        },
+        { context }
+      )
+    ).rejects.toMatchObject({
+      cause: expectedCause,
+      code: "BAD_REQUEST",
+      message: "SVG logos cannot contain scripts or external resources.",
+    });
+    expect(await db.query.appAsset.findFirst()).toMatchObject({
+      status: "uploading",
+    });
+  });
 
   it("maps reordered returned files using their generated file IDs", () => {
     const assets = [
@@ -1889,7 +2217,10 @@ describe("platform deployment uploads", () => {
         },
         { context: publishContext("http://uploads.example/logo-dark.svg") }
       )
-    ).rejects.toThrow("Logo download URL must use HTTPS.");
+    ).rejects.toMatchObject({
+      code: "SERVICE_UNAVAILABLE",
+      message: verificationUnavailableMessage,
+    });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -1927,7 +2258,19 @@ describe("platform deployment uploads", () => {
 
     await inspectionStarted.promise;
     const advanceTimers = vi.advanceTimersByTimeAsync(10_000);
-    await expect(publish).rejects.toThrow("Logo inspection timed out.");
+    await expect(publish).rejects.toMatchObject({
+      code: "SERVICE_UNAVAILABLE",
+      message: verificationUnavailableMessage,
+    });
     await advanceTimers;
+    expect(await db.query.appDeployment.findFirst()).toMatchObject({
+      status: "uploading",
+    });
+    expect(await db.query.appAsset.findFirst()).toMatchObject({
+      status: "uploading",
+    });
+    expect(await db.query.app.findFirst()).toMatchObject({
+      currentDeploymentId: null,
+    });
   });
 });
