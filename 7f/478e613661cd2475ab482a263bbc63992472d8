@@ -1,0 +1,105 @@
+packages/agent-fx/package.json
+  s_841bb0c2f91546::t_aae8adf0dd8a49 36-38
+packages/agent-fx/src/recovery.integration.test.ts
+  s_841bb0c2f91546::t_717ecdde2b8c0e 15-18,21-24,26-29,32-36,38-40,42-49
+  s_841bb0c2f91546::t_4943fb31c55efa 19-20
+  s_841bb0c2f91546::t_8d10ddbd02ff37 25
+apps/web/vite.config.ts
+  s_841bb0c2f91546::t_444e81f04d6045 32-34
+packages/agent-fx/src/agent.ts
+  s_841bb0c2f91546::t_6b137d30dc410f 1-2,7,13-18,21-40
+packages/api-platform/src/app-agent-mcp.ts
+  s_841bb0c2f91546::t_6b137d30dc410f 118-121,235-237,239
+packages/agent-fx/src/run-turn.ts
+  s_841bb0c2f91546::t_5a2bc47a9ee944 1-3,9-31,33-49,51-64,66-82
+  s_841bb0c2f91546::t_7eeb969a1ec0a6 50
+  s_841bb0c2f91546::t_1c46b6c2554de3 4-8
+  s_841bb0c2f91546::t_8e8ce7d9b74cd0 32
+  s_841bb0c2f91546::t_0782f229e4662e 65
+packages/agent-fx/src/session.ts
+  s_841bb0c2f91546::t_5a2bc47a9ee944 1,5,19-25,27-30,65-76,79-81,118,139-142,144-145,161,221,266,270,284
+  s_841bb0c2f91546::t_2acc4a8b1b7172 26
+  s_841bb0c2f91546::t_22a6b19fb65222 77-78
+  s_841bb0c2f91546::t_74372dc7023265 143
+  s_841bb0c2f91546::t_1491a4204bd9ce 87
+packages/agent-fx/src/skills.ts
+  s_841bb0c2f91546::t_6b137d30dc410f 1-2,50
+apps/web/vercel.json
+  s_841bb0c2f91546::t_aae8adf0dd8a49 88
+packages/agent-fx/src/fixtures/harness-crash.mjs
+  s_841bb0c2f91546::t_717ecdde2b8c0e 1-3,6,9-13,18-27,30,34-51,53-68,70-75,77-80,84,86-89,91-92,94-102,110,113-121,124-131
+  s_841bb0c2f91546::t_8fce9078a57696 4-5
+  s_841bb0c2f91546::t_58955f1eee3ff7 7-8
+  s_841bb0c2f91546::t_60518aedcc8e60 14-17
+  s_841bb0c2f91546::t_e314206e44a2e2 29
+  s_841bb0c2f91546::t_880892d5568cd5 31-33
+  s_841bb0c2f91546::t_09f08dad25ef9c 52
+  s_841bb0c2f91546::t_2150947947af5a 69
+  s_841bb0c2f91546::t_46ab27dc5e7df5 76
+  s_841bb0c2f91546::t_7d2d7c4d9744b2 81-83
+  s_841bb0c2f91546::t_898f8adb900137 85
+  s_841bb0c2f91546::t_fb1157e4594089 90
+  s_841bb0c2f91546::t_03eeff3d23ffff 93
+  s_841bb0c2f91546::t_e9ac7de88aec1f 103-105
+  s_841bb0c2f91546::t_d66033ed52ee63 109
+  s_841bb0c2f91546::t_b2d969f7903ba7 111
+  s_841bb0c2f91546::t_50d9374bc199d8 122-123
+  s_841bb0c2f91546::t_16e3387b436f9f 106-107
+packages/api-platform/src/app-agent-mcp-isolation.test.ts
+  s_841bb0c2f91546::t_6b137d30dc410f 41
+packages/api-platform/src/routes/app-agent.test.ts
+  s_841bb0c2f91546::t_6b137d30dc410f 38
+packages/api-platform/src/routes/app-agent.ts
+  s_841bb0c2f91546::t_6b137d30dc410f 222-240
+packages/agent-fx/src/agent.integration.test.ts
+  s_841bb0c2f91546::t_6b137d30dc410f 1-2,6-9,12,14,16,22-25,29,46-48,52-53,63,65-69,71-74,76-80,82-84,86-95,97-100,102-142,145-146,148,150-151,154,156-162,164-167,171-173,180-181,184,192,194,196-242,250-320
+  s_841bb0c2f91546::t_717ecdde2b8c0e 17-18,20
+  s_841bb0c2f91546::t_9d0677355a087a 64
+  s_841bb0c2f91546::t_c692e8c01226b6 168
+  s_841bb0c2f91546::t_f9abb5ff4b6081 170
+  s_841bb0c2f91546::t_eadea0f2eb0ce3 174-179
+  s_841bb0c2f91546::t_d3b8097856c82b 183
+  s_841bb0c2f91546::t_036958471e103f 243-245,247-249
+  s_841bb0c2f91546::t_0bc8918fde73ab 246
+pnpm-workspace.yaml
+  s_841bb0c2f91546::t_aae8adf0dd8a49 6-12,14,42,45
+  s_841bb0c2f91546::t_0dc74f91d8f21c 13
+packages/agent-fx/src/server.test.ts
+  s_841bb0c2f91546::t_aae8adf0dd8a49 14,21
+apps/web/src/server/libfx.test.ts
+  s_841bb0c2f91546::t_6b137d30dc410f 5,12-17
+packages/api-platform/src/app-agent-mcp.test.ts
+  s_841bb0c2f91546::t_6b137d30dc410f 49
+packages/agent-fx/src/fixtures/local-sandbox.ts
+  s_841bb0c2f91546::t_717ecdde2b8c0e 1-82
+packages/agent-fx/src/workflows.ts
+  s_841bb0c2f91546::t_5a2bc47a9ee944 1-3,14,20,22-23,25-35,38-43,49,52,54,60-64,68,70,77,80
+  s_841bb0c2f91546::t_27fef80ff5f573 65-67
+  s_841bb0c2f91546::t_db0506aebfa645 17,45
+packages/agent-fx/src/sandbox.ts
+  s_841bb0c2f91546::t_6b137d30dc410f 1,21-30
+packages/agent-fx/src/index.ts
+  s_841bb0c2f91546::t_6b137d30dc410f 1
+packages/agent-fx/README.md
+  s_841bb0c2f91546::t_45b2659069e267 3,5,7,9,11,13,15,17,19,21,23,27
+packages/agent-fx/src/session.test.ts
+  s_841bb0c2f91546::t_9b17455c965a91 3,138-146,152-153,158,161-162,176,178,182,191
+pnpm-lock.yaml
+  s_841bb0c2f91546::t_49cc8807a1a339 295-296,680-688,703,1920-1931,1948-1963,1970-1975,1980-1983,1988-1991,7210-7215,12819-12836,12864-12880,12890-12898,12903-12906,12918-12928,19318-19324,19606
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7f478e613661cd2475ab482a263bbc63992472d8",
+  "prompts": {},
+  "sessions": {
+    "s_841bb0c2f91546": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a171fe-3471-7a03-89de-8dfc6a9e2f52",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
