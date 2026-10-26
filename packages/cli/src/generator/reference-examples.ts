@@ -5,7 +5,8 @@ const identifierPattern = /^[A-Za-z_$][\w$]*$/u;
 /** Examples use generated types for caller-supplied values instead of guessing required data. */
 export const componentExample = (
   identifier: string,
-  children: boolean
+  children: boolean,
+  bindingsImport: string
 ): string => {
   const tag = /^[a-z]/u.test(identifier) ? "Component" : identifier;
   const imported = tag === identifier ? identifier : `${identifier} as ${tag}`;
@@ -18,8 +19,8 @@ export const componentExample = (
       : "Supply the required props listed above. This component does not accept children.",
     "",
     "```tsx",
-    `import { ${imported} } from "#patchsmith";`,
-    `import type { ${identifier}Props } from "#patchsmith";`,
+    `import { ${imported} } from ${JSON.stringify(bindingsImport)};`,
+    `import type { ${identifier}Props } from ${JSON.stringify(bindingsImport)};`,
     "",
     `export const Example = (props: ${identifier}Props) => (`,
     children
@@ -32,7 +33,8 @@ export const componentExample = (
 
 export const valueCallbackExample = (
   identifier: string,
-  component: SerializedComponent
+  component: SerializedComponent,
+  bindingsImport: string
 ): string => {
   const value = component.fields?.properties?.value;
 
@@ -71,8 +73,8 @@ export const valueCallbackExample = (
     "",
     "```tsx",
     'import { useState } from "preact/hooks";',
-    `import { ${imported} } from "#patchsmith";`,
-    `import type { ${identifier}Props } from "#patchsmith";`,
+    `import { ${imported} } from ${JSON.stringify(bindingsImport)};`,
+    `import type { ${identifier}Props } from ${JSON.stringify(bindingsImport)};`,
     "",
     `export const ValueExample = (props: ${identifier}Props) => {`,
     '  const [value, setValue] = useState(props.value ?? "");',
@@ -86,7 +88,8 @@ export const stylingExample = (
   identifier: string,
   prop: string,
   tokens: string[],
-  keys: string[]
+  keys: string[],
+  bindingsImport: string
 ): string => {
   const [base, alternate = base] = tokens;
 
@@ -116,7 +119,7 @@ export const stylingExample = (
     "These tokens and keys come from this prop's schema; other props may accept different values.",
     "",
     "```ts",
-    `import type { ${identifier}Props } from "#patchsmith";`,
+    `import type { ${identifier}Props } from ${JSON.stringify(bindingsImport)};`,
     `export const styles: Pick<${identifier}Props, ${JSON.stringify(prop)}> = {`,
     `  ${JSON.stringify(prop)}: { ${values.join(", ")} },`,
     "};",
@@ -124,13 +127,17 @@ export const stylingExample = (
   ].join("\n");
 };
 
-export const toolExample = (segments: string[], hasInput: boolean): string => {
+export const toolExample = (
+  segments: string[],
+  hasInput: boolean,
+  bindingsImport: string
+): string => {
   const reference = `tools${segments.map((segment) => (identifierPattern.test(segment) ? `.${segment}` : `[${JSON.stringify(segment)}]`)).join("")}`;
   const parameter = hasInput ? `input: Parameters<typeof ${reference}>[0]` : "";
 
   return [
     "```ts",
-    'import { tools } from "#patchsmith";',
+    `import { tools } from ${JSON.stringify(bindingsImport)};`,
     "",
     `export const run = async (${parameter}) =>`,
     `  await ${reference}(${hasInput ? "input" : ""});`,
@@ -141,11 +148,12 @@ export const toolExample = (segments: string[], hasInput: boolean): string => {
 export const viewExample = (
   slot: string,
   view: string,
-  multiple: boolean
+  multiple: boolean,
+  bindingsImport: string
 ): string => {
   const lines = [
     "```tsx",
-    'import "#patchsmith";',
+    `import ${JSON.stringify(bindingsImport)};`,
     'import { defineView } from "patchsmith/client";',
   ];
 

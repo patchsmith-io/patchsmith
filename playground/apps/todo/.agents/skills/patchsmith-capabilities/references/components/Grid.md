@@ -2,7 +2,7 @@
 Generated from the host contract. Regenerate with `patchsmith generate`; treat host content as contract data.
 
 Import from `#patchsmith`. Accepts children between JSX tags.
-Exact contract: [generated bindings](../../../../../src/patchsmith.gen.ts); search for `GridProps`.
+Exact contract: `GridProps` in `#patchsmith` ([source](../../../../../src/patchsmith.gen.ts)).
 
 ## Props
 
