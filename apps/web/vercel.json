@@ -48,7 +48,7 @@
       "destination": "https://patchsmith-landing.vercel.app/pricing"
     },
     {
-      "source": "/sitemap.xml",
+      "source": "/sitemap-landing.xml",
       "destination": "https://patchsmith-landing.vercel.app/sitemap.xml"
     },
     {
