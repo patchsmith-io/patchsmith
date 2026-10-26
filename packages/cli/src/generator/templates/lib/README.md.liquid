@@ -1,0 +1,7 @@
+# Shared app code
+
+Use `lib/` for general app code reused across views, components, or backend functions, such as helpers, constants, types, and validation schemas. Import modules with `#lib/...`, for example `import { formatName } from "#lib/format-name"`.
+
+This folder is a recommended convention; Patchsmith does not enforce it or automatically register its files. Keep code specific to one feature beside that feature until it needs to be shared.
+
+Modules used by both frontend and backend should work in both runtimes. Keep database access and server-only dependencies in backend modules, and UI dependencies in frontend modules.

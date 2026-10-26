@@ -133,6 +133,9 @@ it.each([false, true])(
     const files = await readdir(path.join(source, "slots"));
     expect(files).toEqual(["root.tsx"]);
     expect(
+      await readFile(path.join(source, "lib/README.md"), "utf-8")
+    ).toContain("#lib/format-name");
+    expect(
       await readFile(path.join(source, "patchsmith.gen.ts"), "utf-8")
     ).toContain("navbar");
   }

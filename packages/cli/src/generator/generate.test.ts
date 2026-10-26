@@ -79,6 +79,9 @@ describe("generateApp", () => {
       });
       const sourceFiles = await readdir(path.join(targetDirectory, "slots"));
       expect(sourceFiles).toEqual(["root.tsx"]);
+      expect(
+        await readFile(path.join(targetDirectory, "lib/README.md"), "utf-8")
+      ).toContain("#lib/format-name");
       expect(await readdir(targetDirectory)).not.toContain("src");
       expect(await readdir(targetDirectory)).not.toContain("functions");
       expect(await readdir(targetDirectory)).not.toContain("db");
@@ -121,6 +124,10 @@ describe("generateApp", () => {
         "root.tsx"
       );
       expect(await readdir(targetDirectory)).not.toContain("slots");
+      expect(await readdir(targetDirectory)).not.toContain("lib");
+      expect(
+        await readFile(path.join(targetDirectory, "src/lib/README.md"), "utf-8")
+      ).toContain("recommended convention");
       expect(await readdir(targetDirectory)).not.toContain("patchsmith.gen.ts");
 
       const pkg = await readFile(
@@ -245,6 +252,7 @@ describe("generateApp", () => {
       "assets/logo-dark.svg",
       "assets/logo-light.svg",
       ".gitignore",
+      path.join("lib", "README.md"),
       path.join("slots", "root.tsx"),
       path.join("slots", "sidebar", "customers.view.tsx"),
       path.join("patchsmith.gen.ts"),

@@ -41,11 +41,14 @@ App backend functions include queries for reading data, mutations for transactio
 | `patchsmith.gen.ts` | Generated bindings (`#patchsmith`). |
 | `slots/root.tsx` | Shared UI/providers around views. |
 | `slots/<slot>/` | UI views (`*.view.tsx`), roots, and layouts. |
+| `lib/` | Recommended home for general code shared across views, components, or backend functions. |
 | `functions/**/*.router.ts` | Automatically registered backend function routers. |
 | `patchsmith.functions.gen.ts` | Generated type-only function registry. |
 | `db/` | Tables, relationships, database builder, and migrations. |
 
 Backend modules register by file path; migration paths can be configured.
+
+Prefer `lib/` for reusable helpers, constants, types, and validation schemas; import them with `#lib/...` (for example, `#lib/format-name`). Keep feature-specific code beside its feature until it needs to be shared. This is a convention: `lib/` is optional and its files are ordinary imported modules, with no automatic registration. Code shared by frontend and backend must work in both runtimes; keep database access and server-only dependencies in backend modules, and UI dependencies in frontend modules. Place `lib/` under the existing source root (`lib/` or `src/lib/`).
 
 ## App identity and deployment
 

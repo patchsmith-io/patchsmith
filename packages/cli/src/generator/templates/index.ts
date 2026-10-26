@@ -16,6 +16,8 @@ export { default as schemaTemplate } from "./db/schema.ts.liquid";
 
 export { default as greetingTemplate } from "./functions/greeting.router.ts.liquid";
 
+export { default as libReadmeTemplate } from "./lib/README.md.liquid";
+
 export { default as rootTemplate } from "./slots/root.tsx.liquid";
 
 export { default as defaultViewTemplate } from "./slots/view.tsx.liquid";
