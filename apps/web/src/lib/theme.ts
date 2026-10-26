@@ -15,7 +15,9 @@ export const themes = ["system", "light", "dark"] as const;
 export type AppTheme = (typeof themes)[number];
 
 export const fallbackTheme = "system" satisfies AppTheme;
-export const themeStorageKey = "theme";
+
+// Mintlify uses this key for light, dark, and system preferences on /docs.
+export const themeStorageKey = "isDarkMode";
 
 export const isAppTheme = <TValue>(value: TValue): value is TValue & AppTheme =>
   value === "system" || value === "light" || value === "dark";
