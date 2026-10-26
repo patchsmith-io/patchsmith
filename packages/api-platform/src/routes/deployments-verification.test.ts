@@ -1,363 +1,1124 @@
-import { runPromise } from "@orpc/experimental-effect";
+import { setImmediate } from "node:timers/promises";
+import { gzipSync } from "node:zlib";
+
+import { OpenAPIHandler } from "@orpc/openapi/fetch";
+import { call } from "@orpc/server";
+import { maxDeploymentBytes } from "@patchsmith/asset-delivery";
+import { asyncFixture } from "@patchsmith/config/testing";
+import { relations } from "@patchsmith/db/relations";
 import {
-  app,
+  app as appTable,
   appDeployment,
   appDeploymentFile,
 } from "@patchsmith/db/schema/apps";
-import { organization } from "@patchsmith/db/schema/auth";
-import { project } from "@patchsmith/db/schema/project";
 import { eq } from "drizzle-orm";
-import { Effect, Exit } from "effect";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vite-plus/test";
+import { drizzle } from "drizzle-orm/pglite";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import type { Context } from "#context";
 import { publishDeployment } from "#deployments/verification";
+import { verificationUnavailableMessage } from "#routes/deployment-effects";
+import { deploymentRouter } from "#routes/deployments";
 import { canonicalizeScope } from "#scope";
-import { createTestDb } from "#test/pglite";
+import { runPlatform } from "#services";
+import {
+  deploymentTestFixture,
+  requireValue,
+  describeFile,
+  projectId,
+  logoChecksum,
+  logoChecksumBase64,
+  productionScope,
+} from "#test/deployments";
+import { testServices } from "#test/services";
 
-const requireValue = <T>(value: T | undefined): T => {
-  if (value === undefined) {
-    throw new Error("Expected a fixture row.");
-  }
+describe("platform deployments-verification", () => {
+  const fixture = deploymentTestFixture();
 
-  return value;
-};
+  const {
+    createLogoDeployment,
+    createGzipClientDeployment,
+    http,
+    publishContext,
+  } = fixture;
 
-const checksum = "a".repeat(64);
+  it.each([
+    { encoding: "gzip", extraBytes: 0 },
+    { encoding: "gzip", extraBytes: 1 },
+    { encoding: "utf-8", extraBytes: 0 },
+    { encoding: "utf-8", extraBytes: 1 },
+  ] as const)(
+    "checks the decoded client, $encoding server, and both logos together ($extraBytes bytes over)",
+    async ({ encoding, extraBytes }) => {
+      const currentApp = requireValue(await fixture.db.query.app.findFirst());
+      const logo = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>');
+      const clientBundle = Buffer.alloc(6 * 1024 * 1024, 120);
 
-const objectMetadata = {
-  checksumSha256: Buffer.from(checksum, "hex").toString("base64"),
-  contentLength: 11,
-  contentType: "application/javascript",
-};
+      const server = Buffer.alloc(
+        maxDeploymentBytes -
+          clientBundle.byteLength -
+          logo.byteLength +
+          extraBytes,
+        121
+      );
 
-const fixture = async () => {
-  const database = await createTestDb();
-  const { db } = database;
+      const uploadedClient = gzipSync(clientBundle);
+      const uploadedServer = encoding === "gzip" ? gzipSync(server) : server;
+      const context = publishContext("https://uploads.example/bundle");
+      context.storage.createUploadUrl = vi.fn<
+        typeof context.storage.createUploadUrl
+      >(
+        asyncFixture(({ key }) => ({
+          key,
+          uploadUrl: `https://uploads.example/${key}`,
+        }))
+      );
 
-  const [team] = await db
-    .insert(organization)
-    .values({
-      createdAt: new Date(),
-      id: "11111111-1111-4111-8111-111111111111",
-      name: "Publication tests",
-      shortId: "team00000001",
-      slug: "publication-tests",
-    })
-    .returning();
+      context.storage.head = vi
+        .fn()
+        .mockRejectedValue(
+          Object.assign(new Error("Not found"), { name: "NotFound" })
+        );
 
-  const [owner] = await db
-    .insert(project)
-    .values({
-      name: "Publication tests",
-      organizationId: requireValue(team).id,
-      slug: "publication-tests",
-    })
-    .returning();
+      const logoMetadata = {
+        ...describeFile(logo),
+        contentType: "image/svg+xml" as const,
+      };
 
-  const [source] = await db
-    .insert(app)
-    .values({
-      name: "Inbox",
-      projectId: requireValue(owner).id,
-      ...canonicalizeScope({
-        name: "environment",
-        value: { environment: "production" },
-      }),
-    })
-    .returning();
+      const created = await call(
+        deploymentRouter.create,
+        {
+          body: {
+            app: { id: currentApp.id },
+            assets: [
+              {
+                ...describeFile(uploadedClient),
+                contentType: "application/javascript",
+                encoding: "gzip",
+                objectKey: "client.js",
+              },
+            ],
+            logos: { dark: "logo.svg", light: "logo.svg" },
+            scope: productionScope,
+            server: {
+              ...describeFile(uploadedServer),
+              contentType: "application/javascript",
+              encoding,
+              objectKey: "server.js",
+            },
+            staticAssets: [{ ...logoMetadata, path: "logo.svg" }],
+          },
+        },
+        { context }
+      );
 
-  const [previous, deployment] = await db
-    .insert(appDeployment)
-    .values([
-      { appId: requireValue(source).id, status: "published" },
-      { appId: requireValue(source).id, status: "uploading" },
-    ])
-    .returning();
-
-  await db
-    .update(app)
-    .set({ currentDeploymentId: requireValue(previous).id })
-    .where(eq(app.id, requireValue(source).id));
-
-  const [installation] = await db
-    .insert(app)
-    .values({
-      currentDeploymentId: requireValue(previous).id,
-      name: "Installed Inbox",
-      projectId: requireValue(owner).id,
-      ...canonicalizeScope({
-        name: "environment",
-        value: { environment: "staging" },
-      }),
-    })
-    .returning();
-
-  await db.insert(appDeploymentFile).values(
-    ["client", "server"].map((kind) => ({
-      appDeploymentId: requireValue(deployment).id,
-      checksum,
-      contentLength: objectMetadata.contentLength,
-      contentType: "application/javascript" as const,
-      objectKey: `deployments/${requireValue(deployment).id}/${kind}/${kind}.js`,
-    }))
-  );
-
-  const head = vi.fn<Context["storage"]["head"]>(
-    async ({ key }) => await Promise.resolve({ ...objectMetadata, key })
-  );
-
-  const storage: Context["storage"] = {
-    createDownloadUrl: vi.fn(),
-    createUploadUrl: vi.fn(),
-    delete: vi.fn(),
-    head,
-    type: "s3",
-  };
-
-  const enqueue = vi.fn(async () => {
-    await Promise.resolve();
-  });
-
-  const context = {
-    app: requireValue(source),
-    deployment: requireValue(deployment),
-    project: requireValue(owner),
-    storage,
-  };
-
-  const publish = (rollout = true) =>
-    publishDeployment(db, context, rollout, enqueue);
-
-  const storedDeployment = async () =>
-    await db.query.appDeployment.findFirst({
-      where: { id: context.deployment.id },
-    });
-
-  const files = async () =>
-    await db.query.appDeploymentFile.findMany({
-      where: { appDeploymentId: context.deployment.id },
-    });
-
-  return {
-    ...database,
-    context,
-    enqueue,
-    files,
-    head,
-    installation: requireValue(installation),
-    previous: requireValue(previous),
-    publish,
-    storedDeployment,
-  };
-};
-
-describe("deployment publication ownership", () => {
-  let state: Awaited<ReturnType<typeof fixture>>;
-
-  beforeEach(async () => {
-    state = await fixture();
-  });
-  afterEach(async () => {
-    await state.client.close();
-  });
-
-  it.each(["failure", "cancellation"] as const)(
-    "releases a claim after %s and fences late storage responses from a successful retry",
-    async (outcome) => {
-      const started = Promise.withResolvers<boolean>();
-
-      const response =
-        Promise.withResolvers<
-          Awaited<ReturnType<Context["storage"]["head"]>>
-        >();
-
-      const controller = new AbortController();
-      state.head.mockImplementationOnce(async () => {
-        started.resolve(true);
-
-        return await response.promise;
+      const files = await fixture.db.query.appDeploymentFile.findMany({
+        where: { appDeploymentId: created.body.deployment.id },
       });
 
-      const first = Effect.runPromiseExit(state.publish(), {
+      const staticFiles =
+        created.body.staticAssets?.map(({ file }) => ({
+          ...file,
+          encoding: null,
+        })) ?? [];
+
+      context.storage.head = vi.fn<typeof context.storage.head>(
+        asyncFixture(({ key }) => {
+          const file = requireValue(
+            [...files, ...staticFiles].find((entry) => entry.objectKey === key)
+          );
+
+          return {
+            checksumSha256: Buffer.from(
+              requireValue(file.checksum),
+              "hex"
+            ).toString("base64"),
+            contentEncoding: file.encoding === "gzip" ? "gzip" : undefined,
+            contentLength: file.contentLength,
+            contentType: file.contentType,
+            key,
+          };
+        })
+      );
+      context.storage.createDownloadUrl = vi.fn<
+        typeof context.storage.createDownloadUrl
+      >(
+        asyncFixture(({ key }) => ({
+          key,
+          url: `https://uploads.example/${key}`,
+        }))
+      );
+
+      const fetchMock = http.mockImplementation(
+        asyncFixture((input) => {
+          const url = input instanceof Request ? input.url : String(input);
+
+          if (url.endsWith("/client.js")) {
+            return new Response(clientBundle);
+          }
+
+          if (url.endsWith("/server.js")) {
+            return new Response(server);
+          }
+
+          return new Response(logo);
+        })
+      );
+
+      const publish = call(
+        deploymentRouter.publish,
+        {
+          body: { rollout: false, scope: productionScope },
+          params: { deploymentId: created.body.deployment.id },
+        },
+        { context }
+      );
+
+      if (extraBytes > 0) {
+        await expect(publish).rejects.toThrow(
+          `Combined deployment assets cannot exceed ${maxDeploymentBytes} bytes after decompression.`
+        );
+        expect(
+          await fixture.db.query.appDeployment.findFirst({
+            where: { id: created.body.deployment.id },
+          })
+        ).toMatchObject({ status: "uploading" });
+
+        return;
+      }
+
+      await expect(publish).resolves.toMatchObject({
+        body: { status: "published" },
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(encoding === "gzip" ? 3 : 2);
+    }
+  );
+
+  it.each(["utf-8", "gzip"] as const)(
+    "uploads and verifies %s client and private server code",
+    async (encoding) => {
+      const context = publishContext("https://private.example/server");
+
+      const uploads = vi.fn(
+        asyncFixture(({ key }: { key: string }) => ({
+          key,
+          uploadUrl: `https://uploads.example/${key}`,
+        }))
+      );
+
+      context.storage.createUploadUrl = uploads;
+      const currentApp = await fixture.db.query.app.findFirst();
+
+      if (!currentApp) {
+        throw new Error("Missing app");
+      }
+
+      const metadata = {
+        checksum: logoChecksum,
+        contentLength: 11,
+        contentType: "application/javascript" as const,
+        encoding,
+      };
+
+      const created = await call(
+        deploymentRouter.create,
+        {
+          body: {
+            app: { id: currentApp.id },
+            assets: [{ ...metadata, objectKey: "client.js" }],
+            hooks: ["sync", "billing.updated"],
+            scope: productionScope,
+            server: { ...metadata, objectKey: "server.js" },
+            views: [
+              { instances: true, path: "/", slot: "page" },
+              { disabled: true, path: "/disabled", slot: "page" },
+            ],
+          },
+        },
+        { context }
+      );
+
+      expect(created.body.assets[0]?.file.objectKey).toMatch(
+        /\/client\/client\.js$/u
+      );
+      expect(created.body.server?.file.objectKey).toMatch(
+        /\/server\/server\.js$/u
+      );
+      expect(created.body.deployment.hooks).toEqual([
+        "sync",
+        "billing.updated",
+      ]);
+      expect(created.body.deployment.views).toEqual([
+        { instances: true, path: "/", slot: "page" },
+        { disabled: true, path: "/disabled", slot: "page" },
+      ]);
+      expect(uploads).toHaveBeenCalledTimes(2);
+      expect(uploads).toHaveBeenCalledWith(
+        expect.objectContaining({
+          contentEncoding: encoding === "gzip" ? "gzip" : undefined,
+          key: created.body.assets[0]?.file.objectKey,
+        })
+      );
+      expect(uploads).toHaveBeenCalledWith(
+        expect.objectContaining({
+          contentEncoding: encoding === "gzip" ? "gzip" : undefined,
+          key: created.body.server?.file.objectKey,
+        })
+      );
+      await expect(
+        call(
+          deploymentRouter.runtime,
+          { body: {}, params: { appId: currentApp.id } },
+          { context: { ...context, runtimeService: true } }
+        )
+      ).rejects.toMatchObject({ code: "NOT_FOUND" });
+      expect(context.storage.createDownloadUrl).not.toHaveBeenCalled();
+      context.storage.head = vi.fn().mockResolvedValue({
+        checksumSha256: logoChecksumBase64,
+        contentEncoding: encoding === "gzip" ? "gzip" : undefined,
+        contentLength: 11,
+        contentType: "application/javascript",
+      });
+
+      if (encoding === "gzip") {
+        vi.mocked(context.storage.head).mockResolvedValueOnce({
+          checksumSha256: logoChecksumBase64,
+          contentLength: 11,
+          contentType: "application/javascript",
+          key: requireValue(created.body.assets[0]).file.objectKey,
+        });
+        await expect(
+          call(
+            deploymentRouter.publish,
+            {
+              body: { rollout: true, scope: productionScope },
+              params: { deploymentId: created.body.deployment.id },
+            },
+            { context }
+          )
+        ).rejects.toThrow(
+          "Uploaded file content encoding does not match deployment record."
+        );
+      }
+
+      const fetchMock = http.mockImplementation(
+        asyncFixture(() => new Response("client-code"))
+      );
+
+      const published = await call(
+        deploymentRouter.publish,
+        {
+          body: { rollout: true, scope: productionScope },
+          params: { deploymentId: created.body.deployment.id },
+        },
+        { context }
+      );
+
+      expect(published.body.hooks).toEqual(["sync", "billing.updated"]);
+      await expect(
+        call(
+          deploymentRouter.runtime,
+          { body: {}, params: { appId: currentApp.id } },
+          { context }
+        )
+      ).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+      const runtime = await call(
+        deploymentRouter.runtime,
+        { body: {}, params: { appId: currentApp.id } },
+        { context: { ...context, runtimeService: true } }
+      );
+
+      await expect(
+        call(
+          deploymentRouter.runtime,
+          { body: {}, params: { appId: currentApp.id } },
+          {
+            context: {
+              ...context,
+              project: {
+                ...context.project,
+                id: "33333333-3333-4333-8333-333333333333",
+              },
+              runtimeService: true,
+            },
+          }
+        )
+      ).rejects.toMatchObject({ code: "NOT_FOUND" });
+      expect(runtime.body).toEqual(
+        encoding === "gzip"
+          ? {
+              appId: currentApp.id,
+              checksum: logoChecksum,
+              contentEncoding: "gzip",
+              contentLength: 11,
+              deploymentId: created.body.deployment.id,
+              objectKey: created.body.server?.file.objectKey,
+              projectId: context.project.id,
+            }
+          : {
+              appId: currentApp.id,
+              checksum: logoChecksum,
+              contentLength: 11,
+              deploymentId: created.body.deployment.id,
+              objectKey: created.body.server?.file.objectKey,
+              projectId: context.project.id,
+            }
+      );
+
+      if (encoding === "gzip") {
+        expect(context.storage.createDownloadUrl).toHaveBeenCalledTimes(2);
+        expect(context.storage.createDownloadUrl).toHaveBeenCalledWith({
+          expiresInSeconds: 60,
+          key: requireValue(created.body.assets[0]).file.objectKey,
+        });
+        expect(context.storage.createDownloadUrl).toHaveBeenCalledWith({
+          expiresInSeconds: 60,
+          key: requireValue(created.body.server).file.objectKey,
+        });
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+      } else {
+        expect(context.storage.createDownloadUrl).not.toHaveBeenCalled();
+        expect(fetchMock).not.toHaveBeenCalled();
+      }
+
+      const files = await fixture.db.query.appDeploymentFile.findMany({
+        where: { appDeploymentId: created.body.deployment.id },
+      });
+
+      expect(files).toHaveLength(2);
+      expect(files.every((file) => file.status === "verified")).toBe(true);
+    }
+  );
+
+  it.each([true, false])(
+    "advances installations for client-only publication only with rollout enabled (%s)",
+    async (rollout) => {
+      const context = publishContext("https://uploads.example/client.js");
+      const source = requireValue(await fixture.db.query.app.findFirst());
+
+      const [previous, deployment] = await fixture.db
+        .insert(appDeployment)
+        .values([
+          { appId: source.id, status: "published" },
+          { appId: source.id, status: "uploading" },
+        ])
+        .returning();
+
+      if (!previous || !deployment) {
+        throw new Error("Expected rollout deployments");
+      }
+
+      await fixture.db
+        .update(appTable)
+        .set({ currentDeploymentId: previous.id })
+        .where(eq(appTable.id, source.id));
+
+      const [installation] = await fixture.db
+        .insert(appTable)
+        .values({
+          currentDeploymentId: previous.id,
+          name: "Installed Inbox",
+          projectId,
+          ...canonicalizeScope({
+            name: "environment",
+            value: { environment: "staging" },
+          }),
+        })
+        .returning();
+
+      if (!installation) {
+        throw new Error("Expected rollout installation");
+      }
+
+      await fixture.db.insert(appDeploymentFile).values({
+        appDeploymentId: deployment.id,
+        checksum: logoChecksum,
+        contentLength: 11,
+        contentType: "application/javascript",
+        objectKey: `projects/${context.project.shortId}/apps/${source.shortId}/deployments/${deployment.shortId}/client/client.js`,
+      });
+      context.storage.head = vi.fn().mockResolvedValue({
+        checksumSha256: logoChecksumBase64,
+        contentLength: 11,
+        contentType: "application/javascript",
+      });
+
+      await call(
+        deploymentRouter.publish,
+        {
+          body: { rollout, scope: productionScope },
+          params: { deploymentId: deployment.id },
+        },
+        { context }
+      );
+
+      const expected = rollout ? deployment.id : previous.id;
+
+      expect(
+        await fixture.db.query.app.findFirst({ where: { id: source.id } })
+      ).toMatchObject({ currentDeploymentId: expected });
+      expect(
+        await fixture.db.query.app.findFirst({ where: { id: installation.id } })
+      ).toMatchObject({ currentDeploymentId: expected });
+    }
+  );
+
+  it("rejects oversized inflated client code before publication and cancels the decoded stream", async () => {
+    const decoded = new Uint8Array(maxDeploymentBytes + 1);
+    const { context, created } = await createGzipClientDeployment(decoded);
+    const cancel = vi.fn();
+    let position = 0;
+
+    const chunks = [
+      decoded.subarray(0, maxDeploymentBytes),
+      decoded.subarray(maxDeploymentBytes),
+      new Uint8Array(1),
+    ];
+
+    const body = new ReadableStream<Uint8Array>(
+      {
+        cancel,
+        pull(controller) {
+          controller.enqueue(requireValue(chunks[(position += 1) - 1]));
+        },
+      },
+      { highWaterMark: 0 }
+    );
+
+    const fetchMock = http.mockResolvedValue(
+      new Response(body, { headers: { "Content-Encoding": "gzip" } })
+    );
+
+    await expect(
+      call(
+        deploymentRouter.publish,
+        {
+          body: { rollout: true, scope: productionScope },
+          params: { deploymentId: created.body.deployment.id },
+        },
+        { context }
+      )
+    ).rejects.toThrow(
+      `Combined deployment assets cannot exceed ${maxDeploymentBytes} bytes after decompression.`
+    );
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(position).toBe(2);
+    const expectedSignalMatcher1: unknown = expect.any(AbortSignal);
+    expect(fetchMock).toHaveBeenCalledWith(
+      new URL("https://uploads.example/client.js"),
+      expect.objectContaining({
+        redirect: "error",
+        signal: expectedSignalMatcher1,
+      })
+    );
+
+    const deployment = await fixture.db.query.appDeployment.findFirst({
+      where: { id: created.body.deployment.id },
+    });
+
+    const file = await fixture.db.query.appDeploymentFile.findFirst({
+      where: { appDeploymentId: created.body.deployment.id },
+    });
+
+    const currentApp = await fixture.db.query.app.findFirst();
+    expect(deployment?.status).toBe("uploading");
+    expect(file?.status).toBe("failed");
+    expect(currentApp?.currentDeploymentId).toBeNull();
+  });
+
+  it("publishes gzip client code whose decoded size is exactly 10 MiB", async () => {
+    const decoded = new Uint8Array(maxDeploymentBytes);
+    const { context, created } = await createGzipClientDeployment(decoded);
+    http.mockResolvedValue(
+      new Response(decoded, { headers: { "Content-Encoding": "gzip" } })
+    );
+
+    const published = await call(
+      deploymentRouter.publish,
+      {
+        body: { rollout: true, scope: productionScope },
+        params: { deploymentId: created.body.deployment.id },
+      },
+      { context }
+    );
+
+    expect(published.body.status).toBe("published");
+
+    const file = await fixture.db.query.appDeploymentFile.findFirst({
+      where: { appDeploymentId: created.body.deployment.id },
+    });
+
+    expect(file?.status).toBe("verified");
+    const currentApp = await fixture.db.query.app.findFirst();
+    expect(currentApp?.currentDeploymentId).toBe(published.body.id);
+  });
+
+  it.each([
+    "stream-error",
+    "missing-body",
+    "upstream-failure",
+    "invalid-gzip",
+    "truncated-gzip",
+    "empty-bundle",
+  ])("rejects gzip client inspection with %s", async (failure) => {
+    const { context, created } = await createGzipClientDeployment(
+      new TextEncoder().encode("client-code")
+    );
+
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        if (failure === "empty-bundle") {
+          controller.close();
+
+          return;
+        }
+
+        const cause = Object.assign(
+          new Error("incorrect gzip header or length"),
+          {
+            code: failure === "invalid-gzip" ? "Z_DATA_ERROR" : "Z_BUF_ERROR",
+          }
+        );
+
+        controller.error(
+          failure === "stream-error"
+            ? new Error("Network interrupted")
+            : new TypeError("terminated", { cause })
+        );
+      },
+    });
+
+    const response =
+      failure === "stream-error" ||
+      failure === "invalid-gzip" ||
+      failure === "truncated-gzip" ||
+      failure === "empty-bundle"
+        ? new Response(body)
+        : new Response(null, {
+            status: failure === "upstream-failure" ? 503 : 200,
+          });
+
+    http.mockResolvedValue(response);
+    await expect(
+      call(
+        deploymentRouter.publish,
+        {
+          body: { rollout: true, scope: productionScope },
+          params: { deploymentId: created.body.deployment.id },
+        },
+        { context }
+      )
+    ).rejects.toMatchObject({
+      code:
+        failure === "invalid-gzip" ||
+        failure === "truncated-gzip" ||
+        failure === "empty-bundle"
+          ? "BAD_REQUEST"
+          : "SERVICE_UNAVAILABLE",
+    });
+
+    const file = await fixture.db.query.appDeploymentFile.findFirst({
+      where: { appDeploymentId: created.body.deployment.id },
+    });
+
+    expect(file?.status).toBe("failed");
+  });
+
+  it("keeps a timed-out bundle failed when a late download succeeds", async () => {
+    const { context, created } = await createGzipClientDeployment(
+      new TextEncoder().encode("client-code")
+    );
+
+    vi.useFakeTimers();
+    const started = Promise.withResolvers<boolean>();
+    const release = Promise.withResolvers<Response>();
+    const cancel = vi.fn();
+    http.mockImplementation(async () => {
+      started.resolve(true);
+
+      return await release.promise;
+    });
+
+    const publishing = call(
+      deploymentRouter.publish,
+      {
+        body: { rollout: true, scope: productionScope },
+        params: { deploymentId: created.body.deployment.id },
+      },
+      { context }
+    );
+
+    await started.promise;
+
+    const rejected = expect(publishing).rejects.toMatchObject({
+      code: "SERVICE_UNAVAILABLE",
+      message: verificationUnavailableMessage,
+    });
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    await rejected;
+    release.resolve(new Response(new ReadableStream<Uint8Array>({ cancel })));
+    await setImmediate();
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(await fixture.db.query.appDeployment.findFirst()).toMatchObject({
+      status: "uploading",
+    });
+    expect(await fixture.db.query.appDeploymentFile.findFirst()).toMatchObject({
+      status: "failed",
+    });
+    expect(await fixture.db.query.app.findFirst()).toMatchObject({
+      currentDeploymentId: null,
+    });
+  });
+
+  it.each(["head", "signing", "fetch"])(
+    "cleans up cancelled bundle %s operations and ignores their late results",
+    async (phase) => {
+      const { context, created } = await createGzipClientDeployment(
+        new TextEncoder().encode("client-code")
+      );
+
+      const started = Promise.withResolvers<boolean>();
+      const release = Promise.withResolvers<boolean>();
+      const { head } = context.storage;
+      const sign = context.storage.createDownloadUrl;
+
+      if (phase === "head") {
+        context.storage.head = async (input) => {
+          started.resolve(true);
+          await release.promise;
+
+          return await head(input);
+        };
+      }
+
+      if (phase === "signing") {
+        context.storage.createDownloadUrl = async (input) => {
+          started.resolve(true);
+          await release.promise;
+
+          return await sign(input);
+        };
+      }
+
+      const cancel = vi.fn();
+
+      const fetchAsset = http.mockImplementation(async () => {
+        if (phase === "fetch") {
+          started.resolve(true);
+          await release.promise;
+        }
+
+        return new Response(new ReadableStream<Uint8Array>({ cancel }));
+      });
+
+      const controller = new AbortController();
+
+      const input = {
+        body: { rollout: true, scope: productionScope },
+        params: { deploymentId: created.body.deployment.id },
+      };
+
+      const publishing = call(deploymentRouter.publish, input, {
+        context,
         signal: controller.signal,
       });
 
       await started.promise;
+      const abortError = new Error("Publish cancelled");
+      const rejected = expect(publishing).rejects.toBe(abortError);
+      controller.abort(abortError);
+      await rejected;
+      release.resolve(true);
+      await setImmediate();
 
-      // Without ownership the contender publishes while the first storage request is pending.
-      const contender = await Effect.runPromiseExit(state.publish());
+      expect(
+        await fixture.db.query.appDeployment.findFirst({
+          where: { id: created.body.deployment.id },
+        })
+      ).toMatchObject({ status: "uploading" });
+      expect(
+        await fixture.db.query.appDeploymentFile.findFirst({
+          where: { appDeploymentId: created.body.deployment.id },
+        })
+      ).toMatchObject({ status: "failed" });
+      expect(await fixture.db.query.app.findFirst()).toMatchObject({
+        currentDeploymentId: null,
+      });
 
-      if (outcome === "failure") {
-        response.reject(new Error("Controlled storage failure"));
+      if (phase === "fetch") {
+        expect(cancel).toHaveBeenCalledOnce();
       } else {
-        controller.abort();
+        expect(fetchAsset).not.toHaveBeenCalled();
       }
 
-      expect(Exit.isFailure(await first)).toBe(true);
-      expect(await state.storedDeployment()).toMatchObject({
-        status: "uploading",
-      });
-      const unfinishedFiles = await state.files();
-      expect(unfinishedFiles.some((file) => file.status === "verifying")).toBe(
-        false
-      );
-      expect(state.head).toHaveBeenCalledOnce();
-      expect(state.enqueue).not.toHaveBeenCalled();
-      expect(contender).toMatchObject({ _tag: "Failure" });
-
-      // Assert the error at the Effect boundary, without replacing the production verifier.
-      if (Exit.isFailure(contender)) {
-        await expect(
-          runPromise(Effect.failCause(contender.cause))
-        ).rejects.toMatchObject({ code: "CONFLICT" });
-      }
-
-      await expect(runPromise(state.publish())).resolves.toMatchObject({
-        status: "published",
-      });
-      // An interrupted storage promise can settle after the replacement has finished.
-      response.reject(new Error("Storage failed after retry published"));
-      await response.promise.catch(() => null);
-      expect(await state.storedDeployment()).toMatchObject({
-        status: "published",
-      });
-      const verifiedFiles = await state.files();
-      expect(verifiedFiles.every((file) => file.status === "verified")).toBe(
-        true
-      );
-      expect(state.enqueue).toHaveBeenCalledOnce();
+      context.storage.head = head;
+      context.storage.createDownloadUrl = sign;
+      fetchAsset.mockResolvedValue(new Response("client-code"));
+      await expect(
+        call(deploymentRouter.publish, input, { context })
+      ).resolves.toMatchObject({ body: { status: "published" } });
     }
   );
 
-  it("rejects an overlapping attempt while the owner succeeds without duplicating publication", async () => {
-    const started = Promise.withResolvers<boolean>();
-    const response = Promise.withResolvers<boolean>();
-    state.head.mockImplementationOnce(async ({ key }) => {
-      started.resolve(true);
-      await response.promise;
+  it.each(["bundle-head", "asset-head", "signing", "fetch", "body"])(
+    "returns a sanitized HTTP error for %s failures and allows publication retry",
+    async (phase) => {
+      const deployment = await createLogoDeployment();
 
-      return { ...objectMetadata, key };
+      const context = publishContext(
+        "https://storage.test/private?credential=secret"
+      );
+
+      const { head } = context.storage;
+      const sign = context.storage.createDownloadUrl;
+      const cause = new Error("storage bucket private: credential=secret");
+      context.storage.head = async (input) => {
+        if (
+          (phase === "bundle-head" && input.key.endsWith("client.js")) ||
+          (phase === "asset-head" && input.key.endsWith("logo.svg"))
+        ) {
+          throw cause;
+        }
+
+        return await head(input);
+      };
+
+      if (phase === "signing") {
+        context.storage.createDownloadUrl = asyncFixture(() => {
+          throw cause;
+        });
+      }
+
+      const fetchAsset = http.mockImplementation(
+        asyncFixture(() => {
+          if (phase === "fetch") {
+            throw cause;
+          }
+
+          return new Response(
+            new ReadableStream<Uint8Array>({
+              start(stream) {
+                stream.error(cause);
+              },
+            })
+          );
+        })
+      );
+
+      const handler = new OpenAPIHandler({ deployments: deploymentRouter });
+
+      const result = await handler.handle(
+        new Request(`https://platform.test/deployments/${deployment.id}`, {
+          body: JSON.stringify({ rollout: true, scope: productionScope }),
+          headers: { "content-type": "application/json" },
+          method: "POST",
+        }),
+        { context }
+      );
+
+      const response = requireValue(result.response);
+      expect(response.status).toBe(503);
+      const responseBody: unknown = await response.json();
+      expect(responseBody).toEqual({
+        code: "SERVICE_UNAVAILABLE",
+        defined: true,
+        message: verificationUnavailableMessage,
+      });
+      expect(
+        await fixture.db.query.appDeployment.findFirst({
+          where: { id: deployment.id },
+        })
+      ).toMatchObject({ status: "uploading" });
+      expect(await fixture.db.query.appAsset.findFirst()).toMatchObject({
+        status: "uploading",
+      });
+      expect(await fixture.db.query.app.findFirst()).toMatchObject({
+        currentDeploymentId: null,
+      });
+
+      context.storage.head = head;
+      context.storage.createDownloadUrl = sign;
+      fetchAsset.mockResolvedValue(new Response("<svg></svg>"));
+      await expect(
+        call(
+          deploymentRouter.publish,
+          {
+            body: { rollout: true, scope: productionScope },
+            params: { deploymentId: deployment.id },
+          },
+          { context }
+        )
+      ).resolves.toMatchObject({ body: { status: "published" } });
+    }
+  );
+
+  it.each([
+    { message: "content length", metadata: { contentLength: 12 } },
+    { message: "content type", metadata: { contentType: "text/plain" } },
+    { message: "content encoding", metadata: { contentEncoding: "gzip" } },
+    { message: "checksum", metadata: { checksumSha256: "different" } },
+  ])(
+    "returns an actionable validation error for mismatched $message",
+    async ({ metadata, message }) => {
+      const expectedMessage: unknown = expect.stringContaining(message);
+      const deployment = await createLogoDeployment();
+      const context = publishContext("https://storage.test/logo.svg");
+      const { head } = context.storage;
+      context.storage.head = async (input) => ({
+        ...(await head(input)),
+        ...metadata,
+      });
+      await expect(
+        call(
+          deploymentRouter.publish,
+          {
+            body: { rollout: false, scope: productionScope },
+            params: { deploymentId: deployment.id },
+          },
+          { context }
+        )
+      ).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+        message: expectedMessage,
+      });
+      expect(await fixture.db.query.appDeployment.findFirst()).toMatchObject({
+        status: "uploading",
+      });
+      expect(
+        await fixture.db.query.appDeploymentFile.findFirst()
+      ).toMatchObject({
+        status: "failed",
+      });
+    }
+  );
+
+  it("keeps unsafe logo content a validation error with its internal cause", async () => {
+    const deployment = await createLogoDeployment();
+    const context = publishContext("https://storage.test/logo.svg");
+    http.mockResolvedValue(new Response("<svg><script></script></svg>"));
+    const expectedCause: unknown = expect.any(Error);
+    await expect(
+      call(
+        deploymentRouter.publish,
+        {
+          body: { rollout: false, scope: productionScope },
+          params: { deploymentId: deployment.id },
+        },
+        { context }
+      )
+    ).rejects.toMatchObject({
+      cause: expectedCause,
+      code: "BAD_REQUEST",
+      message: "SVG logos cannot contain scripts or external resources.",
     });
-    const owner = Effect.runPromiseExit(state.publish());
-    await started.promise;
-    const contender = await Effect.runPromiseExit(state.publish());
-    response.resolve(true);
-    expect(await owner).toMatchObject({
-      _tag: "Success",
-      value: { status: "published" },
+    expect(await fixture.db.query.appAsset.findFirst()).toMatchObject({
+      status: "uploading",
     });
-    expect(contender).toMatchObject({ _tag: "Failure" });
-    expect(state.head).toHaveBeenCalledTimes(2);
-    expect(state.enqueue).toHaveBeenCalledOnce();
-    expect(await state.storedDeployment()).toMatchObject({
-      status: "published",
-    });
-    const verifiedFiles = await state.files();
-    expect(verifiedFiles.every((file) => file.status === "verified")).toBe(
-      true
-    );
   });
 
-  it("finishes publication side effects when cancellation arrives after commit", async () => {
-    const enqueueStarted = Promise.withResolvers<boolean>();
-    const enqueueFinished = Promise.withResolvers<boolean>();
-    let completed = false;
-    state.enqueue.mockImplementationOnce(async () => {
-      enqueueStarted.resolve(true);
-      await enqueueFinished.promise;
-      completed = true;
+  it("rejects non-HTTPS logo inspection URLs before fetching", async () => {
+    const deployment = await createLogoDeployment();
+    const fetchMock = vi.fn();
+    http.mockImplementation(fetchMock);
+
+    await expect(
+      call(
+        deploymentRouter.publish,
+        {
+          body: { rollout: true, scope: productionScope },
+          params: { deploymentId: deployment.id },
+        },
+        { context: publishContext("http://uploads.example/logo-dark.svg") }
+      )
+    ).rejects.toMatchObject({
+      code: "SERVICE_UNAVAILABLE",
+      message: verificationUnavailableMessage,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("aborts logo inspection while reading the response body", async () => {
+    const deployment = await createLogoDeployment();
+    vi.useFakeTimers();
+    const inspectionStarted = Promise.withResolvers<boolean>();
+    http.mockImplementation(
+      vi.fn(
+        asyncFixture(
+          (_url: Parameters<typeof fetch>[0], init?: RequestInit) =>
+            new Response(
+              new ReadableStream<Uint8Array>({
+                start(controller) {
+                  inspectionStarted.resolve(true);
+                  init?.signal?.addEventListener("abort", () => {
+                    controller.error(new DOMException("Aborted", "AbortError"));
+                  });
+                },
+              })
+            )
+        )
+      )
+    );
+
+    const publish = call(
+      deploymentRouter.publish,
+      {
+        body: { rollout: true, scope: productionScope },
+        params: { deploymentId: deployment.id },
+      },
+      { context: publishContext("https://uploads.example/logo-dark.svg") }
+    );
+
+    await inspectionStarted.promise;
+    const advanceTimers = vi.advanceTimersByTimeAsync(10_000);
+    await expect(publish).rejects.toMatchObject({
+      code: "SERVICE_UNAVAILABLE",
+      message: verificationUnavailableMessage,
+    });
+    await advanceTimers;
+  });
+
+  it("restores retryable state on cancellation and ignores late storage completion", async () => {
+    const deployment = await createLogoDeployment();
+    const waiting = Promise.withResolvers<boolean>();
+
+    const released =
+      Promise.withResolvers<Awaited<ReturnType<Context["storage"]["head"]>>>();
+
+    const context = publishContext("https://uploads.example/logo.svg");
+    context.storage.head = vi.fn(async () => {
+      waiting.resolve(true);
+
+      return await released.promise;
     });
     const controller = new AbortController();
 
-    const owner = Effect.runPromiseExit(state.publish(), {
-      signal: controller.signal,
+    const publication = call(
+      deploymentRouter.publish,
+      {
+        body: { rollout: true, scope: productionScope },
+        params: { deploymentId: deployment.id },
+      },
+      { context, signal: controller.signal }
+    );
+
+    const completed = expect(publication).rejects.toBeDefined();
+    await waiting.promise;
+    controller.abort(new Error("Request cancelled"));
+    await completed;
+
+    const failed = await fixture.db.query.appDeploymentFile.findFirst({
+      where: { appDeploymentId: deployment.id, status: "failed" },
     });
 
-    await enqueueStarted.promise;
-    controller.abort();
-
-    await expect(runPromise(state.publish())).resolves.toMatchObject({
-      status: "published",
-    });
-    expect(completed).toBe(false);
-    enqueueFinished.resolve(true);
-    await owner;
-    expect(completed).toBe(true);
-    expect(state.enqueue).toHaveBeenCalledOnce();
-    expect(await state.storedDeployment()).toMatchObject({
-      status: "published",
-    });
-    const apps = await state.db.query.app.findMany();
-
-    for (const selectedApp of apps) {
-      expect(selectedApp.currentDeploymentId).toBe(state.context.deployment.id);
-    }
-  });
-
-  it("rolls back publication and selection together when rollout fails, then permits retry", async () => {
-    await state.client.exec(`
-      CREATE FUNCTION fail_rollout() RETURNS trigger LANGUAGE plpgsql AS $$
-      BEGIN
-        RAISE EXCEPTION 'Controlled rollout failure';
-      END;
-      $$;
-      CREATE TRIGGER fail_rollout BEFORE UPDATE ON app
-      FOR EACH ROW EXECUTE FUNCTION fail_rollout();
-    `);
-    await expect(runPromise(state.publish())).rejects.toMatchObject({
-      code: "INTERNAL_SERVER_ERROR",
-    });
-    expect(await state.storedDeployment()).toMatchObject({
-      status: "uploading",
-    });
-    expect(state.enqueue).not.toHaveBeenCalled();
-    const apps = await state.db.query.app.findMany();
-
-    for (const selectedApp of apps) {
-      expect(selectedApp.currentDeploymentId).toBe(state.previous.id);
+    if (!failed) {
+      throw new Error("Missing failed verification record");
     }
 
-    await state.client.exec("DROP TRIGGER fail_rollout ON app");
-    await expect(runPromise(state.publish())).resolves.toMatchObject({
-      status: "published",
+    const persisted = await fixture.db.query.appDeployment.findFirst({
+      where: { id: deployment.id },
     });
-    expect(state.enqueue).toHaveBeenCalledOnce();
+
+    expect(persisted?.status).toBe("uploading");
+    released.resolve({
+      checksumSha256: logoChecksumBase64,
+      contentLength: 11,
+      contentType: "image/svg+xml",
+      key: "late-storage-completion",
+    });
+    // A database read queues behind any accidental write after the released storage promise.
+    await fixture.db.query.appDeploymentFile.findMany();
+
+    const afterCompletion = await fixture.db.query.appDeploymentFile.findFirst({
+      where: { id: failed.id },
+    });
+
+    expect(afterCompletion?.status).toBe("failed");
   });
 
-  it.each([false, true])(
-    "makes the first successful rollout choice final (%s)",
-    async (rollout) => {
-      const published = await runPromise(state.publish(rollout));
-      expect(published.status).toBe("published");
-      const expected = rollout ? published.id : state.previous.id;
-      const selectedApps = await state.db.query.app.findMany();
-      expect(selectedApps).toHaveLength(2);
+  it.each(["interrupt-after-deployment-status", "fail-between-files"])(
+    "restores retryable state on %s outside file inspection",
+    async (phase) => {
+      const deployment = await createLogoDeployment();
+      await fixture.db.insert(appDeploymentFile).values({
+        appDeploymentId: deployment.id,
+        checksum: logoChecksum,
+        contentLength: 11,
+        contentType: "application/javascript",
+        encoding: null,
+        objectKey: "second-client.js",
+      });
+      const controller = new AbortController();
+      let startedFiles = 0;
+      let triggered = false;
 
-      for (const selectedApp of selectedApps) {
-        expect(selectedApp.currentDeploymentId).toBe(expected);
-      }
+      const database = drizzle({
+        client: fixture.db.$client,
+        logger: {
+          logQuery(query, params) {
+            if (params[0] !== "verifying") {
+              return;
+            }
 
-      // A repeated request must preserve subsequent selection changes.
-      await state.db
-        .update(app)
-        .set({ currentDeploymentId: state.previous.id });
-      const repeated = await runPromise(state.publish(!rollout));
-      expect(repeated).toEqual(published);
-      expect(state.head).toHaveBeenCalledTimes(2);
-      expect(state.enqueue).toHaveBeenCalledTimes(rollout ? 1 : 0);
-      const repeatedApps = await state.db.query.app.findMany();
+            if (
+              phase === "interrupt-after-deployment-status" &&
+              query.startsWith('update "app_deployment"')
+            ) {
+              triggered = true;
+              controller.abort();
+            }
 
-      for (const selectedApp of repeatedApps) {
-        expect(selectedApp.currentDeploymentId).toBe(state.previous.id);
-      }
+            if (query.startsWith('update "app_deployment_file"')) {
+              startedFiles += 1;
+
+              if (phase === "fail-between-files" && startedFiles === 2) {
+                triggered = true;
+                throw new Error(
+                  "Database write failed between file inspections"
+                );
+              }
+            }
+          },
+        },
+        relations,
+      });
+
+      const currentApp = requireValue(await fixture.db.query.app.findFirst());
+
+      const context = {
+        ...publishContext("https://storage.test/logo.svg"),
+        app: currentApp,
+        deployment,
+        ...testServices({ database, fetch: http }),
+      };
+
+      await expect(
+        runPlatform(
+          publishDeployment(database, context, false, async () => {
+            await Promise.resolve();
+          }),
+          context,
+          controller.signal
+        )
+      ).rejects.toBeDefined();
+      expect(triggered).toBe(true);
+      expect(
+        await fixture.db.query.appDeployment.findFirst({
+          where: { id: deployment.id },
+        })
+      ).toMatchObject({ status: "uploading" });
+
+      const files = await fixture.db.query.appDeploymentFile.findMany({
+        where: { appDeploymentId: deployment.id },
+      });
+
+      expect(files.filter((file) => file.status === "verified")).toHaveLength(
+        phase === "fail-between-files" ? 1 : 0
+      );
+      expect(files.filter((file) => file.status === "failed")).toHaveLength(
+        phase === "fail-between-files" ? 1 : 0
+      );
     }
   );
 });

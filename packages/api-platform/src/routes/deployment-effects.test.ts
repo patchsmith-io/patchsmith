@@ -6,13 +6,25 @@ import { TestClock } from "effect/testing";
 import { expect, it, vi } from "vite-plus/test";
 
 import type { Context } from "#context";
+import { PlatformHttp } from "#services";
 
 import {
-  inspectUploadedAsset,
+  inspectUploadedAsset as inspectUploadedAssetEffect,
   uploadedAssetMetadata,
   UploadValidationError,
   verificationUnavailableMessage,
 } from "./deployment-effects";
+
+const inspectUploadedAsset = <A>(
+  storage: Context["storage"],
+  objectKey: string,
+  kind: "Bundle" | "Logo",
+  inspect: (body: ReadableStream<Uint8Array>) => Promise<A>,
+  fetch: typeof globalThis.fetch
+) =>
+  inspectUploadedAssetEffect(storage, objectKey, kind, inspect).pipe(
+    Effect.provideService(PlatformHttp, { fetch })
+  );
 
 const createStorage = (): Context["storage"] => ({
   createDownloadUrl: asyncFixture(() => ({

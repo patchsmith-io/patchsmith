@@ -1,4 +1,4 @@
-import { handlerGen } from "@orpc/experimental-effect";
+import { handlerGen, middlewareGen } from "@orpc/experimental-effect";
 import { openapi } from "@orpc/openapi";
 import { ORPCError } from "@orpc/server";
 import { maxDeploymentBytes } from "@patchsmith/asset-delivery";
@@ -7,7 +7,6 @@ import {
   logoContentTypes,
 } from "@patchsmith/asset-delivery/logo-validation";
 import { isStaticAssetPath } from "@patchsmith/asset-delivery/static-assets";
-import { db } from "@patchsmith/db";
 import {
   AppAsset,
   AppDeployment,
@@ -16,14 +15,13 @@ import {
   appDeploymentFile,
 } from "@patchsmith/db/schema/apps";
 import type { Scope } from "@patchsmith/db/schema/scope";
-import { createShortId } from "@patchsmith/db/short-id";
 import { setSpanAttributes } from "@patchsmith/observability";
 import { eq } from "drizzle-orm";
 import { Effect } from "effect";
 import { z } from "zod";
 
 import { appSelectorSchema } from "#app-selector";
-import { publishDeployment } from "#deployments/verification";
+import { hexToBase64, publishDeployment } from "#deployments/verification";
 import { paginatedOutput, paginationQuery } from "#pagination";
 import { o, cliRouter, requireApp, requireAppInScopes } from "#procedures";
 import {
@@ -33,12 +31,10 @@ import {
   scopeSchema,
   scopesSchema,
 } from "#scope";
+import { attempt, PlatformDatabase, PlatformIds } from "#services";
 
-import {
-  deploymentOperation,
-  verificationUnavailableMessage,
-} from "./deployment-effects";
-import { getRuntimeBundle, publishRuntimeMetadata } from "./runtime";
+import { getRuntimeBundle, publishRuntimeMetadata } from "./app-runtime";
+import { verificationUnavailableMessage } from "./deployment-effects";
 import {
   deploymentStaticAssets,
   linkStaticAssets,
@@ -114,8 +110,6 @@ const deploymentAssetUpload = z.object({
   uploadUrl: z.url(),
 });
 
-const hexToBase64 = (hex: string) => Buffer.from(hex, "hex").toString("base64");
-
 export const mapReturnedFilesByAssetPath = <TFile extends { id: string }>(
   assets: readonly { asset: { objectKey: string }; fileId: string }[],
   files: readonly TFile[]
@@ -138,42 +132,46 @@ export const mapReturnedFilesByAssetPath = <TFile extends { id: string }>(
 };
 
 const requireDeployment = o.middleware(
-  async (
+  middlewareGen(function* requireDeployment(
     { next, context },
     input: { deploymentId: string; scope?: Scope; scopes?: Scope[] }
-  ) => {
+  ) {
+    const db = yield* PlatformDatabase;
+
     setSpanAttributes({
       "patchsmith.middleware": "require_deployment",
       "patchsmith.package": "api-platform",
       "patchsmith.resource_type": "deployment",
     });
 
-    const deploymentWithApp = await db.query.appDeployment.findFirst({
-      where: {
-        id: input.deploymentId,
-      },
-      with: {
-        app: true,
-      },
-    });
+    const deploymentWithApp = yield* attempt(
+      async () =>
+        await db.query.appDeployment.findFirst({
+          where: {
+            id: input.deploymentId,
+          },
+          with: {
+            app: true,
+          },
+        })
+    );
 
     const deploymentApp = deploymentWithApp?.app;
 
-    let requestedScopes: Scope[];
+    const requestedScopes = yield* Effect.try({
+      catch: () =>
+        new ORPCError("BAD_REQUEST", { message: "Invalid deployment scope." }),
+      try: () =>
+        input.scope
+          ? [canonicalizeScope(input.scope).scope]
+          : canonicalizeScopes(input.scopes).map(({ scope }) => scope),
+    });
 
-    try {
-      requestedScopes = input.scope
-        ? [canonicalizeScope(input.scope).scope]
-        : canonicalizeScopes(input.scopes).map(({ scope }) => scope);
-    } catch {
-      throw new ORPCError("BAD_REQUEST", {
-        message: "Invalid deployment scope.",
-      });
-    }
+    const storedScope = yield* Effect.sync(() => {
+      if (!deploymentApp) {
+        return null;
+      }
 
-    let storedScope: ReturnType<typeof canonicalizeScope> | null = null;
-
-    if (deploymentApp) {
       try {
         const canonicalScope = canonicalizeScope(deploymentApp.scope);
 
@@ -183,15 +181,17 @@ const requireDeployment = o.middleware(
           );
         }
 
-        storedScope = canonicalScope;
+        return canonicalScope;
       } catch (error) {
         console.warn("Deployment app has an invalid stored scope.", {
           appId: deploymentApp.id,
           deploymentId: input.deploymentId,
           error,
         });
+
+        return null;
       }
-    }
+    });
 
     const scopeMatchesApp =
       storedScope !== null &&
@@ -203,16 +203,19 @@ const requireDeployment = o.middleware(
       deploymentApp.projectId !== context.project.id ||
       !scopeMatchesApp
     ) {
-      throw new ORPCError("NOT_FOUND", { message: "Deployment not found." });
+      return yield* Effect.fail(
+        new ORPCError("NOT_FOUND", { message: "Deployment not found." })
+      );
     }
 
     const { app: _app, ...deployment } = deploymentWithApp;
     void _app;
 
-    return await next({
+    // oxlint-disable-next-line effecttsgo/any-unknown-in-error-context -- oRPC preserves downstream procedure failures.
+    return yield* next({
       context: { ...context, app: deploymentApp, deployment },
     });
-  }
+  })
 );
 
 const listAppDeployments = cliRouter
@@ -232,31 +235,38 @@ const listAppDeployments = cliRouter
   )
   .output(paginatedOutput(AppDeployment))
   .use(requireAppInScopes.adaptInput(({ body }) => body))
-  .handler(async ({ context, input }) => {
-    const { page, pageSize } = input.body;
+  .handler(
+    handlerGen(function* listAppDeployments({ context, input }) {
+      const db = yield* PlatformDatabase;
 
-    const deployments = await db.query.appDeployment.findMany({
-      limit: pageSize + 1,
-      offset: (page - 1) * pageSize,
-      orderBy: {
-        createdAt: "desc",
-      },
-      where: {
-        appId: context.app.id,
-      },
-    });
+      const { page, pageSize } = input.body;
 
-    return {
-      body: {
-        items: deployments.slice(0, pageSize),
-        pagination: {
-          hasMore: deployments.length > pageSize,
-          page,
-          pageSize,
+      const deployments = yield* attempt(
+        async () =>
+          await db.query.appDeployment.findMany({
+            limit: pageSize + 1,
+            offset: (page - 1) * pageSize,
+            orderBy: {
+              createdAt: "desc",
+            },
+            where: {
+              appId: context.app.id,
+            },
+          })
+      );
+
+      return {
+        body: {
+          items: deployments.slice(0, pageSize),
+          pagination: {
+            hasMore: deployments.length > pageSize,
+            page,
+            pageSize,
+          },
         },
-      },
-    };
-  });
+      };
+    })
+  );
 
 const getAppDeployment = cliRouter
   .meta(
@@ -328,8 +338,10 @@ const createAppDeployment = cliRouter
   .use(requireApp.adaptInput(({ body }) => body))
   .handler(
     handlerGen(function* createDeployment({ context, input }) {
+      const db = yield* PlatformDatabase;
+      const ids = yield* PlatformIds;
       const deploymentId = crypto.randomUUID();
-      const deploymentShortId = createShortId();
+      const deploymentShortId = yield* ids.shortId;
 
       const preparedStaticAssets = yield* prepareStaticAssets(
         context,
@@ -372,7 +384,7 @@ const createAppDeployment = cliRouter
             const fileId = crypto.randomUUID();
             const objectKey = `projects/${context.project.shortId}/apps/${context.app.shortId}/deployments/${deploymentShortId}/${kind}/${asset.objectKey}`;
 
-            const upload = yield* deploymentOperation(
+            const upload = yield* attempt(
               async () =>
                 await context.storage.createUploadUrl({
                   checksumSha256: hexToBase64(asset.checksum),
@@ -395,7 +407,7 @@ const createAppDeployment = cliRouter
       );
 
       // Drizzle owns commit/rollback; only this transaction callback bridges back to promises.
-      return yield* deploymentOperation(
+      return yield* attempt(
         async (signal) =>
           await db.transaction(async (tx) => {
             const [deployment] = await tx
@@ -539,12 +551,16 @@ const publishAppDeployment = cliRouter
   )
   .handler(
     handlerGen(function* publishRequestedDeployment({ context, input }) {
+      const database = yield* PlatformDatabase;
+
       return {
         body: yield* publishDeployment(
-          db,
+          database,
           context,
           input.body.rollout,
-          publishRuntimeMetadata
+          async (metadata, appShortId) => {
+            await publishRuntimeMetadata(metadata, appShortId, context);
+          }
         ),
       };
     })

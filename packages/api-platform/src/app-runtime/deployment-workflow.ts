@@ -1,8 +1,8 @@
+import type { RuntimeRollout } from "./deployment-steps";
 import {
   listRuntimeInstallations,
   warmRuntimeDeployment,
-} from "./deployment-steps";
-import type { RuntimeRollout } from "./deployment-steps";
+} from "./deployment-workflow-steps";
 
 export const warmAppDeployment = async (input: RuntimeRollout) => {
   "use workflow";

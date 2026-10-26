@@ -10,17 +10,15 @@ import {
   maxStaticAssets,
   staticAssetContentType,
 } from "@patchsmith/asset-delivery/static-assets";
-import { db } from "@patchsmith/db";
-import type { relations } from "@patchsmith/db/relations";
 import type { AppAsset } from "@patchsmith/db/schema/apps";
 import { appAsset, appDeploymentAsset } from "@patchsmith/db/schema/apps";
 import { inArray } from "drizzle-orm";
-import type { PgQueryResultHKT } from "drizzle-orm/pg-core";
-import type { PgAsyncDatabase } from "drizzle-orm/pg-core/async";
 import { Effect } from "effect";
 import { z } from "zod";
 
 import type { Context } from "#context";
+import { PlatformDatabase } from "#services";
+import type { PlatformDb } from "#services";
 
 import {
   deploymentOperation,
@@ -52,7 +50,7 @@ export const staticAssetsInput = z
 
 type StaticAssetInput = z.output<typeof staticAssetsInput>[number];
 
-type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+type Transaction = Parameters<Parameters<PlatformDb["transaction"]>[0]>[0];
 
 const checksumBase64 = (checksum: string) =>
   Buffer.from(checksum, "hex").toString("base64");
@@ -196,13 +194,12 @@ export const linkStaticAssets = (
     return uploads;
   });
 
-export const deploymentStaticAssets = (
-  deploymentId: string,
-  query: typeof db.query = db.query
-): Effect.Effect<AppAsset[], ORPCError<string, unknown>> =>
+export const deploymentStaticAssets = (deploymentId: string) =>
   Effect.gen(function* readAssets() {
+    const db = yield* PlatformDatabase;
+
     const references = yield* deploymentOperation(() =>
-      query.appDeploymentAsset.findMany({
+      db.query.appDeploymentAsset.findMany({
         where: { appDeploymentId: deploymentId },
         with: { asset: true },
       })
@@ -225,13 +222,14 @@ export const deploymentStaticAssets = (
   });
 
 /** Signed uploads bind SHA-256 to the bytes; publication also verifies R2 metadata. */
-export const verifyStaticAssets = <TResult extends PgQueryResultHKT>(
+export const verifyStaticAssets = (
   storage: Context["storage"],
   assets: AppAsset[],
-  logoPaths: (string | null)[],
-  database: PgAsyncDatabase<TResult, typeof relations>
+  logoPaths: (string | null)[]
 ) =>
   Effect.gen(function* verifyAssets() {
+    const db = yield* PlatformDatabase;
+
     const verifiedIds = yield* Effect.forEach(
       assets,
       (asset) =>
@@ -302,7 +300,7 @@ export const verifyStaticAssets = <TResult extends PgQueryResultHKT>(
     if (verifiedIds.length > 0) {
       // Do not leave a database write running after cancellation has returned.
       yield* deploymentOperation(() =>
-        database
+        db
           .update(appAsset)
           .set({ status: "verified" })
           .where(inArray(appAsset.id, verifiedIds))

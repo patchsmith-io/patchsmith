@@ -14,6 +14,7 @@ import type { PgAsyncDatabase } from "drizzle-orm/pg-core/async";
 import { Effect } from "effect";
 import { z } from "zod";
 
+import { selectRuntimeDeployment } from "#app-runtime/deployment-steps";
 import type { Context } from "#context";
 import {
   deploymentOperation,
@@ -26,9 +27,10 @@ import {
   deploymentStaticAssets,
   verifyStaticAssets,
 } from "#routes/static-assets";
-import { selectRuntimeDeployment } from "#runtime/deployment-steps";
+import { PlatformDatabase } from "#services";
 
-const hexToBase64 = (hex: string) => Buffer.from(hex, "hex").toString("base64");
+export const hexToBase64 = (hex: string) =>
+  Buffer.from(hex, "hex").toString("base64");
 
 const inspectCompressedBundle = (
   storage: Context["storage"],
@@ -112,10 +114,7 @@ const publishClaimedDeployment = <TResult extends PgQueryResultHKT>(
       );
     }
 
-    const staticAssets = yield* deploymentStaticAssets(
-      deployment.id,
-      database.query
-    );
+    const staticAssets = yield* deploymentStaticAssets(deployment.id);
 
     const staticBytes = staticAssets.reduce(
       (total, asset) => total + asset.contentLength,
@@ -234,12 +233,10 @@ const publishClaimedDeployment = <TResult extends PgQueryResultHKT>(
           ),
         { discard: true }
       );
-      yield* verifyStaticAssets(
-        context.storage,
-        staticAssets,
-        [deployment.logoDarkPath, deployment.logoLightPath],
-        database
-      );
+      yield* verifyStaticAssets(context.storage, staticAssets, [
+        deployment.logoDarkPath,
+        deployment.logoLightPath,
+      ]);
     }).pipe(Effect.mapError(verificationFailure));
 
     // Once commit begins, finish selection and enqueueing even if the caller disconnects.
@@ -411,4 +408,4 @@ export const publishDeployment = <TResult extends PgQueryResultHKT>(
             });
           }).pipe(Effect.orDie)
         : Effect.void
-  );
+  ).pipe(Effect.provideService(PlatformDatabase, database));
