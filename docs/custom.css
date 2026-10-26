@@ -9,6 +9,40 @@
   }
 }
 
+/* Make every primary color utility follow the active theme, including hovers. */
+:root.dark {
+  --primary: var(--primary-light);
+  --primary-dark: var(--primary-light);
+}
+
+/* Filled primary surfaces need dark content when their background turns light.
+   Include the muted send-button fill, but leave subtle /10 highlights alone.
+   Some controls draw their fill in a separate child (for example, the navbar). */
+/* Keep selectors flat: Mintlify drops nested rules when publishing CSS. */
+.dark
+  :is(
+    .bg-primary,
+    .bg-primary-dark,
+    .bg-primary\/30,
+    .dark\:bg-primary-dark,
+    .dark\:bg-primary-dark\/30,
+    .dark\:bg-primary-light,
+    :is(a, button, [role="button"]):has(> :is(.bg-primary, .bg-primary-dark))
+  ),
+.dark
+  :is(
+    .bg-primary,
+    .bg-primary-dark,
+    .bg-primary\/30,
+    .dark\:bg-primary-dark,
+    .dark\:bg-primary-dark\/30,
+    .dark\:bg-primary-light,
+    :is(a, button, [role="button"]):has(> :is(.bg-primary, .bg-primary-dark))
+  )
+  :is([class*="text-white"], [class*="text-tooltip-foreground"]) {
+  color: rgb(var(--background-dark));
+}
+
 /* Keep the selected navigation item neutral in both themes. */
 #sidebar a[aria-current="page"] {
   color: rgb(var(--gray-950));
