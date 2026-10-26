@@ -1,0 +1,21 @@
+apps/web/public/robots.txt
+  s_5dd5a09192b8d5::t_7decfd11347c26 4-5
+apps/web/vercel.json
+  s_5dd5a09192b8d5::t_2f1a043b3295c9 50-53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9a97dca6c5d2333a712072b6cd26471c14076dd7",
+  "prompts": {},
+  "sessions": {
+    "s_5dd5a09192b8d5": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1765d-ad24-7372-bdf0-5298bcb13c85",
+        "model": "unknown"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
