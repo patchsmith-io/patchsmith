@@ -1,0 +1,41 @@
+package.json
+  s_7d3ad5192a73ac::t_bcdb611aa9f5df 70-71
+packages/agent-fx/README.md
+  s_841bb0c2f91546::t_b11473601ad555 7
+packages/agent-fx/package.json
+  s_7d3ad5192a73ac::t_4b0115470297f7 39
+packages/agent-fx/src/agent.integration.test.ts
+  s_7d3ad5192a73ac::t_ea527e914648f9 10-15,165,167,170-174,181-183,188-190,269,271-283,286-290
+packages/agent-fx/src/fixtures/harness-crash.ts
+  s_7d3ad5192a73ac::t_2c639a798b525d 6-10,117,120-131,135-136
+packages/agent-fx/src/workflows.ts
+  s_7d3ad5192a73ac::t_2dbf431962e06b 2-10,24,27,34-45,47-48,75-91
+pnpm-lock.yaml
+  s_7d3ad5192a73ac::t_9e0804ecc88cd6 689-691,2005-2010,12952-12959,19623
+pnpm-workspace.yaml
+  s_7d3ad5192a73ac::t_6723e3ccac52c7 10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fafba8322bc38766d00d69d59fddeb770a83a00e",
+  "prompts": {},
+  "sessions": {
+    "s_7d3ad5192a73ac": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17641-11a3-74b2-8700-d5c6ffdb4faf",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    },
+    "s_841bb0c2f91546": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a171fe-3471-7a03-89de-8dfc6a9e2f52",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
