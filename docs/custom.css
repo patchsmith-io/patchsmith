@@ -9,6 +9,16 @@
   }
 }
 
+/* Invert the primary navbar button in dark mode. */
+.dark #topbar-cta-button a > span {
+  background-color: rgb(var(--primary-light));
+}
+
+.dark #topbar-cta-button a > div > span,
+.dark #topbar-cta-button a > div > svg {
+  color: rgb(var(--primary));
+}
+
 /* Keep the selected navigation item neutral in both themes. */
 #sidebar a[aria-current="page"] {
   color: rgb(var(--gray-950));
