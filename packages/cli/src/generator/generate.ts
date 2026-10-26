@@ -22,7 +22,6 @@ import {
   databaseTemplate,
   relationsTemplate,
   greetingTemplate,
-  libReadmeTemplate,
   logoDarkTemplate,
   logoLightTemplate,
 } from "./templates/index";
@@ -265,6 +264,8 @@ export const generateApp = async (
 
   const templateData = appTemplateData(options, starter, sourceDirectory);
 
+  await ensureDirectory(path.join(targetDirectory, sourceDirectory, "lib"));
+
   if (!bare) {
     await ensureDirectory(
       path.join(targetDirectory, sourceDirectory, "db", "migrations")
@@ -294,10 +295,6 @@ export const generateApp = async (
     },
     { dest: ".gitignore", template: gitignoreTemplate },
     { dest: "vite.config.ts", template: viteConfigTemplate },
-    {
-      dest: path.join(sourceDirectory, "lib", "README.md"),
-      template: libReadmeTemplate,
-    },
     {
       dest: path.join(sourceDirectory, "slots", "root.tsx"),
       template: rootTemplate,

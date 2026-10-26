@@ -27,9 +27,7 @@ These are the main files for a host with a `panel` slot and a `/` view:
     <Tree.Folder name="functions" defaultOpen>
       <Tree.File name="greeting.router.ts" />
     </Tree.Folder>
-    <Tree.Folder name="lib">
-      <Tree.File name="README.md" />
-    </Tree.Folder>
+    <Tree.Folder name="lib" />
     <Tree.Folder name="db">
       <Tree.File name="index.ts" />
       <Tree.File name="schema.ts" />
@@ -54,15 +52,13 @@ Use these files to add UI, backend logic, and configuration:
 | `assets/` | Public static files uploaded with the app and addressed by content hash. |
 | `slots/` | UI views, grouped by slot. |
 | `slots/root.tsx` | The shared UI shell. |
-| `lib/` | General app code shared across views, components, or backend functions. |
+| `lib/` | Shared app code, imported through `#lib/...`. |
 | `functions/**/*.router.ts` | Automatically registered backend function routers. |
 | `patchsmith.functions.gen.ts` | Generated type-only function registry. |
 | `db/` | Database schema, connection, and migrations. |
 | `patchsmith.gen.ts` | Generated components, tools, and types; refreshed by `patchsmith generate`. |
 | `patchsmith.config.ts` | The host URL and app logos. |
 | `vite.config.ts` | Build configuration. |
-
-New apps include `lib/README.md` (or `src/lib/README.md` with `--src-dir`), including bare apps. Use `lib/` for reusable helpers, constants, types, and validation schemas, imported through `#lib/...`, such as `#lib/format-name`. This is a recommended convention; Patchsmith does not enforce the folder or automatically register its files. Keep feature-specific code beside its feature until it needs to be shared. Code shared by frontend and backend should work in both runtimes; keep database access and server-only dependencies in backend modules, and UI dependencies in frontend modules.
 
 Every app includes a private backend, even when it has no functions. Use the optional `server` setting in `patchsmith.config.ts` to customize the migrations path. File paths supply API namespaces: `greeting.router.ts` exporting `defineRouter({ getGreeting })` exposes `api.greeting.getGreeting`. Dots and directories both create nested namespaces. Run `patchsmith generate` after adding or moving modules; the builder creates the private server entry automatically.
 
