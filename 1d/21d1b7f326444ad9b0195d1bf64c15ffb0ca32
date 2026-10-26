@@ -42,6 +42,8 @@ packages/patchsmith/README.md
 packages/api-platform/src/app-agent-mcp.test.ts
   s_7d3ad5192a73ac::t_5b55c8c6df2b42 164,169-172,186
   s_7d3ad5192a73ac::t_ad578b8d8f5f28 14,43,154-159,161-163,165-167,173-181,183-185,187-188,191-193
+  s_7d3ad5192a73ac::t_f44d8a5944d73b 189
+  s_7d3ad5192a73ac::t_b28470d93682a3 160,182
 packages/core/src/server/agent.test.ts
   s_7d3ad5192a73ac::t_5ee9eecdf329b5 8-9,72,127,147-194,204-205
   s_7d3ad5192a73ac::t_ea31f5aaa1508b 195-203
