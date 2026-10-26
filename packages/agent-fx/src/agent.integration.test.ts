@@ -1,38 +1,32 @@
-import { execFile } from "node:child_process";
-import {
-  mkdir,
-  mkdtemp,
-  readFile,
-  realpath,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { mkdir, mkdtemp, readFile, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import nodePath from "node:path";
-import { promisify } from "node:util";
 
+import {
+  harnessSessionDataDirectoryPath,
+  harnessStateDirectoryPath,
+} from "@ai-sdk/harness";
 import { readUIMessageStream } from "ai";
 import type { UIMessageChunk } from "ai";
-import { local } from "libfx/durable-local";
-import { expect, it } from "vite-plus/test";
+import { expect, it, vi } from "vite-plus/test";
 
-import { createAppAgent, getAppInstructions } from "./agent";
-import type { AppSandboxSession } from "./sandbox-session";
-import { readSessionLines, toUIChunks } from "./stream";
-import { createSandboxTools } from "./tools";
+import { env } from "#env";
+
+import { createAppAgent } from "./agent";
+import { localSession } from "./fixtures/local-sandbox";
+import { runAppAgentTurn } from "./run-turn";
 
 const { join } = nodePath;
 
-// oxlint-disable-next-line typescript/strict-void-return -- promisify consumes execFile's callback, not the ChildProcess return value.
-const execute = promisify(execFile);
-
-const gatewayEvents = (index: number) => {
-  const tool = index < 3;
-  const first = index === 1;
+const gatewayEvents = (requestIndex: number, text: string) => {
+  const first = requestIndex === 1;
+  const second = requestIndex === 2;
+  const toolCall = first || second;
 
   const parts = [
     { type: "stream-start", warnings: [] },
-    ...(tool
+    ...(toolCall
       ? [
           {
             input: JSON.stringify(
@@ -49,18 +43,14 @@ const gatewayEvents = (index: number) => {
           },
         ]
       : [
-          { id: "text", type: "text-start" },
-          {
-            delta: index === 3 ? "Built" : "Updated",
-            id: "text",
-            type: "text-delta",
-          },
-          { id: "text", type: "text-end" },
+          { id: "text-1", type: "text-start" },
+          { delta: text, id: "text-1", type: "text-delta" },
+          { id: "text-1", type: "text-end" },
         ]),
     {
       finishReason: {
-        raw: tool ? "tool_calls" : "stop",
-        unified: tool ? "tool-calls" : "stop",
+        raw: toolCall ? "tool_calls" : "stop",
+        unified: toolCall ? "tool-calls" : "stop",
       },
       type: "finish",
       usage: { inputTokens: { total: 10 }, outputTokens: { total: 5 } },
@@ -70,120 +60,128 @@ const gatewayEvents = (index: number) => {
   return parts.map((part) => `data: ${JSON.stringify(part)}\n\n`).join("");
 };
 
-it("persists native turns, replays UI events and reuses completed tool results without a harness patch", async () => {
-  const directory = await realpath(
-    await mkdtemp(join(tmpdir(), "patchsmith-native-fx-"))
-  );
+it.each(["api-key", "runtime-oidc", "environment-oidc"])(
+  "runs a whole turn and restores the next conversation with %s",
+  async (mode) => {
+    const originalEnv = { ...env };
+    delete env.AI_GATEWAY_API_KEY;
+    delete env.VERCEL_OIDC_TOKEN;
+    env.AI_GATEWAY_BASE_URL = "https://gateway.test";
 
-  const workspace = join(directory, "workspace");
-  await mkdir(join(workspace, "app"), { recursive: true });
-  const requests: string[] = [];
+    const token =
+      mode === "api-key"
+        ? "local-test-token"
+        : `header.${Buffer.from(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 })).toString("base64url")}.signature`;
 
-  const session: AppSandboxSession = {
-    readFileToBuffer: async ({ path }) =>
-      await readFile(path.replace("/workspace", workspace)).catch(() => null),
-    runCommand: async ({ args = [], signal }) => {
-      const result = await execute(
-        "bash",
-        args.map((arg) => arg.replaceAll("/workspace", workspace)),
-        {
-          cwd: join(workspace, "app"),
-          env: {
-            PATH: "/opt/homebrew/opt/coreutils/libexec/gnubin:/usr/bin:/bin",
-          },
-          signal,
-        }
-      );
-
-      return {
-        exitCode: 0,
-        stderr: async () => await Promise.resolve(result.stderr),
-        stdout: async () =>
-          await Promise.resolve(
-            result.stdout.replaceAll(workspace, "/workspace")
-          ),
-      };
-    },
-    writeFiles: async (files) => {
-      for (const file of files) {
-        // oxlint-disable-next-line no-await-in-loop -- Preserve the sandbox write batch order.
-        await writeFile(
-          file.path.replace("/workspace", workspace),
-          file.content
-        );
-      }
-    },
-  };
-
-  const tools = createSandboxTools({
-    deploy: () => {
-      throw new Error("This fixture does not publish.");
-    },
-    session: async () => await Promise.resolve(session),
-  });
-
-  const options = {
-    apiKey: "fixture-key",
-    durability: local({ dir: join(directory, "sessions") }),
-    fetch: async (_url: string, init: RequestInit) => {
-      requests.push(await new Request(_url, init).text());
-
-      return new Response(gatewayEvents(requests.length), {
-        headers: { "content-type": "text/event-stream" },
-      });
-    },
-    model: "openai/gpt-6.1-sol",
-    modelCatalog: [{ id: "openai/gpt-6.1-sol", type: "language" }],
-    name: "integration",
-    tools,
-  };
-
-  let agent = createAppAgent(options);
-
-  try {
-    const sessionId = await agent.newSessionId();
-
-    const input = {
-      agentToken: "private-token",
-      appId: "fixture",
-      hostUrl: "https://host.test/api/patchsmith",
-      instructions: "Use a purple palette.",
-      messages: [],
-      model: options.model,
-      threadId: "fixture",
-    };
-
-    const turn = agent
-      .session(sessionId, { instructions: getAppInstructions(input) })
-      .prompt("Build a file", { messageId: "wrun_first" });
-
-    await turn.accepted;
-    const firstResult = await turn.result;
-    expect(firstResult.stopReason).toBe("end_turn");
-    expect(await readFile(join(workspace, "app/example.txt"), "utf-8")).toBe(
-      "First turn"
-    );
-    expect(await readFile(join(workspace, "app/executions.txt"), "utf-8")).toBe(
-      "once\n"
-    );
-    expect(requests).toHaveLength(3);
-
-    const chunks: UIMessageChunk[] = [];
-
-    for await (const line of readSessionLines(
-      agent.session(sessionId).stream()
-    )) {
-      chunks.push(...toUIChunks(line, "wrun_first"));
-
-      if (line.type === "turn_end" && line.messageId === "wrun_first") {
-        break;
-      }
+    // libfx 0.0.13 caches libc's environment pointer on Linux. Supply test
+    // credentials through #env to avoid invalidating it between native sessions.
+    if (mode === "api-key") {
+      env.AI_GATEWAY_API_KEY = token;
     }
 
-    let finalMessage;
+    if (mode === "environment-oidc") {
+      env.VERCEL_OIDC_TOKEN = token;
+    }
 
-    for await (const message of readUIMessageStream({
-      stream: new ReadableStream({
+    vi.stubGlobal(Symbol.for("@vercel/request-context"), {
+      get: () => ({
+        headers:
+          mode === "runtime-oidc" ? { "x-vercel-oidc-token": token } : {},
+      }),
+    });
+
+    const directory = await realpath(
+      await mkdtemp(join(tmpdir(), "patchsmith-fx-"))
+    );
+
+    const workspace = join(directory, "app");
+    const sessionHome = join(directory, "home");
+    await mkdir(workspace);
+    await mkdir(sessionHome);
+
+    const requests: {
+      body: string;
+      authorization: string | null;
+      url: string;
+    }[] = [];
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(async (url, options) => {
+        const request = new Request(url, options);
+
+        if (request.method === "GET") {
+          return Response.json({
+            data: [
+              {
+                id: "openai/gpt-6.1-sol",
+                reasoning_options: [
+                  { type: "effort", values: ["low", "medium", "high"] },
+                ],
+                type: "language",
+              },
+            ],
+          });
+        }
+
+        const body = await request.text();
+        requests.push({
+          authorization: request.headers.get("authorization"),
+          body,
+          url: request.url,
+        });
+
+        return new Response(
+          gatewayEvents(
+            requests.length,
+            body.includes("Now update it") ? "Updated" : "Built"
+          ),
+          { headers: { "content-type": "text/event-stream" } }
+        );
+      })
+    );
+
+    const input = {
+      agentToken: "private-deployment-token",
+      appId: randomUUID(),
+      hostUrl: "https://host.test/api/patchsmith",
+      instructions: "Use the host purple palette and compact layouts.",
+      messages: [],
+      model: "openai/gpt-6.1-sol",
+      threadId: randomUUID(),
+    };
+
+    const sandboxSession = localSession(workspace, sessionHome);
+
+    let session:
+      | Awaited<
+          ReturnType<
+            Awaited<ReturnType<typeof createAppAgent>>["createSession"]
+          >
+        >
+      | undefined;
+
+    try {
+      const agent = await createAppAgent(input, "fixture");
+      expect(agent.harnessId).toBe("fx");
+      expect(requests).toHaveLength(0);
+      const chunks: UIMessageChunk[] = [];
+
+      const state = await runAppAgentTurn({
+        agent,
+        messages: [{ content: "Build a file", role: "user" }],
+        sandboxSession,
+        sessionId: input.threadId,
+        signal: AbortSignal.timeout(10_000),
+        writable: new WritableStream<UIMessageChunk>({
+          write(chunk) {
+            chunks.push(chunk);
+          },
+        }),
+      });
+
+      // Consume the same stock AI SDK event sequence as chat and MCP.
+      const stream = new ReadableStream<UIMessageChunk>({
         start(controller) {
           for (const chunk of chunks) {
             controller.enqueue(chunk);
@@ -191,51 +189,132 @@ it("persists native turns, replays UI events and reuses completed tool results w
 
           controller.close();
         },
-      }),
-      terminateOnError: true,
-    })) {
-      finalMessage = message;
+      });
+
+      let finalMessage;
+
+      for await (const message of readUIMessageStream({
+        stream,
+        terminateOnError: true,
+      })) {
+        finalMessage = message;
+      }
+
+      expect(finalMessage?.parts).toContainEqual({
+        state: "done",
+        text: "Built",
+        type: "text",
+      });
+      expect(
+        chunks.filter((chunk) => chunk.type === "tool-input-available")
+      ).toHaveLength(2);
+      expect(
+        chunks.filter((chunk) => chunk.type === "tool-output-available")
+      ).toHaveLength(2);
+      expect(await readFile(join(workspace, "executions.txt"), "utf-8")).toBe(
+        "once\n"
+      );
+      expect(chunks.filter((chunk) => chunk.type === "start")).toHaveLength(1);
+      expect(chunks.filter((chunk) => chunk.type === "finish")).toHaveLength(1);
+      expect(chunks).toContainEqual(
+        expect.objectContaining({
+          input: { content: "First turn", file_path: "example.txt" },
+          toolName: "write",
+          type: "tool-input-available",
+        })
+      );
+      expect(chunks).toContainEqual(
+        expect.objectContaining({ type: "tool-output-available" })
+      );
+      expect(chunks).toContainEqual(
+        expect.objectContaining({ delta: "Built", type: "text-delta" })
+      );
+      const { resumeFrom } = state;
+
+      if (resumeFrom === undefined) {
+        throw new Error("Missing fx resume state");
+      }
+
+      expect(resumeFrom.harnessId).toBe("fx");
+      expect(JSON.stringify(resumeFrom)).not.toContain(token);
+
+      const savedState = await readFile(
+        join(
+          harnessSessionDataDirectoryPath({
+            sessionId: input.threadId,
+            stateDirectory: harnessStateDirectoryPath({
+              sandboxHomeDir: sessionHome,
+            }),
+          }),
+          "fx/state.json"
+        ),
+        "utf-8"
+      );
+
+      expect(savedState).not.toContain(token);
+      expect(savedState).not.toContain(input.agentToken);
+
+      const nextAgent = await createAppAgent(
+        {
+          ...input,
+          agentToken: "fresh-deployment-token",
+          instructions: "Use the updated host blue palette.",
+        },
+        "fixture"
+      );
+
+      session = await nextAgent.createSession({
+        resumeFrom,
+        sandboxSession,
+        sessionId: input.threadId,
+      });
+
+      const next = await nextAgent.generate({
+        prompt: "Now update it",
+        session,
+      });
+
+      expect(next.text).toBe("Updated");
+      expect(requests.at(-1)?.body).toContain("Build a file");
+      expect(requests.at(-1)?.body).toContain("Now update it");
+      expect(requests.at(-1)?.body).toContain(
+        "Use the updated host blue palette."
+      );
+
+      for (const request of requests) {
+        expect(JSON.parse(request.body)).toMatchObject({
+          reasoning: "low",
+        });
+        expect(request.url).toBe("https://gateway.test/v4/ai/language-model");
+        expect(request.authorization).toBe(`Bearer ${token}`);
+        expect(request.body).not.toContain("private-deployment-token");
+        expect(request.body).not.toContain(token);
+      }
+
+      for (const name of [
+        "patchsmith-frontend",
+        "patchsmith-views",
+        "patchsmith-functions",
+        "patchsmith-database",
+      ]) {
+        expect(requests[0]?.body).toContain(name);
+      }
+
+      expect(requests[0]?.body).toContain(input.instructions);
+      expect(requests[0]?.body).toContain(
+        "Regeneration uses the configured host URL."
+      );
+      expect(requests[0]?.body).toContain("deploy");
+      expect(requests[0]?.body).not.toContain("src/functions/notes.router.ts");
+    } finally {
+      await session?.destroy();
+      delete env.AI_GATEWAY_API_KEY;
+      delete env.AI_GATEWAY_BASE_URL;
+      delete env.VERCEL_OIDC_TOKEN;
+      Object.assign(env, originalEnv);
+      vi.unstubAllGlobals();
+      await rm(directory, { force: true, recursive: true });
     }
-
-    expect(finalMessage?.parts).toContainEqual({
-      state: "done",
-      text: "Built",
-      type: "text",
-    });
-    expect(
-      chunks.filter((chunk) => chunk.type === "tool-input-available")
-    ).toHaveLength(2);
-    expect(
-      chunks.filter((chunk) => chunk.type === "tool-output-available")
-    ).toHaveLength(2);
-
-    await agent.close();
-    agent = createAppAgent(options);
-
-    const repeated = agent
-      .session(sessionId)
-      .prompt("Build a file", { messageId: "wrun_first" });
-
-    const repeatedResult = await repeated.result;
-    expect(repeatedResult.repeated).toBe(true);
-    expect(requests).toHaveLength(3);
-    expect(await readFile(join(workspace, "app/executions.txt"), "utf-8")).toBe(
-      "once\n"
-    );
-
-    const next = agent
-      .session(sessionId, { instructions: "Use a blue palette." })
-      .prompt("Now update it", { messageId: "wrun_second" });
-
-    const nextResult = await next.result;
-    expect(nextResult.stopReason).toBe("end_turn");
-    expect(requests.at(-1)).toContain("Now update it");
-    expect(requests.at(-1)).toContain("Build a file");
-    expect(requests.at(-1)).toContain("Use a blue palette.");
-    expect(requests[0]).toContain("patchsmith-frontend");
-    expect(requests[0]).not.toContain(input.agentToken);
-  } finally {
-    await agent.close();
-    await rm(directory, { force: true, recursive: true });
-  }
-}, 30_000);
+  },
+  30_000
+);

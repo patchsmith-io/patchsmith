@@ -1,12 +1,12 @@
 import { readFile, readdir } from "node:fs/promises";
 
+import type { HarnessV1ResumeSessionState } from "@ai-sdk/harness";
 import { PGlite } from "@electric-sql/pglite";
 import { appAgentLease, appAgentThread } from "@patchsmith/db/schema/apps";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { afterAll, beforeAll, beforeEach, expect, it } from "vite-plus/test";
 
-import type { AppToolContext } from "./native-state";
 import { createSessionLifecycle } from "./session";
 import type { SessionStore } from "./session";
 
@@ -20,16 +20,6 @@ let deleteFails = false;
 let status: "running" | "cancelled" = "running";
 
 const lifecycle = createSessionLifecycle({
-  agent: async () =>
-    await Promise.resolve({
-      newSessionId: async () => await Promise.resolve("wrun_native"),
-      session: (id) => ({
-        cancel: async () => {
-          events.push(`cancel:${id}`);
-          await Promise.resolve();
-        },
-      }),
-    }),
   deleteSandbox: async () => {
     events.push("delete");
     await Promise.resolve();
@@ -145,47 +135,31 @@ afterAll(async () => {
   await client.close();
 });
 
-it("saves native coordinates without credentials and holds a single app writer", async () => {
-  const state = await lifecycle.startTurn(input, "wrun_first");
-  expect(state).toEqual({
-    sessionId: "wrun_native",
-    type: "libfx",
-    version: 1,
-  });
+const resumeFrom: HarnessV1ResumeSessionState = {
+  data: { stateFileName: "state.json", version: 1 },
+  harnessId: "fx",
+  specificationVersion: "harness-v1",
+  type: "resume-session",
+};
+
+it("holds a single app writer without persisting credentials", async () => {
+  expect(await lifecycle.startTurn(input, "wrun_first")).toBeUndefined();
   expect(await activeRun()).toBe("wrun_first");
-  expect(
-    JSON.stringify(await lifecycle.getThreadSession(appId, threadId))
-  ).not.toContain(input.agentToken);
   await expect(
     lifecycle.startTurn({ ...input, threadId: otherThreadId }, "wrun_other")
   ).rejects.toThrow("already being edited");
-
-  const context: AppToolContext = {
-    appId,
-    grant: {
-      appId,
-      cliTokenId: "grant",
-      projectId: "project",
-      scope: { name: "tenant", value: {} },
-    },
-    runId: "wrun_first",
-    threadId,
-  };
-
-  await lifecycle.assertSessionOwnership(context, state.sessionId);
   await expect(
-    lifecycle.assertSessionOwnership(context, "wrun_intruder")
-  ).rejects.toThrow("does not own");
+    lifecycle.assertOwnership(appId, "wrun_intruder")
+  ).rejects.toThrow("no longer owns");
 });
 
 it("stops a completed sandbox before releasing ownership and preserves the conversation", async () => {
   await lifecycle.startTurn(input, "wrun_first");
-  await lifecycle.finishTurn(appId, "wrun_first");
+  await lifecycle.finishTurn(appId, "wrun_first", resumeFrom);
   expect(events).toEqual(["prepare", "stop"]);
   expect(await activeRun()).toBeNull();
-  expect(await lifecycle.getThreadSession(appId, threadId)).toBeDefined();
-  await lifecycle.startTurn(input, "wrun_next");
-  await lifecycle.finishTurn(appId, "wrun_first");
+  expect(await lifecycle.startTurn(input, "wrun_next")).toEqual(resumeFrom);
+  await lifecycle.finishTurn(appId, "wrun_first", resumeFrom);
   expect(await activeRun()).toBe("wrun_next");
   expect(events).toEqual(["prepare", "stop", "prepare"]);
 });
@@ -199,19 +173,13 @@ it("retains the lease after failed cleanup, then safely retries and invalidates 
   expect(await activeRun()).toBe("wrun_first");
   deleteFails = false;
   await lifecycle.cancelTurn(appId, "wrun_first");
-  expect(events).toEqual([
-    "prepare",
-    "cancel:wrun_native",
-    "delete",
-    "cancel:wrun_native",
-    "delete",
-  ]);
+  expect(events).toEqual(["prepare", "delete", "delete"]);
   expect(await activeRun()).toBeNull();
-  await expect(lifecycle.getThreadSession(appId, threadId)).rejects.toThrow(
+  await expect(lifecycle.startTurn(input, "wrun_next")).rejects.toThrow(
     "Start a new thread"
   );
   await lifecycle.cancelTurn(appId, "wrun_first");
-  expect(events).toHaveLength(5);
+  expect(events).toHaveLength(3);
 });
 
 it("reconciles externally cancelled workflows without touching a running turn", async () => {
@@ -220,7 +188,7 @@ it("reconciles externally cancelled workflows without touching a running turn", 
   expect(events).toEqual(["prepare"]);
   status = "cancelled";
   await lifecycle.reconcileTurns();
-  expect(events).toEqual(["prepare", "cancel:wrun_native", "delete"]);
+  expect(events).toEqual(["prepare", "delete"]);
   expect(await activeRun()).toBeNull();
 });
 

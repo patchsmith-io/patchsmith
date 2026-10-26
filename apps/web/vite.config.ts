@@ -19,7 +19,6 @@ interface ServerFunction {
   name: string;
   destination: string;
   maxDuration?: number;
-  queueTopic?: string;
 }
 
 interface ApiFunction extends ServerFunction {
@@ -29,18 +28,10 @@ interface ApiFunction extends ServerFunction {
 
 const apiFunctions: ApiFunction[] = [
   {
-    name: "libfx",
-    route: "/api/libfx/wake",
-    source: "^/api/libfx/wake/?$",
-    destination: "api/libfx/wake",
-    maxDuration: 800,
-    queueTopic: "__libfx_wkf_workflow_session",
-  },
-  {
     name: "reconcile",
-    route: "/api/libfx/reconcile",
-    source: "^/api/libfx/reconcile/?$",
-    destination: "api/libfx/reconcile",
+    route: "/api/app-agent/reconcile",
+    source: "^/api/app-agent/reconcile/?$",
+    destination: "api/app-agent/reconcile",
   },
   {
     name: "mcp",
@@ -98,12 +89,6 @@ const buildServerFunction = async (
 
   if (entry.maxDuration !== undefined) {
     functions.maxDuration = entry.maxDuration;
-  }
-
-  if (entry.queueTopic !== undefined) {
-    functions.experimentalTriggers = [
-      { type: "queue/v2beta", topic: entry.queueTopic, retryAfterSeconds: 5 },
-    ];
   }
 
   // Compile each Vite service separately; functionRules copy the shared output.

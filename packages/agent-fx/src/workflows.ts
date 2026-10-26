@@ -1,7 +1,8 @@
-import { FatalError, getWorkflowMetadata, sleep } from "workflow";
+import type { HarnessV1ResumeSessionState } from "@ai-sdk/harness";
+import type { UIMessageChunk } from "ai";
+import { getWorkflowMetadata, getWritable } from "workflow";
 
 import type { AppAgentInput } from "./input";
-import type { NativeSessionState } from "./native-state";
 
 const prepare = async (input: AppAgentInput, runId: string) => {
   "use step";
@@ -10,93 +11,73 @@ const prepare = async (input: AppAgentInput, runId: string) => {
   return await startTurn(input, runId);
 };
 
-const submit = async (
+const turn = async (
   input: AppAgentInput,
   runId: string,
-  state: NativeSessionState
+  resumeFrom?: HarnessV1ResumeSessionState
 ) => {
   "use step";
-  const { submitTurn } = await import("./turn");
+  const { createAppAgent } = await import("./agent");
   const { assertOwnership } = await import("./session");
+  const { getSandbox, sandboxName, sandboxSession } = await import("./sandbox");
+  const { runAppAgentTurn } = await import("./run-turn");
   await assertOwnership(input.appId, runId);
-  await submitTurn(input, runId, state);
+  const name = sandboxName(input.threadId);
+
+  return await runAppAgentTurn({
+    agent: await createAppAgent(input, name),
+    messages: input.messages,
+    resumeFrom,
+    sandboxSession: sandboxSession(await getSandbox(name)),
+    sessionId: input.threadId,
+    signal: AbortSignal.timeout(25 * 60_000),
+    writable: getWritable<UIMessageChunk>(),
+  });
 };
 
-const observe = async (
-  state: NativeSessionState,
+// An interrupted turn may have published or run arbitrary shell commands.
+// Fail and clean up rather than replaying the entire turn on a step retry.
+turn.maxRetries = 0;
+
+const finish = async (
+  appId: string,
   runId: string,
-  cursor: number
+  resumeFrom?: HarnessV1ResumeSessionState
 ) => {
-  "use step";
-  const { observeTurn } = await import("./turn");
-
-  return await observeTurn(state.sessionId, runId, cursor);
-};
-
-const cleanup = async (appId: string, runId: string, cancelled: boolean) => {
   "use step";
   const { finishTurn } = await import("./session");
-  await finishTurn(appId, runId, cancelled);
+  await finishTurn(appId, runId, resumeFrom);
 };
 
-cleanup.maxRetries = 10;
+finish.maxRetries = 10;
 
-/** Lifecycle only. libfx owns the whole turn, tool results, recovery and output. */
+/** Whole user turns are durable boundaries; no per-model or per-tool steps. */
 export const appAgent = async (input: AppAgentInput) => {
   "use workflow";
   const runId = getWorkflowMetadata().workflowRunId;
-  const deadline = Date.now() + 30 * 60_000;
 
   try {
-    const state = await prepare(input, runId);
-    await submit(input, runId, state);
-    let cursor = 0;
+    const resumeFrom = await prepare(input, runId);
+    const result = await turn(input, runId, resumeFrom);
+    await finish(input.appId, runId, result.resumeFrom);
 
-    for (;;) {
-      if (Date.now() >= deadline) {
-        throw new FatalError(
-          "The app agent exceeded its 30-minute turn budget."
-        );
-      }
-
-      // oxlint-disable-next-line no-await-in-loop -- Observe one native turn until its persisted terminal event arrives.
-      const progress = await observe(state, runId, cursor);
-      ({ cursor } = progress);
-
-      if (progress.terminal) {
-        const { stopReason, error } = progress.terminal;
-
-        if (stopReason === "error" || stopReason === "cancelled") {
-          throw new FatalError(
-            error?.message ?? "App agent turn was cancelled."
-          );
-        }
-
-        // oxlint-disable-next-line no-await-in-loop -- Finalize once the observed native turn is terminal.
-        await cleanup(input.appId, runId, false);
-
-        return {
-          finishReason: stopReason === "max_output_tokens" ? "length" : "stop",
-          sessionId: state.sessionId,
-          threadId: input.threadId,
-        };
-      }
-
-      // oxlint-disable-next-line no-await-in-loop -- Durable sleep releases the function while native libfx runs independently.
-      await sleep("1s");
-    }
+    return {
+      finishReason: result.finishReason,
+      sessionId: result.sessionId,
+      threadId: input.threadId,
+    };
   } catch (error) {
-    await cleanup(input.appId, runId, true);
+    await finish(input.appId, runId);
     throw error;
   }
 };
 
 export const cleanupAppAgent = async (appId: string, runId: string) => {
   "use workflow";
-  await cleanup(appId, runId, true);
+  await finish(appId, runId);
 };
 
-/** External cancellation skips workflow catch blocks; start independent durable cleanup. */
+/** External cancellation skips workflow catch blocks; start independent cleanup. */
 export const cancelAppAgent = async (appId: string, runId: string) => {
   const { start } = await import("workflow/api");
   const run = await start(cleanupAppAgent, [appId, runId]);

@@ -33,14 +33,15 @@
     "lint:fix": "vp lint --fix ."
   },
   "dependencies": {
-    "@patchsmith/api-utils": "workspace:*",
+    "@ai-sdk/harness": "1.0.164",
+    "@ai-sdk/harness-fx": "1.0.80",
+    "@ai-sdk/sandbox-vercel": "1.0.164",
     "@patchsmith/db": "workspace:*",
     "@patchsmith/env": "workspace:*",
     "@vercel/oidc": "4.0.1",
     "@vercel/sandbox": "3.8.0",
     "ai": "catalog:fx",
     "drizzle-orm": "catalog:",
-    "libfx": "0.0.14",
     "workflow": "5.2.2",
     "zod": "catalog:"
   },

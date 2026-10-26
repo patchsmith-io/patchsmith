@@ -1,3 +1,5 @@
+import type { HarnessAgentSkill } from "@ai-sdk/harness/agent";
+
 import database from "./skills/database.md?raw";
 import frontend from "./skills/frontend.md?raw";
 import functions from "./skills/functions.md?raw";
@@ -45,7 +47,7 @@ export const appAgentSkills = guides.map(({ description, filename, name }) => ({
   content: `Read [${name}](${appAgentReferencesDirectory}/${filename}) when this skill applies.`,
   description,
   name,
-}));
+})) satisfies readonly HarnessAgentSkill[];
 
 export const appAgentReferences = [
   ...guides.map(({ content, filename }) => ({

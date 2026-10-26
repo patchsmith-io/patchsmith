@@ -1,5 +1,3 @@
-export { createAppAgent, getAppAgent } from "./agent";
-
-export { getAppAgentStream } from "./stream";
+export { createAppAgent } from "./agent";
 
 export type { AppAgentInput } from "./input";

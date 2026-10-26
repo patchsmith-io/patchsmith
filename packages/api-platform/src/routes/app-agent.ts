@@ -4,7 +4,6 @@ import {
   ORPCError,
   streamToAsyncIteratorObject,
 } from "@orpc/server";
-import { getAppAgentStream } from "@patchsmith/agent-fx";
 import { appAgent } from "@patchsmith/agent-fx/workflows";
 import {
   AppAgentThreadError,
@@ -220,26 +219,25 @@ const chat = cliRouter
           const controller = new AbortController();
           const completed = run.returnValue;
           writer.merge(
-            getAppAgentStream(
-              app.id,
-              threadId,
-              run.runId,
-              startIndex
-            ).pipeThrough(
-              new TransformStream<UIMessageChunk, UIMessageChunk>({
-                async flush(stream) {
-                  await completed;
-                  stream.enqueue({
-                    data: { runId: run.runId },
-                    transient: true,
-                    type: "data-run-complete",
-                  });
-                },
-              }),
-              {
-                signal: controller.signal,
-              }
-            )
+            run
+              .getReadable<UIMessageChunk>({
+                startIndex,
+              })
+              .pipeThrough(
+                new TransformStream<UIMessageChunk, UIMessageChunk>({
+                  async flush(stream) {
+                    await completed;
+                    stream.enqueue({
+                      data: { runId: run.runId },
+                      transient: true,
+                      type: "data-run-complete",
+                    });
+                  },
+                }),
+                {
+                  signal: controller.signal,
+                }
+              )
           );
 
           try {

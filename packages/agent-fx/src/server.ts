@@ -1,16 +1,5 @@
 import { env } from "#env";
 
-import { getAppAgent } from "./agent";
-
-/** Mounted only on the private Vercel queue-trigger function. */
-export const handleAppAgentWake = async (
-  request: Request
-): Promise<Response> => {
-  const agent = await getAppAgent();
-
-  return await agent.wakeHandler()(request);
-};
-
 export const handleAppAgentReconcile = async (
   request: Request
 ): Promise<Response> => {

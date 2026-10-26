@@ -85,7 +85,7 @@
   ],
   "crons": [
     {
-      "path": "/api/libfx/reconcile",
+      "path": "/api/app-agent/reconcile",
       "schedule": "*/5 * * * *"
     }
   ]

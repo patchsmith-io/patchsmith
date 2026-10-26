@@ -11,14 +11,14 @@ it("rejects reconciliation requests before starting any cleanup unless the cron 
     delete env.CRON_SECRET;
 
     const unavailable = await handleAppAgentReconcile(
-      new Request("https://host.test/api/libfx/reconcile")
+      new Request("https://host.test/api/app-agent/reconcile")
     );
 
     expect(unavailable.status).toBe(401);
     env.CRON_SECRET = "test-cron-secret";
 
     const unauthorized = await handleAppAgentReconcile(
-      new Request("https://host.test/api/libfx/reconcile", {
+      new Request("https://host.test/api/app-agent/reconcile", {
         headers: { authorization: "Bearer wrong-secret" },
       })
     );

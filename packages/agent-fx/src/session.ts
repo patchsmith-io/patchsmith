@@ -1,12 +1,10 @@
+import type { HarnessV1ResumeSessionState } from "@ai-sdk/harness";
 import { and, eq, isNotNull } from "drizzle-orm";
 import { FatalError } from "workflow";
 import { getRun } from "workflow/api";
+import { z } from "zod";
 
-import { getAppAgent } from "./agent";
 import type { AppAgentInput } from "./input";
-import { nativeSessionSchema } from "./native-state";
-import type { NativeSessionState } from "./native-state";
-import { createOwnership } from "./ownership";
 import {
   deleteSandboxByName,
   getSandbox,
@@ -18,12 +16,20 @@ import { sessionStore } from "./store";
 import type { SessionStore } from "./store";
 import { hostSchemaPath, prepareWorkspace } from "./workspace";
 
+const resumeSchema = z.custom<HarnessV1ResumeSessionState>(
+  (value) =>
+    z
+      .object({
+        data: z.json(),
+        harnessId: z.literal("fx"),
+        specificationVersion: z.literal("harness-v1"),
+        type: z.literal("resume-session"),
+      })
+      .safeParse(value).success
+);
+
 interface SessionDependencies {
   store: () => Promise<SessionStore>;
-  agent: () => Promise<{
-    newSessionId: () => Promise<string>;
-    session: (id: string) => { cancel: () => Promise<void> };
-  }>;
   prepareSandbox: (
     input: AppAgentInput,
     resume: boolean
@@ -35,7 +41,6 @@ interface SessionDependencies {
 }
 
 const defaultSessionDependencies: SessionDependencies = {
-  agent: async () => await getAppAgent(),
   deleteSandbox: deleteSandboxByName,
   getSandbox: async (name) => {
     const sandbox = await getSandbox(name);
@@ -57,14 +62,29 @@ export const createSessionLifecycle = (
 ) => {
   const { store } = dependencies;
 
-  const { getThreadSession, assertOwnership, assertSessionOwnership } =
-    createOwnership(store);
+  const assertOwnership = async (appId: string, runId: string) => {
+    const { db, appAgentLease } = await store();
+
+    const [lease] = await db
+      .select()
+      .from(appAgentLease)
+      .where(
+        and(
+          eq(appAgentLease.appId, appId),
+          eq(appAgentLease.activeRunId, runId)
+        )
+      );
+
+    if (!lease) {
+      throw new FatalError("This run no longer owns the app workspace.");
+    }
+  };
 
   /** Keep the row locked until the VM is stopped/deleted; cleanup is safe to repeat. */
   const finishTurn = async (
     appId: string,
     runId: string,
-    cancelled = false
+    resumeFrom?: HarnessV1ResumeSessionState
   ) => {
     const { db, appAgentLease, appAgentThread } = await store();
     await db.transaction(async (tx) => {
@@ -95,18 +115,7 @@ export const createSessionLifecycle = (
         thread?.sandboxName ??
         (threadId === null ? undefined : sandboxName(threadId));
 
-      if (cancelled || threadId === null) {
-        if (thread?.resumeState !== undefined && thread.resumeState !== null) {
-          const parsed = nativeSessionSchema.safeParse(
-            JSON.parse(thread.resumeState)
-          );
-
-          if (parsed.success) {
-            const agent = await dependencies.agent();
-            await agent.session(parsed.data.sessionId).cancel();
-          }
-        }
-
+      if (resumeFrom === undefined || threadId === null) {
         if (cleanupName !== undefined) {
           await dependencies.deleteSandbox(cleanupName);
         }
@@ -127,6 +136,13 @@ export const createSessionLifecycle = (
         );
 
         await sandbox.stop();
+        await tx
+          .update(appAgentThread)
+          .set({
+            resumeState: JSON.stringify(resumeFrom),
+            sandboxName: cleanupName,
+          })
+          .where(eq(appAgentThread.id, threadId));
       }
 
       await tx
@@ -142,7 +158,7 @@ export const createSessionLifecycle = (
   };
 
   const cancelTurn = async (appId: string, runId: string) => {
-    await finishTurn(appId, runId, true);
+    await finishTurn(appId, runId);
   };
 
   const reconcileApp = async (appId: string) => {
@@ -202,12 +218,10 @@ export const createSessionLifecycle = (
   const startTurn = async (
     input: AppAgentInput,
     runId: string
-  ): Promise<NativeSessionState> => {
+  ): Promise<HarnessV1ResumeSessionState | undefined> => {
     // Reconcile a previous externally cancelled run before trying to acquire its Drive.
     await reconcileApp(input.appId);
     const { db, appAgentLease, appAgentThread } = await store();
-    const agent = await dependencies.agent();
-    const candidateId = await agent.newSessionId();
 
     const { state, resume } = await db.transaction(async (tx) => {
       await tx
@@ -249,24 +263,14 @@ export const createSessionLifecycle = (
       const saved =
         thread.resumeState === null
           ? undefined
-          : nativeSessionSchema.safeParse(JSON.parse(thread.resumeState));
+          : resumeSchema.safeParse(JSON.parse(thread.resumeState));
 
       if (saved && !saved.success) {
         throw new FatalError(
-          "Start a new conversation to use native durable fx."
+          "Start a new conversation to use fx for this app."
         );
       }
 
-      const nativeState: NativeSessionState = saved?.data ?? {
-        sessionId: candidateId,
-        type: "libfx",
-        version: 1,
-      };
-
-      await tx
-        .update(appAgentThread)
-        .set({ resumeState: JSON.stringify(nativeState) })
-        .where(eq(appAgentThread.id, input.threadId));
       await tx
         .update(appAgentLease)
         .set({
@@ -277,7 +281,7 @@ export const createSessionLifecycle = (
         })
         .where(eq(appAgentLease.appId, input.appId));
 
-      return { resume: thread.sandboxName !== null, state: nativeState };
+      return { resume: saved?.data !== undefined, state: saved?.data };
     });
 
     const sandbox = await dependencies.prepareSandbox(input, resume);
@@ -322,10 +326,8 @@ export const createSessionLifecycle = (
 
   return {
     assertOwnership,
-    assertSessionOwnership,
     cancelTurn,
     finishTurn,
-    getThreadSession,
     reconcileApp,
     reconcileTurns,
     startTurn,
@@ -333,9 +335,7 @@ export const createSessionLifecycle = (
 };
 
 export const {
-  getThreadSession,
   assertOwnership,
-  assertSessionOwnership,
   startTurn,
   finishTurn,
   cancelTurn,
