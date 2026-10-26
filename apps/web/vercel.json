@@ -48,6 +48,10 @@
       "destination": "https://patchsmith-landing.vercel.app/pricing"
     },
     {
+      "source": "/sitemap-landing.xml",
+      "destination": "https://patchsmith-landing.vercel.app/sitemap.xml"
+    },
+    {
       "source": "/_landing/:path*",
       "destination": "https://patchsmith-landing.vercel.app/_landing/:path*"
     },
