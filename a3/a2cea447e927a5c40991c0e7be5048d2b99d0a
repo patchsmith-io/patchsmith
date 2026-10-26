@@ -1,0 +1,25 @@
+package.json
+  s_841bb0c2f91546::t_d2dc26b55c55e0 68-70
+packages/agent-fx/src/fixtures/harness-crash.ts
+  s_841bb0c2f91546::t_afd6d39cac2517 31
+packages/agent-fx/src/recovery.integration.test.ts
+  s_841bb0c2f91546::t_86850a41dbc017 20
+packages/agent-fx/tsconfig.json
+  s_841bb0c2f91546::t_72767675c77b95 4-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a3a2cea447e927a5c40991c0e7be5048d2b99d0a",
+  "prompts": {},
+  "sessions": {
+    "s_841bb0c2f91546": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a171fe-3471-7a03-89de-8dfc6a9e2f52",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
