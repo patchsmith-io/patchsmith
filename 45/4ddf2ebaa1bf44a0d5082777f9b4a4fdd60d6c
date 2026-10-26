@@ -1,0 +1,19 @@
+docs/docs.json
+  s_ba993517426b03::t_5c86ceaace9bb3 8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "454ddf2ebaa1bf44a0d5082777f9b4a4fdd60d6c",
+  "prompts": {},
+  "sessions": {
+    "s_ba993517426b03": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17674-eeb8-7280-8b3b-8fa1c9047d25",
+        "model": "unknown"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
