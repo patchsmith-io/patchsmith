@@ -18,6 +18,7 @@
 /* Filled primary surfaces need dark content when their background turns light.
    Include the muted send-button fill, but leave subtle /10 highlights alone.
    Some controls draw their fill in a separate child (for example, the navbar). */
+/* Keep selectors flat: Mintlify drops nested rules when publishing CSS. */
 .dark
   :is(
     .bg-primary,
@@ -27,12 +28,19 @@
     .dark\:bg-primary-dark\/30,
     .dark\:bg-primary-light,
     :is(a, button, [role="button"]):has(> :is(.bg-primary, .bg-primary-dark))
-  ) {
+  ),
+.dark
+  :is(
+    .bg-primary,
+    .bg-primary-dark,
+    .bg-primary\/30,
+    .dark\:bg-primary-dark,
+    .dark\:bg-primary-dark\/30,
+    .dark\:bg-primary-light,
+    :is(a, button, [role="button"]):has(> :is(.bg-primary, .bg-primary-dark))
+  )
+  :is([class*="text-white"], [class*="text-tooltip-foreground"]) {
   color: rgb(var(--background-dark));
-
-  & :is([class*="text-white"], [class*="text-tooltip-foreground"]) {
-    color: inherit;
-  }
 }
 
 /* Keep the selected navigation item neutral in both themes. */
