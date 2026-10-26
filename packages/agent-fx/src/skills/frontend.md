@@ -6,6 +6,8 @@ Import UI components and host tools from `#patchsmith`. The generated capability
 
 When the user hasn't specified a style and you're unsure about details such as button size or text color, use the host components' defaults. Focus on the simplest design that solves the user's problem.
 
+Review the available components and their documented capabilities before building an interaction. Choose the component that best fits the user's task. Prefer one component that handles the interaction well over combining several controls when it makes the UI simpler and preserves the required behavior and accessibility.
+
 ## Forms and callbacks
 
 Host callbacks send serialized payloads back to the app's Preact code in the iframe; UI updates travel back to the host. This messaging is asynchronous and adds latency, even with synchronous handlers.
