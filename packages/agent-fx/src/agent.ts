@@ -1,7 +1,6 @@
 import { createFx } from "@ai-sdk/harness-fx";
 import { HarnessAgent } from "@ai-sdk/harness/agent";
 import { getVercelOidcToken } from "@vercel/oidc";
-import { isStepCount } from "ai";
 
 import { env } from "#env";
 
@@ -22,11 +21,12 @@ export const createAppAgent = async (
   return new HarnessAgent({
     harness: createFx({
       auth: {
-        ...env,
         AI_GATEWAY_API_KEY:
           env.AI_GATEWAY_API_KEY ??
           env.VERCEL_OIDC_TOKEN ??
           (await getVercelOidcToken()),
+        AI_GATEWAY_BASE_URL:
+          env.AI_GATEWAY_BASE_URL ?? "https://ai-gateway.vercel.sh",
       },
       effort: input.model === "openai/gpt-6.1-sol" ? "low" : undefined,
     }),
@@ -34,7 +34,6 @@ export const createAppAgent = async (
     model: input.model,
     sandboxConfig: { workDir: "." },
     skills: appAgentSkills,
-    stopWhen: isStepCount(1),
     tools: { deploy: deployTool },
     toolsContext: {
       deploy: { agentToken: input.agentToken, sandboxName },

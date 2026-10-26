@@ -1,29 +1,27 @@
 # @patchsmith/agent-fx
 
-The default app builder for chat and MCP. Uses the stock `@ai-sdk/harness-fx` adapter, native tools and session persistence, with Patchsmith instructions, five app-building skills, and one host-side deployment tool.
+The default app builder for chat and MCP. Uses `HarnessAgent` with unpatched `@ai-sdk/harness-fx` 1.0.80 and libfx 0.0.14. The harness provides sandbox tools, skills, conversation checkpoints and AI SDK streaming. App source stays on a persistent Vercel Sandbox Drive; deployment credentials remain host-controlled.
 
-fx runs on the host. File and shell tools run in a persistent Vercel Sandbox; source is stored on the app's shared Drive. Before the first model step, workspace preparation initializes new apps with `patchsmith init --bare` and installs dependencies. The bare app contains configuration, tooling, bindings and the client root, with no example views or backend. Existing apps are preserved; interrupted installations resume using a setup marker. Deployment credentials stay on the host.
+## Execution and durability
 
-Each model step runs in a durable Workflow step. Finished turns save fx's resume state and stop the sandbox. Failed or cancelled turns invalidate the thread and remove its sandbox while preserving source. A database lease prevents concurrent app writers. Start a new thread to switch an existing Pi conversation to fx.
+The Workflow uses `createHarnessWorkflowState()`, runs the whole turn with `runHarnessAgentStep()`, and obtains its result with `finalizeHarnessWorkflow()`. Each user turn has three Workflow steps: prepare the workspace and acquire the app lease, run the complete harness turn, then save its resume state and stop the sandbox before releasing ownership. There are no Workflow steps around individual model requests or tool calls. Whole-turn execution avoids the mid-turn suspension/replay boundary that required our FX patch.
 
-GPT-6.1 Sol uses low reasoning effort to reduce generation latency. Other models use their default effort.
+Completed turns are durable checkpoints. Chat and MCP reconnect through Workflow's existing output stream. The next user turn restores the harness conversation and receives fresh deployment credentials. Start a new conversation after upgrading: harness 1.0.80 stores its private checkpoints in the shared harness data directory, rather than the previous FX-specific directory.
 
-The web host declares `libfx` directly so Nitro traces its native addons into the deployment. Keep that exact version aligned with the dependency pinned by `@ai-sdk/harness-fx`; Workflow externalizes `libfx`, so a different host version can replace the adapter's runtime in production. The web runtime resolution test guards this alignment.
+The execution step explicitly disables automatic retries: restarting an entire interrupted turn could repeat arbitrary shell commands or a deployment. A crashed, failed, cancelled or timed-out turn is cleaned up and its thread invalidated. Source already written to the Drive remains available to a new conversation, which can inspect it and recover. This is durability between completed turns, not automatic mid-turn crash continuation. Ordinary tool errors are reported to the running agent so it can inspect and repair them.
 
-No runtime code is imported from `@patchsmith/agent`. Configure `AI_GATEWAY_API_KEY` or Vercel OIDC on the host, with optional `AI_GATEWAY_BASE_URL`.
+Setup and cleanup remain retryable. Cleanup holds the app lease until the sandbox is stopped or deleted, so stale cleanup cannot release a newer writer. External cancellation starts an independent cleanup Workflow. An authenticated cron at `/api/app-agent/reconcile` runs every five minutes to clean up terminal Workflows that skipped their catch blocks. Configure `CRON_SECRET` on the host. No native libfx queue route or custom stream bridge is needed.
 
-## Instructions, skills, and examples
+A turn has a 25-minute execution limit, within the host's 30-minute function budget. The web host declares the same exact libfx version as the harness so Nitro can trace its runtime-relative native assets, including in isolated functions. Configure `AI_GATEWAY_API_KEY` or Vercel OIDC on the host, with optional `AI_GATEWAY_BASE_URL`.
 
-`src/instructions.md` favors the smallest working app and routes tasks to the five skills registered in `src/skills.ts`. App-specific UI, callback, styling, view, and tool contracts come from the CLI-generated `.agents/skills/patchsmith-capabilities/` skill in the app workspace.
+## Workspace and deployment
 
-Skill guides and small workflow, form, function, and view examples are provisioned under `/workspace/.patchsmith-agent/references/`. Skill content contains only a pointer to its guide; the model reads the guide and any linked recipe when needed. Keep guide bodies and recipes out of both `HarnessAgentSkill.content` and `.files`: FX embeds those in the prompt. Tests verify the reference graph and that recipes remain outside the prompt.
+Workspace setup initializes new apps with `patchsmith init --bare`, installs dependencies and provisions generated host bindings. Existing apps and interrupted setup are preserved. The CLI beta containing `init --bare` must be published before deploying this agent.
 
-The CLI's `agent-examples.test.ts` compiles complete marked recipes and generated code examples against public SDK declarations. When adding a complete source file, use an `<!-- example: src/path.tsx -->` marker immediately before its TypeScript fence and include the recipe in that test. Partial snippets should state their required surrounding context.
+Four skill pointers lead to guides under `/workspace/.patchsmith-agent/references/`. Guides link to small recipes; their bodies stay out of the initial prompt. `skills.test.ts` verifies the reference graph, and the CLI's `agent-examples.test.ts` compiles complete marked recipes against public SDK declarations.
 
-## Verification and publication
+The host deployment tool runs `pnpm run fix`, `pnpm run test --passWithNoTests`, then `pnpm exec patchsmith deploy --no-interactive`. Each command must pass before the next runs; output redacts credentials. Regeneration and database migration generation remain explicit authoring commands.
 
-The agent calls `deploy` once implementation is ready. The host runs declared `format:fix`, `lint`, `format` and `test` scripts, then TypeScript and the Vite build. Apps exposing only a `check` script use that instead of separate lint/format checks. Tests run with `CI=true`; Vite/Vitest scripts permit an empty suite. Each phase must pass before the next phase or publication. Successful output contains phase timings and the deployment ID; failures contain the phase and compiler/test diagnostics with credentials redacted.
+## Verification
 
-Routine checks belong to this tool. The model can run an individual check to diagnose a reported failure, then retry deployment after repairing the source. Regeneration and database migration generation remain explicit authoring commands.
-
-The CLI beta containing `init --bare` must be published before deploying this agent version, since fresh sandboxes resolve `patchsmith@beta` during preparation.
+Integration tests run the real, unpatched harness against a disposable filesystem and shell with fixture model responses. They cover multiple tools in one uninterrupted turn, AI SDK stream consumption, next-turn conversation restoration, credentials and skills. A child-process test dies after a shell side effect and verifies that a new conversation can inspect the retained source without repeating it. Lease and retryable-cleanup tests use the production Drizzle migrations against PGlite.

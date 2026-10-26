@@ -8,7 +8,7 @@ export default defineConfig({
   pack: {
     deps: { neverBundle: Object.keys(packageJson.dependencies) },
     dts: true,
-    entry: ["src/index.ts", "src/workflows.ts"],
+    entry: ["src/index.ts", "src/workflows.ts", "src/server.ts"],
     format: "esm",
     plugins: [
       {

@@ -101,9 +101,9 @@ export const prepareSandbox = async (input: AppAgentInput, resume: boolean) => {
   return await prepareWorkspace(sandbox);
 };
 
-export const deleteSandbox = async (threadId: string) => {
+export const deleteSandboxByName = async (name: string) => {
   try {
-    const sandbox = await Sandbox.get({ name: sandboxName(threadId) });
+    const sandbox = await Sandbox.get({ name });
     await sandbox.delete({ deleteOrphanSnapshots: true });
   } catch (error) {
     if (!(error instanceof APIError && error.response.status === 404)) {

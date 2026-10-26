@@ -28,6 +28,12 @@ interface ApiFunction extends ServerFunction {
 
 const apiFunctions: ApiFunction[] = [
   {
+    name: "reconcile",
+    route: "/api/app-agent/reconcile",
+    source: "^/api/app-agent/reconcile/?$",
+    destination: "api/app-agent/reconcile",
+  },
+  {
     name: "mcp",
     route: "/api/platform/app-agent/mcp",
     source: "^/api/platform/app-agent/mcp/?$",
@@ -110,6 +116,8 @@ const buildServerFunction = async (
         "index.js"
       ),
     },
+    // Keep libfx's runtime-relative native addons and durable store modules.
+    traceDeps: ["libfx*"],
     vercel: {
       functions,
     },
