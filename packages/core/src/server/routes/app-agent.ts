@@ -38,7 +38,11 @@ export const appAgentRouter = {
 
         const platformTurn =
           turn.type === "turn"
-            ? { ...turn, instructions: context.agentInstructions }
+            ? {
+                ...turn,
+                instructions: context.agentInstructions,
+                model: context.agentModel,
+              }
             : turn;
 
         const { stream } = await appAgentChat({

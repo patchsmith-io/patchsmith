@@ -142,9 +142,17 @@ const gatewayEvents = (requestIndex: number, text: string) => {
   return parts.map((part) => `data: ${JSON.stringify(part)}\n\n`).join("");
 };
 
-it.each(["api-key", "runtime-oidc", "environment-oidc"])(
-  "uses stock fx tools, skills and durable turns with %s",
-  async (mode) => {
+it.each([
+  { mode: "api-key", model: "openai/gpt-6.1-sol" },
+  { mode: "api-key", model: "anthropic/claude-sonnet-5.5" },
+  { mode: "api-key", model: "anthropic/claude-opus-5.5" },
+  { mode: "api-key", model: "openai/gpt-6-astra" },
+  { mode: "api-key", model: "deepseek/deepseek-v4.1-flash-1017" },
+  { mode: "runtime-oidc", model: "openai/gpt-6.1-sol" },
+  { mode: "environment-oidc", model: "openai/gpt-6.1-sol" },
+])(
+  "uses stock fx tools, skills and durable turns with $mode and $model",
+  async ({ mode, model }) => {
     const originalEnv = { ...env };
     delete env.AI_GATEWAY_API_KEY;
     delete env.VERCEL_OIDC_TOKEN;
@@ -184,6 +192,7 @@ it.each(["api-key", "runtime-oidc", "environment-oidc"])(
     const requests: {
       body: string;
       authorization: string | null;
+      model: string | null;
       url: string;
     }[] = [];
 
@@ -196,7 +205,7 @@ it.each(["api-key", "runtime-oidc", "environment-oidc"])(
           return Response.json({
             data: [
               {
-                id: "openai/gpt-6.1-sol",
+                id: model,
                 reasoning_options: [
                   { type: "effort", values: ["low", "medium", "high"] },
                 ],
@@ -210,6 +219,7 @@ it.each(["api-key", "runtime-oidc", "environment-oidc"])(
         requests.push({
           authorization: request.headers.get("authorization"),
           body,
+          model: request.headers.get("ai-language-model-id"),
           url: request.url,
         });
 
@@ -229,7 +239,7 @@ it.each(["api-key", "runtime-oidc", "environment-oidc"])(
       hostUrl: "https://host.test/api/patchsmith",
       instructions: "Use the host purple palette and compact layouts.",
       messages: [],
-      model: "openai/gpt-6.1-sol",
+      model,
       threadId: randomUUID(),
     };
 
@@ -388,9 +398,12 @@ it.each(["api-key", "runtime-oidc", "environment-oidc"])(
       );
 
       for (const request of requests) {
-        expect(JSON.parse(request.body)).toMatchObject({
-          reasoning: "low",
-        });
+        expect(request.model).toBe(model);
+
+        if (model === "openai/gpt-6.1-sol") {
+          expect(JSON.parse(request.body)).toMatchObject({ reasoning: "low" });
+        }
+
         expect(request.url).toBe("https://gateway.test/v4/ai/language-model");
         expect(request.authorization).toBe(`Bearer ${token}`);
         expect(request.body).not.toContain("private-deployment-token");

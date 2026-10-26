@@ -11,6 +11,7 @@ export type {
 } from "@patchsmith/core/server";
 
 export type {
+  AgentModel,
   PatchsmithHandlerContext,
   PatchsmithHandlerOptions,
   PatchsmithHostContext,

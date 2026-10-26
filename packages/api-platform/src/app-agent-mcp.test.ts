@@ -11,6 +11,7 @@ import {
 } from "vite-plus/test";
 import type { z } from "zod";
 
+import { agentModelSchema } from "#agent-model";
 import { handleAppAgentMcpRequest } from "#app-agent-mcp";
 import type { Context } from "#context";
 import { env } from "#env";
@@ -150,6 +151,46 @@ const edit = (extra: Record<string, string> = {}) =>
   });
 
 describe("platform MCP endpoint", () => {
+  it.each(agentModelSchema.options)(
+    "runs the host-selected model %s",
+    async (model) => {
+      const response = await handleAppAgentMcpRequest(
+        request(
+          "edit_app",
+          { appId: fixture.app.shortId, prompt: "Change it" },
+          { model }
+        ),
+        context
+      );
+
+      expect(response.status).toBe(200);
+      await response.text();
+      expect(start.mock.lastCall?.[0].model).toBe(
+        model === "deepseek/deepseek-v4.1-flash"
+          ? "deepseek/deepseek-v4.1-flash-1017"
+          : model
+      );
+    }
+  );
+
+  it.each(["unsupported/model", "", null, 42])(
+    "rejects unsupported MCP models %j",
+    async (model) => {
+      const response = await handleAppAgentMcpRequest(
+        request(
+          "edit_app",
+          { appId: fixture.app.shortId, prompt: "Change it" },
+          { model }
+        ),
+        context
+      );
+
+      expect(response.status).toBe(400);
+      expect(start).not.toHaveBeenCalled();
+      expect(await grants()).toEqual([]);
+    }
+  );
+
   it("lists host-authorized apps without starting an agent", async () => {
     const response = await handleAppAgentMcpRequest(
       request("list_apps"),

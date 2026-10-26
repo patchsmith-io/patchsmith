@@ -2,8 +2,11 @@ import { asyncIteratorToUnproxiedDataStream } from "@orpc/client";
 import { openapi } from "@orpc/openapi";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { eventIterator, os } from "@orpc/server";
-import { agentChunkSchema } from "@patchsmith/client-platform/agent";
-import type { AgentChunk } from "@patchsmith/client-platform/agent";
+import {
+  agentChunkSchema,
+  agentModelSchema,
+} from "@patchsmith/client-platform/agent";
+import type { AgentChunk, AgentModel } from "@patchsmith/client-platform/agent";
 import { readUIMessageStream } from "ai";
 import { describe, expect, it } from "vite-plus/test";
 import { z } from "zod";
@@ -66,6 +69,7 @@ const setup = (
   options: {
     events?: AgentChunk[];
     instructions?: string;
+    model?: AgentModel;
     status?: number;
     scopeName?: string;
   } = {}
@@ -120,7 +124,7 @@ const setup = (
         );
       },
     },
-    agent: { instructions: options.instructions },
+    agent: { instructions: options.instructions, model: options.model },
     baseUrl: "https://example.com/api/patchsmith",
     components: {},
     projectKey: "host-project-key",
@@ -140,6 +144,65 @@ const setup = (
 };
 
 describe("host agent relay", () => {
+  it.each(agentModelSchema.options)(
+    "forwards the host model %s and ignores a caller's model",
+    async (model) => {
+      const { client, requests } = setup({ model });
+
+      const turn = {
+        appId,
+        hostUrl,
+        messages,
+        model: "caller/override",
+        type: "turn" as const,
+      };
+
+      for await (const _event of await client.appAgent.chat(turn)) {
+        /* consume */
+      }
+
+      const chat = require(
+        requests.find((request) => request.url.endsWith("/chat"))
+      );
+
+      expect(await chat.json()).toMatchObject({ model });
+    }
+  );
+
+  it("omits model selection when the host has no override, even if the caller supplies one", async () => {
+    const { client, requests } = setup();
+
+    const turn = {
+      appId,
+      hostUrl,
+      messages,
+      model: "anthropic/claude-opus-5.5",
+      type: "turn" as const,
+    };
+
+    for await (const _event of await client.appAgent.chat(turn)) {
+      /* consume */
+    }
+
+    const chat = require(
+      requests.find((request) => request.url.endsWith("/chat"))
+    );
+
+    expect(await chat.json()).not.toHaveProperty("model");
+  });
+
+  it("rejects unsupported host models at server creation", () => {
+    expect(() =>
+      createPatchsmithServer({
+        // @ts-expect-error Untyped integrations must also fail runtime validation.
+        agent: { model: "unsupported/model" },
+        baseUrl: "https://host.test/api/patchsmith",
+        components: {},
+        scopes: { org: z.object({ tenant: z.string() }) },
+      })
+    ).toThrow();
+  });
+
   it("creates agent apps through the authenticated agent endpoint without accepting provenance", async () => {
     const { client, requests } = setup();
     await expect(

@@ -1,6 +1,21 @@
 import type { UIMessageChunk } from "ai";
 import * as v from "valibot";
 
+import type { AppAgentChatData } from "#client/types.gen";
+
+export type AgentModel = NonNullable<
+  Extract<AppAgentChatData["body"], { type: "turn" }>["model"]
+>;
+
+// Keep the host validator exhaustive against the generated platform contract.
+export const agentModelSchema = v.enum({
+  "anthropic/claude-opus-5.5": "anthropic/claude-opus-5.5",
+  "anthropic/claude-sonnet-5.5": "anthropic/claude-sonnet-5.5",
+  "deepseek/deepseek-v4.1-flash": "deepseek/deepseek-v4.1-flash",
+  "openai/gpt-6-astra": "openai/gpt-6-astra",
+  "openai/gpt-6.1-sol": "openai/gpt-6.1-sol",
+} satisfies { [TModel in AgentModel]: TModel });
+
 export const agentCreateAppSchema = v.strictObject({
   description: v.nullable(v.pipe(v.string(), v.maxLength(255))),
   name: v.pipe(v.string(), v.maxLength(127)),

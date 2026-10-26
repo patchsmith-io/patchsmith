@@ -196,3 +196,16 @@ for (const installApp of [
   // @ts-expect-error installation requires an explicit scope
   void installApp({ appId: "app" });
 }
+
+createServer({
+  agent: { model: "deepseek/deepseek-v4.1-flash" },
+  baseUrl: "https://host.test/api/patchsmith",
+  contract: defineContract({ components: {}, scopes: namedScopes }),
+});
+
+createServer({
+  // @ts-expect-error Only supported app-building model IDs are accepted.
+  agent: { model: "unsupported/model" },
+  baseUrl: "https://host.test/api/patchsmith",
+  contract: defineContract({ components: {}, scopes: namedScopes }),
+});
