@@ -1,0 +1,19 @@
+docs/docs.json
+  s_4fb02fff1fe147::t_a1f6cc128fbbea 58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "04af53ae93e4e9aae9fd03a039539e91fa18d903",
+  "prompts": {},
+  "sessions": {
+    "s_4fb02fff1fe147": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a176ae-2724-7062-92ba-abfb7ad252ad",
+        "model": "unknown"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
