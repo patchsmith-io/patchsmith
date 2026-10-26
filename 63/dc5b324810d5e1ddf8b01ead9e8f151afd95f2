@@ -1,0 +1,23 @@
+apps/web/public/sitemap-auth.xml
+  s_5dd5a09192b8d5::t_971a1480a84a8f 1-12
+apps/web/public/sitemap.xml
+  s_5dd5a09192b8d5::t_025def50f4dee1 1-12
+apps/web/vercel.json
+  s_5dd5a09192b8d5::t_f1038f5a005e7f 51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "63dc5b324810d5e1ddf8b01ead9e8f151afd95f2",
+  "prompts": {},
+  "sessions": {
+    "s_5dd5a09192b8d5": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1765d-ad24-7372-bdf0-5298bcb13c85",
+        "model": "unknown"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
