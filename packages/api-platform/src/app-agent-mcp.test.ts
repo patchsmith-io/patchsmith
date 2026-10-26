@@ -290,7 +290,7 @@ describe("platform MCP endpoint", () => {
       appId: app.id,
       hostUrl: "https://host.test/api/patchsmith",
       messages: [{ content: "Change it", role: "user" }],
-      model: "openai/gpt-6.1-sol",
+      model: "deepseek/deepseek-v4.1-flash-1017",
     });
     expect(
       await verifyAgentToken(

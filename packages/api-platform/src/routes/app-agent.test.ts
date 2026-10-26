@@ -276,7 +276,7 @@ describe("platform app chat", () => {
       type: "data-run-complete",
     });
     const [, [first]] = requireValue(mocks.start.mock.lastCall);
-    expect(first.model).toBe("openai/gpt-6.1-sol");
+    expect(first.model).toBe("deepseek/deepseek-v4.1-flash-1017");
     expect(first).not.toHaveProperty("deployToken");
     expect(
       await verifyAgentToken(

@@ -42,7 +42,7 @@ const require = <T>(value: T | null | undefined): T => {
   return value;
 };
 
-const APP_AGENT_MODEL = "openai/gpt-6.1-sol";
+const APP_AGENT_MODEL = "deepseek/deepseek-v4.1-flash-1017";
 
 const chunkSchema = asSchema(uiMessageChunkSchema);
 

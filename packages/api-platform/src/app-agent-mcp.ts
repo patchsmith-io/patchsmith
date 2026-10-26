@@ -205,7 +205,7 @@ export const handleAppAgentMcpRequest = async (
             hostUrl: input.hostUrl,
             instructions: input.instructions,
             messages: [{ content: prompt, role: "user" }],
-            model: "openai/gpt-6.1-sol",
+            model: "deepseek/deepseek-v4.1-flash-1017",
             threadId,
           },
         ],
