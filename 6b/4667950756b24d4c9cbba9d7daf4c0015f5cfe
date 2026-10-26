@@ -1,0 +1,21 @@
+docs/writing-apps/overview.mdx
+  s_42694e8c920960::t_cdec56e7f2f60c 55
+packages/agent-fx/src/instructions.md
+  s_42694e8c920960::t_a72bcd814989e4 44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6b4667950756b24d4c9cbba9d7daf4c0015f5cfe",
+  "prompts": {},
+  "sessions": {
+    "s_42694e8c920960": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17704-3dce-7080-98db-872de9dccb4d",
+        "model": "unknown"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
