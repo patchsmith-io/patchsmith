@@ -9,14 +9,30 @@
   }
 }
 
-/* Invert the primary navbar button in dark mode. */
-.dark #topbar-cta-button a > span {
-  background-color: rgb(var(--primary-light));
+/* Make every primary color utility follow the active theme, including hovers. */
+:root.dark {
+  --primary: var(--primary-light);
+  --primary-dark: var(--primary-light);
 }
 
-.dark #topbar-cta-button a > div > span,
-.dark #topbar-cta-button a > div > svg {
-  color: rgb(var(--primary));
+/* Filled primary surfaces need dark content when their background turns light.
+   Include the muted send-button fill, but leave subtle /10 highlights alone.
+   Some controls draw their fill in a separate child (for example, the navbar). */
+.dark
+  :is(
+    .bg-primary,
+    .bg-primary-dark,
+    .bg-primary\/30,
+    .dark\:bg-primary-dark,
+    .dark\:bg-primary-dark\/30,
+    .dark\:bg-primary-light,
+    :is(a, button, [role="button"]):has(> :is(.bg-primary, .bg-primary-dark))
+  ) {
+  color: rgb(var(--background-dark));
+
+  & :is([class*="text-white"], [class*="text-tooltip-foreground"]) {
+    color: inherit;
+  }
 }
 
 /* Keep the selected navigation item neutral in both themes. */
