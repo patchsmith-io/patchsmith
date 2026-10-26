@@ -55,7 +55,7 @@
   "navbar": {
     "links": [
       {
-        "href": "/login",
+        "href": "https://patchsmith.io/login",
         "label": "login"
       }
     ],
