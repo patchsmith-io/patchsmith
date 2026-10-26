@@ -7,6 +7,12 @@ import {
   harnessSessionDataDirectoryPath,
   harnessStateDirectoryPath,
 } from "@ai-sdk/harness";
+import {
+  createHarnessWorkflowState,
+  finalizeHarnessWorkflow,
+  runHarnessAgentStep,
+} from "@ai-sdk/workflow-harness";
+import type { HarnessWorkflowChunk } from "@ai-sdk/workflow-harness";
 import { readUIMessageStream } from "ai";
 import type { UIMessageChunk } from "ai";
 import { expect, it, vi } from "vite-plus/test";
@@ -15,7 +21,6 @@ import { env } from "#env";
 
 import { createAppAgent } from "./agent";
 import { localSession } from "./fixtures/local-sandbox";
-import { runAppAgentTurn } from "./run-turn";
 
 const { join } = nodePath;
 
@@ -153,38 +158,36 @@ it.each(["api-key", "runtime-oidc", "environment-oidc"])(
 
     const sandboxSession = localSession(workspace, sessionHome);
 
-    let session:
-      | Awaited<
-          ReturnType<
-            Awaited<ReturnType<typeof createAppAgent>>["createSession"]
-          >
-        >
-      | undefined;
-
     try {
       const agent = await createAppAgent(input, "fixture");
       expect(agent.harnessId).toBe("fx");
       expect(requests).toHaveLength(0);
-      const chunks: UIMessageChunk[] = [];
+      const chunks: HarnessWorkflowChunk[] = [];
 
-      const state = await runAppAgentTurn({
+      const state = await runHarnessAgentStep({
         agent,
-        messages: [{ content: "Build a file", role: "user" }],
         sandboxSession,
-        sessionId: input.threadId,
-        signal: AbortSignal.timeout(10_000),
-        writable: new WritableStream<UIMessageChunk>({
+        state: createHarnessWorkflowState({
+          messages: [{ content: "Build a file", role: "user" }],
+          sessionId: input.threadId,
+        }),
+        writable: new WritableStream<HarnessWorkflowChunk>({
           write(chunk) {
             chunks.push(chunk);
           },
         }),
       });
 
+      expect(state.status).toBe("finished");
+      expect(finalizeHarnessWorkflow(state).finishReason).toBe("stop");
+
       // Consume the same stock AI SDK event sequence as chat and MCP.
       const stream = new ReadableStream<UIMessageChunk>({
         start(controller) {
           for (const chunk of chunks) {
-            controller.enqueue(chunk);
+            // SAFETY: The SDK runner emits UI chunks; its package exposes them structurally to avoid an AI SDK dependency.
+            // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- The real UI reader below validates the full event sequence.
+            controller.enqueue(chunk as UIMessageChunk);
           }
 
           controller.close();
@@ -263,18 +266,28 @@ it.each(["api-key", "runtime-oidc", "environment-oidc"])(
         "fixture"
       );
 
-      session = await nextAgent.createSession({
-        resumeFrom,
+      const nextChunks: HarnessWorkflowChunk[] = [];
+
+      const next = await runHarnessAgentStep({
+        agent: nextAgent,
         sandboxSession,
-        sessionId: input.threadId,
+        state: createHarnessWorkflowState({
+          messages: [{ content: "Now update it", role: "user" }],
+          resumeFrom,
+          sessionId: input.threadId,
+        }),
+        writable: new WritableStream<HarnessWorkflowChunk>({
+          write(chunk) {
+            nextChunks.push(chunk);
+          },
+        }),
       });
 
-      const next = await nextAgent.generate({
-        prompt: "Now update it",
-        session,
-      });
-
-      expect(next.text).toBe("Updated");
+      expect(next.status).toBe("finished");
+      expect(finalizeHarnessWorkflow(next).finishReason).toBe("stop");
+      expect(nextChunks).toContainEqual(
+        expect.objectContaining({ delta: "Updated", type: "text-delta" })
+      );
       expect(requests.at(-1)?.body).toContain("Build a file");
       expect(requests.at(-1)?.body).toContain("Now update it");
       expect(requests.at(-1)?.body).toContain(
@@ -307,7 +320,6 @@ it.each(["api-key", "runtime-oidc", "environment-oidc"])(
       expect(requests[0]?.body).toContain("deploy");
       expect(requests[0]?.body).not.toContain("src/functions/notes.router.ts");
     } finally {
-      await session?.destroy();
       delete env.AI_GATEWAY_API_KEY;
       delete env.AI_GATEWAY_BASE_URL;
       delete env.VERCEL_OIDC_TOKEN;

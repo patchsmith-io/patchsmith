@@ -36,6 +36,7 @@
     "@ai-sdk/harness": "1.0.164",
     "@ai-sdk/harness-fx": "1.0.80",
     "@ai-sdk/sandbox-vercel": "1.0.164",
+    "@ai-sdk/workflow-harness": "1.0.164",
     "@patchsmith/db": "workspace:*",
     "@patchsmith/env": "workspace:*",
     "@vercel/oidc": "4.0.1",

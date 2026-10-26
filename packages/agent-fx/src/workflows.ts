@@ -1,6 +1,13 @@
 import type { HarnessV1ResumeSessionState } from "@ai-sdk/harness";
-import type { UIMessageChunk } from "ai";
-import { getWorkflowMetadata, getWritable } from "workflow";
+import {
+  createHarnessWorkflowState,
+  finalizeHarnessWorkflow,
+} from "@ai-sdk/workflow-harness";
+import type {
+  HarnessWorkflowChunk,
+  HarnessWorkflowState,
+} from "@ai-sdk/workflow-harness";
+import { FatalError, getWorkflowMetadata, getWritable } from "workflow";
 
 import type { AppAgentInput } from "./input";
 
@@ -14,24 +21,31 @@ const prepare = async (input: AppAgentInput, runId: string) => {
 const turn = async (
   input: AppAgentInput,
   runId: string,
-  resumeFrom?: HarnessV1ResumeSessionState
+  state: HarnessWorkflowState
 ) => {
   "use step";
+  const { runHarnessAgentStep } = await import("@ai-sdk/workflow-harness");
   const { createAppAgent } = await import("./agent");
   const { assertOwnership } = await import("./session");
   const { getSandbox, sandboxName, sandboxSession } = await import("./sandbox");
-  const { runAppAgentTurn } = await import("./run-turn");
   await assertOwnership(input.appId, runId);
   const name = sandboxName(input.threadId);
 
-  return await runAppAgentTurn({
-    agent: await createAppAgent(input, name),
-    messages: input.messages,
-    resumeFrom,
+  const agent = await createAppAgent(input, name);
+  const abortSignal = AbortSignal.timeout(25 * 60_000);
+
+  return await runHarnessAgentStep({
+    agent: {
+      continueStream: async (options) =>
+        await agent.continueStream({ ...options, abortSignal }),
+      createSession: async (options) =>
+        await agent.createSession({ ...options, abortSignal }),
+      stream: async (options) =>
+        await agent.stream({ ...options, abortSignal }),
+    },
     sandboxSession: sandboxSession(await getSandbox(name)),
-    sessionId: input.threadId,
-    signal: AbortSignal.timeout(25 * 60_000),
-    writable: getWritable<UIMessageChunk>(),
+    state,
+    writable: getWritable<HarnessWorkflowChunk>(),
   });
 };
 
@@ -58,14 +72,23 @@ export const appAgent = async (input: AppAgentInput) => {
 
   try {
     const resumeFrom = await prepare(input, runId);
-    const result = await turn(input, runId, resumeFrom);
-    await finish(input.appId, runId, result.resumeFrom);
 
-    return {
-      finishReason: result.finishReason,
-      sessionId: result.sessionId,
-      threadId: input.threadId,
-    };
+    const initial = createHarnessWorkflowState({
+      messages: input.messages,
+      resumeFrom,
+      sessionId: input.threadId,
+    });
+
+    const state = await turn(input, runId, initial);
+    const result = finalizeHarnessWorkflow(state);
+
+    if (state.status !== "finished" || !state.resumeFrom) {
+      throw new FatalError("The app agent did not complete its turn.");
+    }
+
+    await finish(input.appId, runId, state.resumeFrom);
+
+    return { ...result, threadId: input.threadId };
   } catch (error) {
     await finish(input.appId, runId);
     throw error;

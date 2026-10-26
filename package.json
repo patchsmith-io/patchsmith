@@ -67,7 +67,8 @@
       "@ai-sdk/workflow-harness@1.0.148",
       "ai@7.0.143",
       "@ai-sdk/harness@1.0.154",
-      "@ai-sdk/sandbox-vercel@1.0.154"
+      "@ai-sdk/sandbox-vercel@1.0.154",
+      "@ai-sdk/workflow-harness@1.0.154"
     ]
   }
 }

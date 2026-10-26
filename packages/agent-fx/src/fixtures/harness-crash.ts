@@ -3,9 +3,13 @@ import nodePath from "node:path";
 
 import { createFx } from "@ai-sdk/harness-fx";
 import { HarnessAgent } from "@ai-sdk/harness/agent";
+import {
+  createHarnessWorkflowState,
+  finalizeHarnessWorkflow,
+  runHarnessAgentStep,
+} from "@ai-sdk/workflow-harness";
 
 import { localSession } from "#fixtures/local-sandbox.ts";
-import { runAppAgentTurn } from "#run-turn.ts";
 
 const { join } = nodePath;
 const [directory, action] = process.argv.slice(2);
@@ -110,21 +114,24 @@ const agent = new HarnessAgent({
   sandboxConfig: { workDir: "." },
 });
 
-const result = await runAppAgentTurn({
+const state = await runHarnessAgentStep({
   agent,
-  messages: [
-    {
-      content:
-        action === "start"
-          ? "Write an artifact"
-          : "Inspect the existing source and recover",
-      role: "user",
-    },
-  ],
   sandboxSession,
-  sessionId: action === "start" ? "interrupted" : "new-conversation",
-  signal: AbortSignal.timeout(10_000),
+  state: createHarnessWorkflowState({
+    messages: [
+      {
+        content:
+          action === "start"
+            ? "Write an artifact"
+            : "Inspect the existing source and recover",
+        role: "user",
+      },
+    ],
+    sessionId: action === "start" ? "interrupted" : "new-conversation",
+  }),
   writable: new WritableStream(),
 });
+
+const result = finalizeHarnessWorkflow(state);
 
 console.log(JSON.stringify({ finishReason: result.finishReason, requests }));

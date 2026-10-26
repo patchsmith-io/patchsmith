@@ -4,7 +4,7 @@ The default app builder for chat and MCP. Uses `HarnessAgent` with unpatched `@a
 
 ## Execution and durability
 
-Each user turn has three Workflow steps: prepare the workspace and acquire the app lease, run the complete harness turn, then save its resume state and stop the sandbox before releasing ownership. There are no Workflow steps around individual model requests or tool calls. Whole-turn execution avoids the mid-turn suspension/replay boundary that required our FX patch.
+The Workflow uses `createHarnessWorkflowState()`, runs the whole turn with `runHarnessAgentStep()`, and obtains its result with `finalizeHarnessWorkflow()`. Each user turn has three Workflow steps: prepare the workspace and acquire the app lease, run the complete harness turn, then save its resume state and stop the sandbox before releasing ownership. There are no Workflow steps around individual model requests or tool calls. Whole-turn execution avoids the mid-turn suspension/replay boundary that required our FX patch.
 
 Completed turns are durable checkpoints. Chat and MCP reconnect through Workflow's existing output stream. The next user turn restores the harness conversation and receives fresh deployment credentials. Start a new conversation after upgrading: harness 1.0.80 stores its private checkpoints in the shared harness data directory, rather than the previous FX-specific directory.
 
