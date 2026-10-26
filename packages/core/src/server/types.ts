@@ -1,3 +1,4 @@
+import type { AgentModel } from "@patchsmith/client-platform/agent";
 import type {
   AppsInstallResponses,
   ClientOptions as PlatformClientOptions,
@@ -18,6 +19,8 @@ import type {
 import type { EmptyDefinitionMap } from "#schema/shared";
 
 import type { PatchsmithRouter } from "./router";
+
+export type { AgentModel } from "@patchsmith/client-platform/agent";
 
 type HeaderInput = ConstructorParameters<typeof Headers>[0];
 
@@ -53,10 +56,12 @@ export interface PatchsmithServerBaseOptions<
    * Supplies the trusted origin for backend sessions and server tool calls.
    */
   baseUrl: string | URL;
-  /** Host guidance appended to the app builder's built-in instructions. */
+  /** App builder configuration, supplied by the host for CLI and MCP runs. */
   agent?: {
     /** Design conventions, product context, or app-building tips. Maximum 32,000 characters. */
     instructions?: string;
+    /** App-building model. Defaults to openai/gpt-6.1-sol. */
+    model?: AgentModel;
   };
   /**
    * Configuration for browser-based Patchsmith CLI authentication.

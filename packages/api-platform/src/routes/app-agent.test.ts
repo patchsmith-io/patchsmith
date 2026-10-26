@@ -17,6 +17,7 @@ import {
   vi,
 } from "vite-plus/test";
 
+import { agentModelSchema } from "#agent-model";
 import { createAgentStreamToken } from "#agent-stream-token";
 import type { Context } from "#context";
 import { env } from "#env";
@@ -157,6 +158,25 @@ beforeEach(async () => {
 });
 
 describe("platform app chat", () => {
+  it.each(["unsupported/model", "", null, 42])(
+    "rejects an unsupported model %j before starting a workflow",
+    async (model) => {
+      const handler = new OpenAPIHandler({ appAgent: appAgentRouter });
+
+      const result = await handler.handle(
+        new Request("https://platform.test/api/platform/app-agent/chat", {
+          body: JSON.stringify({ ...input.body, model }),
+          headers: { "content-type": "application/json" },
+          method: "POST",
+        }),
+        { context, prefix: "/api/platform" }
+      );
+
+      expect(result.response?.status).toBe(400);
+      expect(mocks.start).not.toHaveBeenCalled();
+    }
+  );
+
   it("rejects the old untyped request before starting a workflow", async () => {
     const handler = new OpenAPIHandler({ appAgent: appAgentRouter });
 
@@ -764,22 +784,34 @@ it("accepts another app in the JWT scope without extending the original deadline
   expect(mocks.token).not.toHaveBeenCalled();
 });
 
-it("forwards host guidance separately from user messages", async () => {
-  const chunks = await call(
-    appAgentRouter.chat,
-    {
-      body: { ...input.body, instructions: "Use the host design system." },
-    },
-    { context }
-  );
+it.each(agentModelSchema.options)(
+  "forwards host guidance and model %s separately from user messages",
+  async (model) => {
+    const chunks = await call(
+      appAgentRouter.chat,
+      {
+        body: {
+          ...input.body,
+          instructions: "Use the host design system.",
+          model,
+        },
+      },
+      { context }
+    );
 
-  for await (const _event of chunks) {
-    /* consume */
+    for await (const _event of chunks) {
+      /* consume */
+    }
+
+    const [workflowInput] = requireValue(mocks.start.mock.lastCall);
+    expect(workflowInput.instructions).toBe("Use the host design system.");
+    expect(workflowInput.model).toBe(
+      model === "deepseek/deepseek-v4.1-flash"
+        ? "deepseek/deepseek-v4.1-flash-1017"
+        : model
+    );
+    expect(workflowInput.messages).toEqual([
+      { content: [{ text: "Build", type: "text" }], role: "user" },
+    ]);
   }
-
-  const [workflowInput] = requireValue(mocks.start.mock.lastCall);
-  expect(workflowInput.instructions).toBe("Use the host design system.");
-  expect(workflowInput.messages).toEqual([
-    { content: [{ text: "Build", type: "text" }], role: "user" },
-  ]);
-});
+);

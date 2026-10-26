@@ -18,6 +18,7 @@ import type { UIMessageChunk } from "ai";
 import { Effect } from "effect";
 import { z } from "zod";
 
+import { agentModelSchema, resolveAgentModel } from "#agent-model";
 import {
   createAgentStreamToken,
   verifyAgentStreamToken,
@@ -39,8 +40,6 @@ const require = <T>(value: T | null | undefined): T => {
 
   return value;
 };
-
-const APP_AGENT_MODEL = "openai/gpt-6.1-sol";
 
 const chunkSchema = asSchema(uiMessageChunkSchema);
 
@@ -70,6 +69,7 @@ const agentTurnSchema = z.object({
   hostUrl: z.url({ protocol: /^https?$/u }),
   instructions: z.string().max(32_000).optional(),
   messages: agentMessagesSchema,
+  model: agentModelSchema.optional(),
   schema: z.record(z.string(), z.unknown()).optional(),
   threadId: z.uuid().optional(),
   type: z.literal("turn"),
@@ -226,7 +226,7 @@ const chat = cliRouter
           hostUrl: body.hostUrl,
           instructions: body.instructions,
           messages,
-          model: APP_AGENT_MODEL,
+          model: resolveAgentModel(body.model),
           schema: body.schema,
           threadId,
         });

@@ -1,3 +1,4 @@
+import type { AgentModel } from "@patchsmith/client-platform/agent";
 import type { Client as PlatformClient } from "@patchsmith/client-platform/client/client/index";
 
 import type { PatchsmithSchema, SchemaSerializer } from "#schema/index";
@@ -29,6 +30,7 @@ export interface Context {
     input: ToolExecutionInput
   ) => Promise<Response>;
   agentInstructions?: string;
+  agentModel?: AgentModel;
   runtimeResolveBaseUrl?: string;
   platform: PlatformClient;
   platformHeaders: Record<string, string>;
@@ -55,6 +57,7 @@ export interface CreateContextOptions {
   schemaSerializer?: SchemaSerializer;
   cliAuthSignInPath?: `/${string}`;
   agentInstructions?: string;
+  agentModel?: AgentModel;
   runtimeResolveBaseUrl?: string;
   platform: PlatformClient;
   platformHeaders?: PatchsmithPlatformOptions["headers"];
@@ -80,6 +83,7 @@ export const createContext = async (
 
   return {
     agentInstructions: options.agentInstructions,
+    agentModel: options.agentModel,
     authenticate: options.authenticate,
     cliAuthSignInPath: options.cliAuthSignInPath,
     platform: options.platform,

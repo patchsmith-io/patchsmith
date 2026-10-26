@@ -16,6 +16,7 @@ import { eq } from "drizzle-orm";
 import { Clock, Effect } from "effect";
 import { z } from "zod";
 
+import { agentModelSchema, resolveAgentModel } from "#agent-model";
 import {
   attempt,
   PlatformAgent,
@@ -40,6 +41,7 @@ interface AgentRunAttributes {
 const contextSchema = z.strictObject({
   hostUrl: z.url({ protocol: /^https?$/u }),
   instructions: z.string().max(32_000).optional(),
+  model: agentModelSchema.optional(),
   scopes: z.record(z.string(), scopeValueSchema),
   subjectId: z.string().min(1).max(256),
 });
@@ -206,7 +208,7 @@ export const handleAppAgentMcpRequest = async (
                     hostUrl: input.hostUrl,
                     instructions: input.instructions,
                     messages: [{ content: prompt, role: "user" }],
-                    model: "openai/gpt-6.1-sol",
+                    model: resolveAgentModel(input.model),
                     threadId,
                   },
                   { attributes }

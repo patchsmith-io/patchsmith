@@ -1,3 +1,5 @@
+import { agentModelSchema } from "@patchsmith/client-platform/agent";
+import type { AgentModel } from "@patchsmith/client-platform/agent";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
 
@@ -20,6 +22,7 @@ const defaultSetupOptions = { projectKey: "host-key" };
 const setup = (
   options: {
     instructions?: string;
+    model?: AgentModel;
     projectKey?: string;
     platformHeaders?: () => Promise<Record<string, string>>;
   } = defaultSetupOptions
@@ -32,7 +35,7 @@ const setup = (
       platformFetch: fetch,
       platformHeaders: options.platformHeaders,
     },
-    agent: { instructions: options.instructions },
+    agent: { instructions: options.instructions, model: options.model },
     baseUrl: "https://host.test/api/patchsmith",
     components: {},
     projectKey: options.projectKey,
@@ -45,6 +48,7 @@ const setup = (
 const contextSchema = z.object({
   hostUrl: z.string(),
   instructions: z.string().optional(),
+  model: z.string().optional(),
   scopes: z.record(z.string(), z.json()),
   subjectId: z.string(),
 });
@@ -60,6 +64,25 @@ const context = (headers: Record<string, string>) =>
   );
 
 describe("MCP transport configuration", () => {
+  it.each(agentModelSchema.options)(
+    "includes the host model %s in MCP context",
+    async (model) => {
+      const server = createServer({
+        agent: { model },
+        baseUrl: "https://host.test/api/patchsmith",
+        contract: defineContract({ components: {}, scopes }),
+        projectKey: "host-key",
+      });
+
+      const transport = await server.mcp.transport({
+        scopes: { org: { tenant: "one" } },
+        subjectId: "user-one",
+      });
+
+      expect(context(transport.headers).model).toBe(model);
+    }
+  );
+
   it("returns a direct platform URL and headers from scopes and the authenticated subject", async () => {
     const { server, fetch } = setup();
 

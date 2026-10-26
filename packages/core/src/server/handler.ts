@@ -1,4 +1,5 @@
 import { RPCHandler } from "@orpc/server/fetch";
+import { agentModelSchema } from "@patchsmith/client-platform/agent";
 import { createClient } from "@patchsmith/client-platform/client/client/index";
 import * as v from "valibot";
 
@@ -63,13 +64,17 @@ export const createPatchsmithServer = <
     ? V
     : EmptyDefinitionMap;
 } => {
-  const configuredInstructions = v.parse(
-    v.optional(v.pipe(v.string(), v.trim(), v.maxLength(32_000))),
-    options.agent?.instructions
+  const { instructions, model: agentModel } = v.parse(
+    v.object({
+      instructions: v.optional(
+        v.pipe(v.string(), v.trim(), v.maxLength(32_000))
+      ),
+      model: v.optional(agentModelSchema),
+    }),
+    options.agent ?? {}
   );
 
-  const agentInstructions =
-    configuredInstructions === "" ? undefined : configuredInstructions;
+  const agentInstructions = instructions === "" ? undefined : instructions;
 
   const { basePath, publicOrigin } = normalizeBaseUrl(options.baseUrl);
   const scopeSchemas = validatePatchsmithScopeSchemas(options.scopes);
@@ -133,6 +138,7 @@ export const createPatchsmithServer = <
 
   const mcp = createMcpTransport({
     agentInstructions,
+    agentModel,
     hostUrl: publicOrigin + basePath,
     platformHeaders,
     platformUrl: platformBaseUrl,
@@ -185,6 +191,7 @@ export const createPatchsmithServer = <
 
     const context = await createContext({
       agentInstructions,
+      agentModel,
       authenticate,
       cliAuthSignInPath: options.cliAuth?.signInPath,
       platform,

@@ -1,3 +1,5 @@
+import type { AgentModel } from "@patchsmith/client-platform/agent";
+
 import { validatePatchsmithScopes } from "./scope";
 import type { PatchsmithScopeSchemas } from "./scope";
 import type { PatchsmithHostContext, PatchsmithPlatformOptions } from "./types";
@@ -14,6 +16,7 @@ const maximumContextHeaderLength = 8192;
 /** Prepare standard HTTP MCP client configuration; no host route or custom fetch is needed. */
 export const createMcpTransport = (options: {
   agentInstructions?: string;
+  agentModel?: AgentModel;
   hostUrl: string;
   platformUrl: string;
   platformHeaders?: PatchsmithPlatformOptions["headers"];
@@ -42,6 +45,7 @@ export const createMcpTransport = (options: {
       JSON.stringify({
         hostUrl: options.hostUrl,
         instructions: options.agentInstructions,
+        model: options.agentModel,
         scopes,
         subjectId: context.subjectId,
       })
