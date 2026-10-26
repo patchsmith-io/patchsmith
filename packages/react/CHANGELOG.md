@@ -1,5 +1,18 @@
 # @patchsmith/react
 
+## 0.1.0-beta.69
+
+### Patch Changes
+
+- Updated dependencies [6cdca73]
+- Updated dependencies [5a6c00b]
+- Updated dependencies [2ac11bc]
+  - @patchsmith/client-platform@0.1.0-beta.69
+  - @patchsmith/app@0.1.0-beta.69
+  - @patchsmith/core@0.1.0-beta.69
+  - @patchsmith/client-core@0.1.0-beta.69
+  - @patchsmith/sandbox@0.1.0-beta.69
+
 ## 0.1.0-beta.68
 
 ### Patch Changes
