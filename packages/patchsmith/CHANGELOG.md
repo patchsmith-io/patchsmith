@@ -1,5 +1,19 @@
 # patchsmith
 
+## 0.1.0-beta.70
+
+### Patch Changes
+
+- 1d21d1b: Add the optional `agent.model` server setting for CLI and MCP app-building runs. Choose GPT-6.1 Sol, Claude Sonnet 5.5, Claude Opus 5.5, GPT-6 Astra, or DeepSeek V4.1 Flash. Omitting the setting keeps GPT-6.1 Sol as the default. Unsupported model IDs are rejected. The public DeepSeek option resolves to the pinned `deepseek/deepseek-v4.1-flash-1017` Gateway snapshot.
+- Updated dependencies [1d21d1b]
+  - @patchsmith/core@0.1.0-beta.70
+  - @patchsmith/ai-sdk@0.1.0-beta.70
+  - @patchsmith/cli@0.1.0-beta.70
+  - @patchsmith/react@0.1.0-beta.70
+  - @patchsmith/app@0.1.0-beta.70
+  - @patchsmith/app-db@0.1.0-beta.70
+  - @patchsmith/vite@0.1.0-beta.70
+
 ## 0.1.0-beta.69
 
 ### Minor Changes
