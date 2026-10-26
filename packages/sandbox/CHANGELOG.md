@@ -1,5 +1,13 @@
 # @patchsmith/sandbox
 
+## 0.1.0-beta.69
+
+### Patch Changes
+
+- Updated dependencies [2ac11bc]
+  - @patchsmith/app@0.1.0-beta.69
+  - @patchsmith/core@0.1.0-beta.69
+
 ## 0.1.0-beta.68
 
 ### Patch Changes

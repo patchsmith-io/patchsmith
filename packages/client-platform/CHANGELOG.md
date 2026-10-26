@@ -1,5 +1,12 @@
 # @patchsmith/client-platform
 
+## 0.1.0-beta.69
+
+### Patch Changes
+
+- 6cdca73: Expose deployment publication validation (400) and verification infrastructure (503) errors. Correct invalid uploads before publishing again; retry publication of the same deployment after a temporary infrastructure failure.
+- 5a6c00b: Add typed `409 CONFLICT` responses for overlapping deployment publication requests. Repeated requests for a published deployment return its stored result without repeating rollout or warm-up.
+
 ## 0.1.0-beta.68
 
 ### Minor Changes

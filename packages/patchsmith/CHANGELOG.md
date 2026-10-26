@@ -1,5 +1,26 @@
 # patchsmith
 
+## 0.1.0-beta.69
+
+### Minor Changes
+
+- 2ac11bc: Default new apps to root-level source and support an optional `src/` source tree with `patchsmith init --src-dir`. Views, functions, hooks, database paths, generated bindings, and watch builds use the same detected source root. Keep app source directories together; mixed root and `src/` layouts fail.
+
+  Move the shared frontend shell from `root.tsx` to `slots/root.tsx` (or from `src/root.tsx` to `src/slots/root.tsx`). This is a breaking change: move existing shells to the new location and run `patchsmith generate`. Configuration, environment files, assets, and explicit migration paths remain relative to the project root. Update package import aliases and TypeScript includes if moving an existing app out of `src/`.
+
+### Patch Changes
+
+- Updated dependencies [ee0a7c5]
+- Updated dependencies [2ac11bc]
+- Updated dependencies [709922d]
+  - @patchsmith/vite@0.1.0-beta.69
+  - @patchsmith/cli@0.1.0-beta.69
+  - @patchsmith/app@0.1.0-beta.69
+  - @patchsmith/core@0.1.0-beta.69
+  - @patchsmith/react@0.1.0-beta.69
+  - @patchsmith/ai-sdk@0.1.0-beta.69
+  - @patchsmith/app-db@0.1.0-beta.69
+
 ## 0.1.0-beta.68
 
 ### Minor Changes
