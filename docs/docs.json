@@ -35,9 +35,9 @@
     "global": {
       "anchors": [
         {
-          "anchor": "Pricing",
-          "href": "https://patchsmith.io/pricing",
-          "icon": "money-bills-simple"
+          "anchor": "Demo",
+          "href": "https://demo.patchsmith.io",
+          "icon": "play"
         },
         {
           "anchor": "Talk to a founder",
