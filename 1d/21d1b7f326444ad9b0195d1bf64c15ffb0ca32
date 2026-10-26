@@ -1,0 +1,76 @@
+packages/core/src/server/mcp.ts
+  s_7d3ad5192a73ac::t_58c686e06c0b6c 19,48
+  s_7d3ad5192a73ac::t_5ee9eecdf329b5 1-2
+packages/core/src/server/handler.ts
+  s_7d3ad5192a73ac::t_ea31f5aaa1508b 69-71
+  s_7d3ad5192a73ac::t_58c686e06c0b6c 2,141,194
+  s_7d3ad5192a73ac::t_932988221b5af0 67-68,72-74,77
+.changeset/five-builder-models.md
+  s_7d3ad5192a73ac::t_5b55c8c6df2b42 7
+  s_7d3ad5192a73ac::t_58c686e06c0b6c 1-6
+packages/core/src/server/types.test-d.ts
+  s_7d3ad5192a73ac::t_5ee9eecdf329b5 199-211
+packages/api-platform/src/routes/app-agent.ts
+  s_7d3ad5192a73ac::t_5b55c8c6df2b42 21,229
+  s_7d3ad5192a73ac::t_58c686e06c0b6c 72
+packages/client-platform/src/client/types.gen.ts
+  s_7d3ad5192a73ac::t_6c726f4afcbbea 84
+packages/api-platform/src/routes/app-agent.test.ts
+  s_7d3ad5192a73ac::t_5b55c8c6df2b42 800,808-812
+  s_7d3ad5192a73ac::t_bcfd2d117ab054 20,161-179,787-799,802-804,807,813-817
+packages/client-platform/src/agent.ts
+  s_7d3ad5192a73ac::t_58c686e06c0b6c 4-12,14-18
+  s_7d3ad5192a73ac::t_f88078cd22bb18 13
+packages/patchsmith/src/server.ts
+  s_7d3ad5192a73ac::t_58c686e06c0b6c 14
+packages/api-platform/openapi.json
+  s_7d3ad5192a73ac::t_2f3c2647f8a38f 107-116
+packages/core/src/server/routes/app-agent.ts
+  s_7d3ad5192a73ac::t_58c686e06c0b6c 41-45
+packages/api-platform/src/agent-model.ts
+  s_7d3ad5192a73ac::t_58c686e06c0b6c 1-10
+  s_7d3ad5192a73ac::t_5b55c8c6df2b42 11-17
+packages/api-platform/src/app-agent-mcp.ts
+  s_7d3ad5192a73ac::t_58c686e06c0b6c 27,44
+  s_7d3ad5192a73ac::t_5b55c8c6df2b42 19
+packages/core/src/server/mcp.test.ts
+  s_7d3ad5192a73ac::t_ea31f5aaa1508b 67-75,77-80,82-84
+  s_7d3ad5192a73ac::t_5ee9eecdf329b5 1-2,25,38,51,76,81,85
+packages/patchsmith/README.md
+  s_7d3ad5192a73ac::t_58c686e06c0b6c 4-30,33
+  s_7d3ad5192a73ac::t_5b55c8c6df2b42 31-32
+packages/api-platform/src/app-agent-mcp.test.ts
+  s_7d3ad5192a73ac::t_5b55c8c6df2b42 164,169-172,186
+  s_7d3ad5192a73ac::t_ad578b8d8f5f28 14,43,154-159,161-163,165-167,173-181,183-185,187-188,191-193
+packages/core/src/server/agent.test.ts
+  s_7d3ad5192a73ac::t_5ee9eecdf329b5 8-9,72,127,147-194,204-205
+  s_7d3ad5192a73ac::t_ea31f5aaa1508b 195-203
+  s_7d3ad5192a73ac::t_d16e2ed4c9cafd 5-7
+packages/agent-fx/src/agent.integration.test.ts
+  s_7d3ad5192a73ac::t_5ee9eecdf329b5 145-149,151-155,195,208,222,242,403-405
+  s_7d3ad5192a73ac::t_5b55c8c6df2b42 150
+  s_7d3ad5192a73ac::t_4916a8d53648de 401-402,406
+packages/core/src/server/types.ts
+  s_7d3ad5192a73ac::t_ea31f5aaa1508b 1
+  s_7d3ad5192a73ac::t_5ee9eecdf329b5 23
+  s_7d3ad5192a73ac::t_58c686e06c0b6c 59,63-64
+  s_7d3ad5192a73ac::t_28f98639c4b2e2 24
+packages/core/src/server/context.ts
+  s_7d3ad5192a73ac::t_58c686e06c0b6c 1,33,60,86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1d21d1b7f326444ad9b0195d1bf64c15ffb0ca32",
+  "prompts": {},
+  "sessions": {
+    "s_7d3ad5192a73ac": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17641-11a3-74b2-8700-d5c6ffdb4faf",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
