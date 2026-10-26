@@ -17,7 +17,7 @@ it("preserves source across a killed tool call so a new conversation can inspect
     await mkdtemp(join(tmpdir(), "patchsmith-fx-crash-"))
   );
 
-  const fixture = new URL("fixtures/harness-crash.mjs", import.meta.url);
+  const fixture = new URL("fixtures/harness-crash.ts", import.meta.url);
 
   try {
     await expect(

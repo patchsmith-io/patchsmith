@@ -28,8 +28,7 @@ await mkdir(home, { recursive: true });
 
 const originalSession = localSession(workspace, home);
 
-/** @type {typeof originalSession.run} */
-const run = async (options) => {
+const run: typeof originalSession.run = async (options) => {
   const result = await originalSession.run(options);
 
   if (action === "start" && options.command.includes("executions.txt")) {
