@@ -1,6 +1,6 @@
 # Build the UI
 
-Read `.agents/skills/patchsmith-capabilities/SKILL.md` and the component/tool pages needed for the task. For older apps, search the relevant declarations in `src/patchsmith.gen.ts`. Import components, `api`, and tools from `#patchsmith`.
+Read `.agents/skills/patchsmith-capabilities/SKILL.md` and the component/tool pages needed for the task. For older apps, search the relevant declarations in `patchsmith.gen.ts`. Import components, `api`, and tools from `#patchsmith`.
 
 Compose generated controls directly with Preact. Use their layout, styling, children, and accessibility props. Callback values follow the generated signature: for `{ value }`, use `onValueChange={({ value }) => setTitle(value)}`. They are serialized values, not DOM events.
 

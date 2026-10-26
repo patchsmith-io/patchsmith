@@ -1,4 +1,3 @@
-import { watch } from "node:fs";
 import type { Dirent } from "node:fs";
 import {
   mkdir,
@@ -12,7 +11,10 @@ import path from "node:path";
 
 import { validateFunctionName } from "@patchsmith/app/server";
 
+import { resolveAppSourceRoot } from "#source-root";
+
 import { isMissingFile } from "./fs-errors";
+import { watchSourceDirectory } from "./watch-source-directory";
 
 const functionPathSeparator = /[./\\]/u;
 
@@ -25,7 +27,7 @@ export interface FunctionFile {
 export const discoverFunctionFiles = async (
   root: string
 ): Promise<FunctionFile[]> => {
-  const directory = path.join(root, "src/functions");
+  const directory = path.join(resolveAppSourceRoot(root), "functions");
   let entries: Dirent[];
 
   try {
@@ -128,7 +130,11 @@ export const generateFunctionTypes = async (
   root: string,
   files: readonly FunctionFile[]
 ) => {
-  const output = path.join(root, "src/patchsmith.functions.gen.ts");
+  const output = path.join(
+    resolveAppSourceRoot(root),
+    "patchsmith.functions.gen.ts"
+  );
+
   await writeChangedFile(output, renderFunctionTypes(files, output));
 
   return output;
@@ -183,7 +189,7 @@ export const createFileFunctionEntry = async (
   };
 
   const watcher = watching
-    ? watch(path.join(root, "src"), { recursive: true }, () => {
+    ? watchSourceDirectory(root, "functions", () => {
         if (timer) {
           clearTimeout(timer);
         }

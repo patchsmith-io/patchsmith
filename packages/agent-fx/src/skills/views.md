@@ -4,16 +4,16 @@ A slot is a host UI location, such as a sidebar, panel, or page. A view is your 
 
 ## View files
 
-Views live in `src/slots/<slot>/**/*.view.tsx`. The first directory names the slot literally, including any dots. The remaining directories and filename determine the context path:
+Views live in `slots/<slot>/**/*.view.tsx`. The first directory names the slot literally, including any dots. The remaining directories and filename determine the context path:
 
 | View file | Slot | Context path |
 | --- | --- | --- |
-| `src/slots/page/index.view.tsx` | `page` | `/` |
-| `src/slots/panel/members.view.tsx` | `panel` | `/members` |
-| `src/slots/panel/members/index.view.tsx` | `panel` | `/members` |
-| `src/slots/panel/members.detail.view.tsx` | `panel` | `/members/detail` |
-| `src/slots/panel/members/detail.view.tsx` | `panel` | `/members/detail` |
-| `src/slots/panel/some.new.new.view.tsx` or `src/slots/panel/some/new/new/index.view.tsx` | `panel` | `/some/new/new` |
+| `slots/page/index.view.tsx` | `page` | `/` |
+| `slots/panel/members.view.tsx` | `panel` | `/members` |
+| `slots/panel/members/index.view.tsx` | `panel` | `/members` |
+| `slots/panel/members.detail.view.tsx` | `panel` | `/members/detail` |
+| `slots/panel/members/detail.view.tsx` | `panel` | `/members/detail` |
+| `slots/panel/some.new.new.view.tsx` or `slots/panel/some/new/new/index.view.tsx` | `panel` | `/some/new/new` |
 
 Dots and directories both separate path segments and can be mixed. A final `index` is omitted; segments must be nonempty. Choose one filename per slot/path pair. The alternative spellings above describe the same view.
 
@@ -25,7 +25,7 @@ Paths describe host context, not browser URLs. The host chooses the deepest matc
 
 For a `panel` at `/records/detail` with `context.recordId`:
 
-<!-- example: src/slots/panel/records.detail.view.tsx -->
+<!-- example: slots/panel/records.detail.view.tsx -->
 
 ```tsx
 import { defineView } from "patchsmith/client";
@@ -51,18 +51,18 @@ A shell wraps UI with shared controls or providers. These files are optional:
 
 | File | Wraps |
 | --- | --- |
-| `src/root.tsx` | App UI across slots |
-| `src/slots/panel/root.tsx` | The `panel` slot |
-| `src/slots/panel/layout.tsx` | All views in `panel` |
-| `src/slots/panel/members.layout.tsx` or `src/slots/panel/members/layout.tsx` | `/members` and its descendants in `panel` |
+| `slots/root.tsx` | App UI across slots |
+| `slots/panel/root.tsx` | The `panel` slot |
+| `slots/panel/layout.tsx` | All views in `panel` |
+| `slots/panel/members.layout.tsx` or `slots/panel/members/layout.tsx` | `/members` and its descendants in `panel` |
 
 Roots default-export `defineRoute({ shellComponent: Shell })`. A slot root sits directly in its slot directory. Layouts default-export a component or `defineRoute({ shellComponent: Layout })`. `layout.tsx` uses its directory path; `*.layout.tsx` adds filename segments. Layout paths retain `index`, so `index.layout.tsx` wraps `/index`. Each layout path is unique within its slot.
 
 Render `<Route />` inside shells/layouts for the next child. Nesting is app root → slot root → matching layouts from shallowest to deepest → selected view. Layouts match whole path segments: `/members` includes `/members/detail`, not `/membership`. Shared shells/layouts retain local state as views change. Keep `ClientProvider` above backend hooks.
 
-The existing `src/root.tsx` includes `ClientProvider` for backend hooks:
+The existing `slots/root.tsx` includes `ClientProvider` for backend hooks:
 
-<!-- example: src/root.tsx -->
+<!-- example: slots/root.tsx -->
 
 ```tsx
 import { ClientProvider, defineRoute, Route } from "patchsmith/client";
@@ -87,7 +87,7 @@ For context-, identity-, or live-data-dependent lists, omit `cache` or use `"non
 
 For a repeated `tile` at `/`, `notes.list` from `patchsmith-functions` supplies each item:
 
-<!-- example: src/slots/tile/index.view.tsx -->
+<!-- example: slots/tile/index.view.tsx -->
 
 ```tsx
 import { defineView } from "patchsmith/client";

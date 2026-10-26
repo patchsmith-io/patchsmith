@@ -373,6 +373,10 @@ cli
     "--install",
     "Install dependencies after scaffolding (use --no-install to skip)"
   )
+  .option(
+    "--src-dir",
+    "Place app source inside src/ instead of the project root"
+  )
   .option("--force", "Overwrite existing files")
   .action(async (directory: string | undefined, options: CliOptions) => {
     intro(pc.bold("Patchsmith"));
@@ -390,6 +394,7 @@ cli
         name: options.name,
         packageManager: options.packageManager,
         schemaPath: options.schema,
+        srcDir: options.srcDir,
         tooling: options.tooling,
       });
 

@@ -20,6 +20,7 @@ import { normalizeHostUrl } from "./utils/url";
 
 export interface InitOptions {
   bare?: boolean;
+  srcDir?: boolean;
   cwd: string;
   directory?: string;
   force?: boolean;
@@ -306,6 +307,7 @@ export const runInit = async (options: InitOptions): Promise<string> => {
     packageName,
     packageVersions,
     schema,
+    srcDir: options.srcDir,
     targetDirectory,
     tooling,
   });

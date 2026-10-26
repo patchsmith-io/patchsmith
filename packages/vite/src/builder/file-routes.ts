@@ -1,4 +1,4 @@
-import { existsSync, watch } from "node:fs";
+import { existsSync } from "node:fs";
 import { readdir, mkdir, mkdtemp, writeFile, rm } from "node:fs/promises";
 import path from "node:path";
 
@@ -6,8 +6,10 @@ import { parseSync } from "vite";
 import type { ESTree, Plugin } from "vite";
 
 import { forEachSequential } from "#for-each-sequential";
+import { resolveAppSourceRoot } from "#source-root";
 
 import { childNodes, createDefineViewMatcher } from "./define-view";
+import { watchSourceDirectory } from "./watch-source-directory";
 
 const clientRuntimeImport = "patchsmith:file-client-runtime";
 
@@ -32,7 +34,7 @@ export const fileViewLocation = (
   root: string
 ): { path: string; slot: string } | undefined => {
   const relative = path
-    .relative(path.join(root, "src/slots"), filename)
+    .relative(path.join(resolveAppSourceRoot(root), "slots"), filename)
     .split(path.sep);
 
   if (
@@ -168,7 +170,7 @@ export const discoverFileRoutes = async (root: string) => {
   const views: { filename: string; slot: string; path: string }[] = [];
   const roots: { filename: string; slot: string }[] = [];
   const layouts: { filename: string; slot: string; path: string }[] = [];
-  const slotsDir = path.join(root, "src/slots");
+  const slotsDir = path.join(resolveAppSourceRoot(root), "slots");
 
   const scan = async (directory: string, slot?: string, prefix = "") => {
     const entries = await (async () => {
@@ -235,7 +237,7 @@ export const discoverFileRoutes = async (root: string) => {
   };
 
   await scan(slotsDir);
-  const rootFile = path.join(root, "src/root.tsx");
+  const rootFile = path.join(resolveAppSourceRoot(root), "slots/root.tsx");
 
   return {
     layouts,
@@ -248,7 +250,7 @@ export const discoverFileRoutes = async (root: string) => {
 /** Root, layout, view and binding sources to check before deployment. */
 export const getClientSourceFiles = async (root: string) => {
   const discovered = await discoverFileRoutes(root);
-  const bindings = path.join(root, "src/patchsmith.gen.ts");
+  const bindings = path.join(resolveAppSourceRoot(root), "patchsmith.gen.ts");
 
   return [
     ...(discovered.root ? [discovered.root.filename] : []),
@@ -336,7 +338,7 @@ export const createFileRouteEntry = async (
   };
 
   const watcher = watching
-    ? watch(path.join(root, "src"), { recursive: true }, () => {
+    ? watchSourceDirectory(root, "slots", () => {
         if (timer) {
           clearTimeout(timer);
         }
@@ -380,7 +382,7 @@ export const fileRoutesPlugin = (root: () => string): Plugin => ({
     }
 
     // Resolve from the app even when its build output is outside the project.
-    const importer = path.join(root(), "src/root.tsx");
+    const importer = path.join(resolveAppSourceRoot(root()), "slots/root.tsx");
 
     return await ((await this.resolve("patchsmith/client", importer, {
       skipSelf: true,

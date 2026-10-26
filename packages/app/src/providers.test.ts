@@ -36,7 +36,7 @@ it("keeps the app wrapper mounted across view changes and cleans it up on unmoun
       definition: defineRoute({
         shellComponent: ShellComponent,
       }),
-      filename: "src/root.tsx",
+      filename: "slots/root.tsx",
     },
     roots: [],
     views: [],

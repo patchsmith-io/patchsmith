@@ -107,7 +107,7 @@ it("passes --schema through generate with its working directory and config", asy
   });
 });
 
-it("passes --bare and --schema through init while retaining the required host", async () => {
+it("passes --bare, --src-dir and --schema through init while retaining the required host", async () => {
   mocks.init.mockResolvedValue("/workspace/app");
 
   // SAFETY: This test supplies a deliberately invalid value or a minimal platform double to exercise the runtime boundary.
@@ -124,6 +124,7 @@ it("passes --bare and --schema through init while retaining the required host", 
     install: false,
     name: "app",
     schema: "host.json",
+    srcDir: true,
     tooling: "vite",
   });
   expect(mocks.init).toHaveBeenCalledWith(
@@ -135,6 +136,7 @@ it("passes --bare and --schema through init while retaining the required host", 
       install: false,
       name: "app",
       schemaPath: "host.json",
+      srcDir: true,
       tooling: "vite",
     })
   );

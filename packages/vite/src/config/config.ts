@@ -91,9 +91,9 @@ export interface PatchsmithConfig extends v.InferInput<
   server?: {
     /**
      * Directory containing Drizzle migrations, used for generation and bundling.
-     * When omitted, uses `./src/db/migrations` and allows that directory to be absent.
+     * When omitted, uses `db/migrations` within the app source root and allows that directory to be absent.
      * An explicitly configured directory must exist when building the backend.
-     * @default "./src/db/migrations"
+     * @default "db/migrations" (relative to the app source root)
      */
     migrations?: string;
   };

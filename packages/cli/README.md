@@ -8,6 +8,10 @@ New apps use Valibot for validation. Function inputs/outputs and instance data a
 
 Each deployment can contain up to 256 static files (including logos) and up to 10 MiB (10,485,760 bytes) of combined client code, server code, light/dark logos, and public files from `assets/`. Both the uploaded total and the total before compression must fit this budget. Reused static files still count toward each deployment that references them. Each logo also has a 256 KiB limit. Independently hosted files downloaded at runtime are outside the deployment budget.
 
+## App source layout
+
+New apps put source at the project root: `slots/root.tsx` contains the shared frontend shell, with views under `slots/<slot>/`, backend routers under `functions/`, and database source under `db/`. Pass `--src-dir` to `patchsmith init` to place all source and generated bindings under `src/` instead. Both layouts are discovered automatically. Keep app source directories together; mixed layouts fail. Configuration, `.env` files, and `assets/` always stay at the project root.
+
 ## Start with a bare app
 
 Use `--bare` to generate configuration, tooling, host bindings and capabilities, and the client root without example slots, functions, database files or logos:

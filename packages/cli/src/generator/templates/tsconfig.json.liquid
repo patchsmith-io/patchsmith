@@ -15,5 +15,6 @@
     "types": ["vite/client"],
     "verbatimModuleSyntax": true
   },
-  "include": ["src", "patchsmith.config.ts"]
+  "include": ["{{ sourceDirectory }}", "patchsmith.config.ts", "vite.config.ts"],
+  "exclude": ["node_modules", ".patchsmith"]
 }

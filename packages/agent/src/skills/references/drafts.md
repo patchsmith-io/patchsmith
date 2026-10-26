@@ -2,7 +2,7 @@
 
 This example needs `api.todos.add({ title })` and generated controls with the shown props, including disabled inputs/buttons. Use the product's supported accessible labels. Local state owns the field; the mutation hook owns pending/error state.
 
-<!-- example: src/components/todo-editor.tsx -->
+<!-- example: components/todo-editor.tsx -->
 
 ```tsx
 import { useMutation } from "patchsmith/client";

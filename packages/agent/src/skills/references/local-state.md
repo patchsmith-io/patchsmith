@@ -2,7 +2,7 @@
 
 A parent can own a filter and pass it to a list. This assumes generated `Input.value`, `onValueChange({ value })`, and `Box` children. Adapt controls and accessible labels to the product.
 
-<!-- example: src/components/search-list.tsx -->
+<!-- example: components/search-list.tsx -->
 
 ```tsx
 import { useState } from "preact/hooks";

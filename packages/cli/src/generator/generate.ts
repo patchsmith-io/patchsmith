@@ -38,6 +38,7 @@ const requireValue = <T>(value: T | null | undefined): T => {
 
 export interface GenerateAppOptions {
   bare?: boolean;
+  srcDir?: boolean;
   targetDirectory: string;
   force: boolean;
   hostUrl: string;
@@ -101,7 +102,7 @@ const getViewModulePath = (slotName: string, viewPath: string) => {
     )
   ) {
     throw new Error(
-      "The selected slot and view must have valid file names with no empty dot-separated route segments to generate src/slots."
+      "The selected slot and view must have valid file names with no empty dot-separated route segments to generate slots."
     );
   }
 
@@ -142,10 +143,7 @@ const getStarterView = (schema: PatchsmithSchemaFile) => {
   return {
     multiple: schema.slots?.[slotName]?.multiple === true,
     slotName,
-    viewFile: path.join(
-      "src",
-      `${getViewModulePath(slotName, viewPath)}.view.tsx`
-    ),
+    viewFile: `${getViewModulePath(slotName, viewPath)}.view.tsx`,
     viewPath,
   };
 };
@@ -189,13 +187,14 @@ const writeTemplateFile = async (
   await writeFile(filepath, contents, "utf-8");
 };
 
-export const generateApp = async (
-  options: GenerateAppOptions
-): Promise<void> => {
+const appTemplateData = (
+  options: GenerateAppOptions,
+  starter: ReturnType<typeof getStarterView> | undefined,
+  sourceDirectory: string
+) => {
   const {
     bare = false,
-    targetDirectory,
-    force,
+    srcDir = false,
     hostUrl,
     schema,
     tooling,
@@ -204,22 +203,14 @@ export const generateApp = async (
     useWorkspaceDependencies,
   } = options;
 
-  const starter = bare ? undefined : getStarterView(schema);
   const useBox = supportsBox(schema.components?.Box);
-  const bindingsPath = path.join(targetDirectory, "src", "patchsmith.gen.ts");
-
-  if (!force && existsSync(bindingsPath)) {
-    throw new Error(
-      `${bindingsPath} already exists. Use --force to overwrite it.`
-    );
-  }
 
   const patchsmithVersion =
     useWorkspaceDependencies === true
       ? "workspace:*"
       : packageVersions.patchsmith;
 
-  const templateData = {
+  return {
     appName: JSON.stringify(packageName),
     appSlug: JSON.stringify(getAppSlug(packageName)),
     bare,
@@ -232,6 +223,8 @@ export const generateApp = async (
     patchsmithVersion,
     preactVersion: packageVersions.preact,
     slotName: JSON.stringify(starter?.slotName ?? ""),
+    sourceDirectory,
+    sourcePrefix: srcDir ? "src/" : "",
     tooling,
     typescriptVersion: packageVersions.typescript,
     useBox,
@@ -241,10 +234,39 @@ export const generateApp = async (
     vitePlusVersion: packageVersions.vitePlus ?? "1.0.0",
     viteVersion: packageVersions.vite,
   };
+};
+
+export const generateApp = async (
+  options: GenerateAppOptions
+): Promise<void> => {
+  const {
+    bare = false,
+    srcDir = false,
+    targetDirectory,
+    force,
+    schema,
+  } = options;
+
+  const starter = bare ? undefined : getStarterView(schema);
+  const sourceDirectory = srcDir ? "src" : ".";
+
+  const bindingsPath = path.join(
+    targetDirectory,
+    sourceDirectory,
+    "patchsmith.gen.ts"
+  );
+
+  if (!force && existsSync(bindingsPath)) {
+    throw new Error(
+      `${bindingsPath} already exists. Use --force to overwrite it.`
+    );
+  }
+
+  const templateData = appTemplateData(options, starter, sourceDirectory);
 
   if (!bare) {
     await ensureDirectory(
-      path.join(targetDirectory, "src", "db", "migrations")
+      path.join(targetDirectory, sourceDirectory, "db", "migrations")
     );
   }
 
@@ -271,28 +293,36 @@ export const generateApp = async (
     },
     { dest: ".gitignore", template: gitignoreTemplate },
     { dest: "vite.config.ts", template: viteConfigTemplate },
-    { dest: path.join("src", "root.tsx"), template: rootTemplate },
+    {
+      dest: path.join(sourceDirectory, "slots", "root.tsx"),
+      template: rootTemplate,
+    },
     ...(starter === undefined
       ? []
-      : [{ dest: starter.viewFile, template: defaultViewTemplate }]),
+      : [
+          {
+            dest: path.join(sourceDirectory, starter.viewFile),
+            template: defaultViewTemplate,
+          },
+        ]),
     {
       condition: !bare,
-      dest: path.join("src", "db", "schema.ts"),
+      dest: path.join(sourceDirectory, "db", "schema.ts"),
       template: schemaTemplate,
     },
     {
       condition: !bare,
-      dest: path.join("src", "db", "index.ts"),
+      dest: path.join(sourceDirectory, "db", "index.ts"),
       template: databaseTemplate,
     },
     {
       condition: !bare,
-      dest: path.join("src", "db", "relations.ts"),
+      dest: path.join(sourceDirectory, "db", "relations.ts"),
       template: relationsTemplate,
     },
     {
       condition: !bare,
-      dest: path.join("src", "functions", "greeting.router.ts"),
+      dest: path.join(sourceDirectory, "functions", "greeting.router.ts"),
       template: greetingTemplate,
     },
   ];

@@ -84,7 +84,7 @@ it("keeps app and slot shells and common layouts mounted, and isolates mounted s
     ],
     root: {
       definition: defineRoute({ shellComponent: Root }),
-      filename: "src/root.tsx",
+      filename: "slots/root.tsx",
     },
     roots: [
       {

@@ -1,3 +1,5 @@
+export { resolveAppSourceRoot } from "#source-root";
+
 export {
   createPatchsmithUploadManifest,
   patchsmithUploadManifestSchema,

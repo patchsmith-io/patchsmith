@@ -560,7 +560,11 @@ it.each([false, true])(
   async (interactive) => {
     await linkTestDependencies(root);
     await mkdir(path.join(root, "src/functions"), { recursive: true });
-    await writeFile(path.join(root, "src/root.tsx"), "export default {};\n");
+    await mkdir(path.join(root, "src/slots"), { recursive: true });
+    await writeFile(
+      path.join(root, "src/slots/root.tsx"),
+      "export default {};\n"
+    );
     await writeFile(
       path.join(root, "src/functions/example.router.ts"),
       'export const invalid: number = "string";'
@@ -585,7 +589,7 @@ it.each([false, true])(
 
     await expect(deployment).rejects.toThrow("type check failed");
     await expect(deployment).rejects.toThrow(
-      'Command: tsc --noEmit --project "tsconfig.json" --pretty false (app entries: "src/root.tsx", "src/functions/example.router.ts")'
+      'Command: tsc --noEmit --project "tsconfig.json" --pretty false (app entries: "src/slots/root.tsx", "src/functions/example.router.ts")'
     );
     await expect(deployment).rejects.not.toThrow(".patchsmith-typecheck-");
     await expect(deployment).rejects.toThrow("src/functions/example.router.ts");
@@ -615,9 +619,10 @@ it("refreshes stale function types before deployment typechecking", async () => 
     path.join(root, "src/patchsmith.functions.gen.ts"),
     'import type missing from "./functions/deleted.router"; export type AppServerFunctions = typeof missing;'
   );
+  await mkdir(path.join(root, "src/slots"), { recursive: true });
   await writeFile(
-    path.join(root, "src/root.tsx"),
-    'import type { AppServerFunctions } from "./patchsmith.functions.gen"; export const value: ReturnType<AppServerFunctions["todos"]["list"]["handler"]> = 42;'
+    path.join(root, "src/slots/root.tsx"),
+    'import type { AppServerFunctions } from "../patchsmith.functions.gen"; export const value: ReturnType<AppServerFunctions["todos"]["list"]["handler"]> = 42;'
   );
   await writeFile(
     path.join(root, "tsconfig.json"),
@@ -652,7 +657,7 @@ it("typechecks file route roots, layouts and views without a manual client entry
   );
 
   const sources = [
-    "src/root.tsx",
+    "src/slots/root.tsx",
     "src/slots/panel/root.tsx",
     "src/slots/panel/layout.tsx",
     "src/slots/panel/index.view.tsx",

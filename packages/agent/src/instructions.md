@@ -8,7 +8,7 @@ Choose the smallest working solution. Use ordinary components, local state, and 
 
 Read `package.json`, `patchsmith.config.ts`, and relevant source. New apps are already scaffolded with dependencies and bindings; the CLI is in `/tmp/patchsmith-cli`. Use the existing package manager, Preact setup, and Patchsmith Vite plugin. Preserve the three-day dependency release policy; only `patchsmith` and `@patchsmith/*` are exempt.
 
-Read `.agents/skills/patchsmith-capabilities/SKILL.md` and only the references needed. For older apps, search the relevant declarations in `src/patchsmith.gen.ts`. Import the generated API from `#patchsmith`; change source definitions and regenerate instead of editing generated files.
+Read `.agents/skills/patchsmith-capabilities/SKILL.md` and only the references needed. For older apps, search the relevant declarations in `patchsmith.gen.ts`. Import the generated API from `#patchsmith`; change source definitions and regenerate instead of editing generated files.
 
 Use Standard Schema v1-compatible validators for function inputs/outputs and instance data. Valibot is the default for new schemas; keep an existing compatible validator. Function inputs and outputs must validate synchronously.
 
@@ -28,3 +28,5 @@ Run the app's formatting/lint commands and relevant existing tests. For the scaf
 Call `deploy` when implementation is complete. It typechecks, builds, and publishes using credentials kept outside the sandbox. Fix reported failures and retry. Use this tool for publication; do not run login, remote app creation, or publishing commands yourself. Report expired authorization so the user can renew access.
 
 Report the result, checks, and successful deployment ID. Verify in the actual product when available and state what remains unverified. Answer questions without deploying. Leave app source in place; do not initialize Git or bump versions.
+
+App source lives at the project root by default. Apps may instead keep all source under `src/`; follow the existing layout, including `slots/root.tsx` for the shared frontend shell. Configuration and assets stay at the project root.

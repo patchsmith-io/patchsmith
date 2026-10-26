@@ -4,9 +4,9 @@ import { patchsmith } from "patchsmith/vite";
 export default defineConfig({
   plugins: {% if vitePlus %}lazyPlugins(() => [patchsmith()]){% else %}[patchsmith()]{% endif %},{% if vitePlus %}
   lint: {
-    ignorePatterns: ["src/patchsmith.gen.ts", "src/patchsmith.functions.gen.ts", ".agents/skills/patchsmith-capabilities/**", ".patchsmith/**"],
+    ignorePatterns: ["{{ sourcePrefix }}patchsmith.gen.ts", "{{ sourcePrefix }}patchsmith.functions.gen.ts", ".agents/skills/patchsmith-capabilities/**", ".patchsmith/**"],
   },
   fmt: {
-    ignorePatterns: ["src/patchsmith.gen.ts", "src/patchsmith.functions.gen.ts", ".agents/skills/patchsmith-capabilities/**", ".patchsmith/**"],
+    ignorePatterns: ["{{ sourcePrefix }}patchsmith.gen.ts", "{{ sourcePrefix }}patchsmith.functions.gen.ts", ".agents/skills/patchsmith-capabilities/**", ".patchsmith/**"],
   },{% endif %}
 });
