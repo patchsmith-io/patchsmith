@@ -1,0 +1,29 @@
+.changeset/shared-app-lib.md
+  s_42694e8c920960::t_1c9265f1379c6b 5
+docs/writing-apps/overview.mdx
+  s_42694e8c920960::t_27dfe68a0d6101 30,55
+packages/agent-fx/src/instructions.md
+  s_42694e8c920960::t_eda7690d1704bd 44
+packages/cli/src/generator/generate.test.ts
+  s_42694e8c920960::t_970df4d898b0fd 82,126,243-244
+packages/cli/src/generator/generate.ts
+  s_42694e8c920960::t_3c37ca63da1b38 267-268
+packages/cli/src/init.test.ts
+  s_42694e8c920960::t_627bb2c5ccea44 135
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "091dda22b8682e13506f4a8ad6b205008ebe3cf4",
+  "prompts": {},
+  "sessions": {
+    "s_42694e8c920960": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17704-3dce-7080-98db-872de9dccb4d",
+        "model": "unknown"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
