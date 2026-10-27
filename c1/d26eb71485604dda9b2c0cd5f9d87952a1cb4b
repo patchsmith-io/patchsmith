@@ -1,0 +1,39 @@
+packages/api-platform/src/scoped-slug-migration.test.ts
+  s_4b2a45d5aa3934::t_c11adfceccbf2c 1-72
+packages/db/src/migrations/20261027110737_magenta_the_hunter/migration.sql
+  s_d215505724ce59::t_eb2bd82552ded5 1
+packages/db/src/migrations/20261027110737_magenta_the_hunter/snapshot.json
+  s_cb74c7439b6a78::t_77b7d49c9cc763 1-4321
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c1d26eb71485604dda9b2c0cd5f9d87952a1cb4b",
+  "prompts": {},
+  "sessions": {
+    "s_4b2a45d5aa3934": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17ced-5e05-74c0-b885-e0742e5547be",
+        "model": "unknown"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    },
+    "s_cb74c7439b6a78": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17d10-5c23-7be3-8d24-d2409af5ede7",
+        "model": "unknown"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    },
+    "s_d215505724ce59": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17cf5-9b28-7b13-99df-e8fc30cd0a44",
+        "model": "unknown"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
