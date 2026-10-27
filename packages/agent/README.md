@@ -69,7 +69,7 @@ Matching `*_BASE_URL` overrides are optional. Pi receives an isolated authentica
 
 Each execution resolves OpenID Connect (OIDC) credentials with `getVercelOidcToken()`. Vercel Functions supply these through the request context. Gateway credentials take precedence; the platform routes still supply the existing Gateway model. Using a direct provider also requires a matching model ID.
 
-The platform uses `openai/gpt-6.1-sol` with medium reasoning. Pi supplies the bundled model catalog. A fixed Sol model entry overrides its Gateway transport to OpenAI Responses so explicit reasoning effort is preserved. Agent initialization makes no model-catalog requests; model-call credentials are resolved afresh for each execution.
+The platform defaults to `openai/gpt-6.1-sol`. Sol and `openai/gpt-6.1-sol-fast` use low reasoning effort. Pi supplies the bundled model catalog. Fixed Sol model entries override their Gateway transport to OpenAI Responses so explicit reasoning effort is preserved. Agent initialization makes no model-catalog requests; model-call credentials are resolved afresh for each execution.
 
 ## Consume tool events
 

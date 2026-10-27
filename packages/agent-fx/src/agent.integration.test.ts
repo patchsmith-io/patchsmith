@@ -144,6 +144,7 @@ const gatewayEvents = (requestIndex: number, text: string) => {
 
 it.each([
   { mode: "api-key", model: "openai/gpt-6.1-sol" },
+  { mode: "api-key", model: "openai/gpt-6.1-sol-fast" },
   { mode: "api-key", model: "anthropic/claude-sonnet-5.5" },
   { mode: "api-key", model: "anthropic/claude-opus-5.5" },
   { mode: "api-key", model: "openai/gpt-6-astra" },
@@ -400,7 +401,7 @@ it.each([
       for (const request of requests) {
         expect(request.model).toBe(model);
 
-        if (model === "openai/gpt-6.1-sol") {
+        if (["openai/gpt-6.1-sol", "openai/gpt-6.1-sol-fast"].includes(model)) {
           expect(JSON.parse(request.body)).toMatchObject({ reasoning: "low" });
         }
 

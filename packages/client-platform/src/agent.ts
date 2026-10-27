@@ -14,6 +14,7 @@ export const agentModelSchema = v.enum({
   "deepseek/deepseek-v4.1-flash": "deepseek/deepseek-v4.1-flash",
   "openai/gpt-6-astra": "openai/gpt-6-astra",
   "openai/gpt-6.1-sol": "openai/gpt-6.1-sol",
+  "openai/gpt-6.1-sol-fast": "openai/gpt-6.1-sol-fast",
 } satisfies { [TModel in AgentModel]: TModel });
 
 export const agentCreateAppSchema = v.strictObject({
