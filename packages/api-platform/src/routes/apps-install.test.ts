@@ -1,9 +1,11 @@
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
-import { call } from "@orpc/server";
+import { call, implement } from "@orpc/server";
+import { RPCHandler } from "@orpc/server/fetch";
 import {
   issueAgentToken,
   verifyAgentToken,
 } from "@patchsmith/api-utils/agent-token";
+import { appContract } from "@patchsmith/app/protocol";
 import {
   app as appTable,
   appDeployment,
@@ -102,6 +104,8 @@ describe("platform apps-install", () => {
           app: { slug: source.slug },
           scope: stagingScope,
           slug: "installed-inbox",
+          subjectId: "user_1",
+          toolUrl: "https://host.test/api/patchsmith/tools/execute",
         }),
         headers: { "content-type": "application/json" },
         method: "POST",
@@ -118,6 +122,8 @@ describe("platform apps-install", () => {
     expect(installed.id).not.toBe(source.id);
     expect(installed.shortId).not.toBe(source.shortId);
     expect(installed.slug).toBe("installed-inbox");
+    expect(fixture.http).not.toHaveBeenCalled();
+    expect(testState.issueToken).not.toHaveBeenCalled();
     await expect(
       call(
         appRouter.install,
@@ -126,6 +132,8 @@ describe("platform apps-install", () => {
             app: { slug: source.slug },
             scope: productionScope,
             slug: installed.slug,
+            subjectId: "user_1",
+            toolUrl: "https://host.test/api/patchsmith/tools/execute",
           },
         },
         { context }
@@ -328,6 +336,137 @@ describe("platform apps-install", () => {
     }
   );
 
+  it.each([false, true])(
+    "invokes onInstall after commit and preserves the installation when the handler fails (%s)",
+    async (failHandler) => {
+      const context = createContext();
+      const { app: source, deployment } = await seedRuntimeApp("lifecycle", []);
+      await fixture.db
+        .update(appDeployment)
+        .set({ hooks: ["patchsmith.onInstall"] })
+        .where(eq(appDeployment.id, deployment.id));
+
+      const runtime = implement(appContract);
+      let verifiedInvocation = false;
+
+      const handler = new RPCHandler({
+        actions: runtime.actions.handler(async ({ input }) => {
+          expect(input).toEqual({
+            args: { hook: "patchsmith.onInstall" },
+            name: "_patchsmith.hooks.invoke",
+          });
+
+          const identity = z
+            .object({
+              deploymentId: z.string(),
+              hook: z.string(),
+              installationId: z.string(),
+              subjectId: z.string(),
+              toolUrl: z.string(),
+            })
+            .parse(testState.issueToken.mock.calls.at(-1)?.[0]);
+
+          expect(identity).toMatchObject({
+            deploymentId: deployment.id,
+            hook: "patchsmith.onInstall",
+            subjectId: "installer",
+            toolUrl: "https://preview.host.test/api/patchsmith/tools/execute",
+          });
+          expect(identity.installationId).not.toBe(source.id);
+
+          // A separate read during execution sees the committed installation.
+          const installed = await fixture.db.query.app.findFirst({
+            where: { id: identity.installationId },
+          });
+
+          expect(installed).toMatchObject({
+            currentDeploymentId: deployment.id,
+            scope: stagingScope,
+          });
+
+          verifiedInvocation = true;
+
+          if (failHandler) {
+            throw new Error("App initialization failed");
+          }
+
+          return {};
+        }),
+      });
+
+      fixture.http.mockImplementation(async (input, init) => {
+        const request = new Request(input, init);
+        expect(request.headers.get("authorization")).toBe(
+          "Bearer platform-token"
+        );
+
+        const { appShortId } = z
+          .object({ appShortId: z.string() })
+          .parse(testState.issueToken.mock.calls.at(-1)?.[0]);
+
+        const result = await handler.handle(request, {
+          prefix: `/a/${appShortId}/rpc`,
+        });
+
+        if (!result.response) {
+          throw new Error("Unmatched runtime action");
+        }
+
+        return result.response;
+      });
+
+      const input = {
+        body: {
+          app: { id: source.id },
+          scope: stagingScope,
+          slug: "lifecycle-installation",
+          subjectId: "installer",
+          toolUrl: "https://preview.host.test/api/patchsmith/tools/execute",
+        },
+      };
+
+      const { body: installed } = await call(appRouter.install, input, {
+        context,
+      });
+
+      expect(installed.currentDeployment?.id).toBe(deployment.id);
+      expect(verifiedInvocation).toBe(true);
+      expect(fixture.http).toHaveBeenCalledOnce();
+      expect(testState.issueToken).toHaveBeenCalledOnce();
+      expect(
+        await fixture.db.query.app.findFirst({ where: { id: installed.id } })
+      ).toBeDefined();
+      await expect(
+        call(appRouter.install, input, { context })
+      ).rejects.toMatchObject({ code: "CONFLICT" });
+      expect(fixture.http).toHaveBeenCalledOnce();
+    }
+  );
+
+  it.each([undefined, "", "u".repeat(257), 123])(
+    "rejects an invalid installer subject over HTTP: %j",
+    async (subjectId) => {
+      const handler = new OpenAPIHandler({ apps: appRouter });
+
+      const response = await handler.handle(
+        new Request("https://platform.test/api/platform/apps/install", {
+          body: JSON.stringify({
+            app: { shortId: "published001" },
+            scope: stagingScope,
+            subjectId,
+            toolUrl: "https://host.test/api/patchsmith/tools/execute",
+          }),
+          headers: { "content-type": "application/json" },
+          method: "POST",
+        }),
+        { context: createContext(), prefix: "/api/platform" }
+      );
+
+      expect(response.response?.status).toBe(400);
+      expect(await fixture.db.select().from(appTable)).toHaveLength(0);
+    }
+  );
+
   it("limits installation to published apps in the host project and rejects agent credentials", async () => {
     const context = createContext();
 
@@ -340,7 +479,12 @@ describe("platform apps-install", () => {
     );
 
     const input = {
-      body: { app: { id: source.id }, scope: stagingScope },
+      body: {
+        app: { id: source.id },
+        scope: stagingScope,
+        subjectId: "user_1",
+        toolUrl: "https://host.test/api/patchsmith/tools/execute",
+      },
     };
 
     await expect(

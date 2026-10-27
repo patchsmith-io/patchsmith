@@ -33,8 +33,9 @@ it("defaults older manifests to no hooks and retains dotted hook names", () => {
     createPatchsmithUploadManifest(undefined, true, undefined, undefined, [
       "sync",
       "billing.updated",
+      "patchsmith.onInstall",
     ]).hooks
-  ).toEqual(["sync", "billing.updated"]);
+  ).toEqual(["sync", "billing.updated", "patchsmith.onInstall"]);
 });
 
 it.each([
@@ -42,6 +43,8 @@ it.each([
   ["bad/name"],
   ["a..b"],
   ["a.constructor"],
+  ["patchsmith"],
+  ["patchsmith.custom"],
   [""],
   Array.from({ length: 1001 }, (_, index) => `hook${index}`),
 ])("rejects invalid hook names or duplicate registrations: %j", (...hooks) => {

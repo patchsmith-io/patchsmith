@@ -7,6 +7,7 @@ import { Effect } from "effect";
 import { z } from "zod";
 
 import { AppWithCurrentDeployment, discoverAppsEffect } from "#app-discovery";
+import { invokeInstallationHookEffect } from "#app-runtime/lifecycle";
 import { appSelectorSchema } from "#app-selector";
 import { withAppAssetUrl } from "#asset-url";
 import type { Context } from "#context";
@@ -29,6 +30,7 @@ import {
 
 import {
   publishRuntimeMetadataEffect,
+  runtimeViewerSchema,
   runtimeSession,
   runtimeResolve,
 } from "./app-runtime";
@@ -186,6 +188,8 @@ const installApp = protectedRouter
         app: appSelectorSchema,
         scope: scopeSchema,
         slug: App.shape.slug.optional(),
+        subjectId: runtimeViewerSchema.shape.subjectId,
+        toolUrl: runtimeViewerSchema.shape.toolUrl,
       }),
     })
   )
@@ -290,6 +294,19 @@ const installApp = protectedRouter
             Effect.logWarning("Could not warm new app installation", error)
           )
         );
+
+      yield* invokeInstallationHookEffect(
+        context,
+        { ...installed, currentDeployment: deployment },
+        input.body
+      ).pipe(
+        Effect.catch((error) =>
+          Effect.logWarning("App installation hook failed", {
+            error,
+            installationId: installed.id,
+          })
+        )
+      );
 
       return {
         body: withAppAssetUrl(

@@ -1,3 +1,5 @@
+import { isReservedHookName } from "@patchsmith/app/hooks";
+import type { ReservedHookName } from "@patchsmith/app/hooks";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 
 import type { PatchsmithSchemaSpec } from "#spec/index";
@@ -15,9 +17,9 @@ export interface ContractHook<
   output: <N extends Schema>(schema: N) => ContractHook<I, N>;
 }
 
-export interface ContractHooks {
-  [name: string]: ContractHook;
-}
+/** Host hooks cannot declare or replace platform-owned lifecycle hooks. */
+export type ContractHooks = Record<string, ContractHook> &
+  Partial<Record<ReservedHookName, never>>;
 
 export type InferHookInput<T> = T extends { definition: { input?: infer I } }
   ? I extends Schema
@@ -51,7 +53,11 @@ const hookNamePattern =
   /^[a-zA-Z][a-zA-Z0-9_]{0,63}(?:\.[a-zA-Z][a-zA-Z0-9_]{0,63})*$/u;
 
 export const validateHooks = (hooks: ContractHooks) => {
-  for (const [name, definition] of Object.entries(hooks)) {
+  for (const [name, definition] of Object.entries<ContractHook>(hooks)) {
+    if (isReservedHookName(name)) {
+      throw new Error(`The patchsmith hook namespace is reserved: "${name}".`);
+    }
+
     if (
       name.length > 255 ||
       !hookNamePattern.test(name) ||
@@ -75,7 +81,7 @@ export const serializeHooks = (
   serializer?: SchemaSerializer
 ): PatchsmithSchemaSpec["hooks"] =>
   Object.fromEntries(
-    Object.entries(hooks).map(([name, { definition }]) => {
+    Object.entries<ContractHook>(hooks).map(([name, { definition }]) => {
       const serialized: PatchsmithSchemaSpec["hooks"][string] = {
         // Hosts parse input before invocation and validate the handler's returned output.
         input: serializeSchema(definition.input, serializer, "output"),

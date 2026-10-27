@@ -11,6 +11,8 @@ const records = {
 
 declare module "../server" {
   interface PatchsmithHooks {
+    "patchsmith.custom": { input: string; output: string };
+    "patchsmith.onInstall": { input: string; output: string };
     testSync: { input: { cursor: string }; output: { processed: number } };
     // oxlint-disable-next-line typescript/no-invalid-void-type -- Generated no-output hooks use void to allow handlers without a return statement.
     testNotify: { input: undefined; output: void };
@@ -62,4 +64,22 @@ defineHook({
     expectTypeOf(input).toEqualTypeOf<undefined>();
   },
   hook: "testNotify",
+});
+
+// Platform hook types are available independently of generated host declarations.
+defineHook({
+  handler: ({ input, identity, mutations }) => {
+    expectTypeOf(input).toEqualTypeOf<undefined>();
+    expectTypeOf(identity.subjectId).toEqualTypeOf<string>();
+    expectTypeOf(mutations.hookRecords.save()).toEqualTypeOf<
+      Promise<boolean>
+    >();
+  },
+  hook: "patchsmith.onInstall",
+});
+
+defineHook({
+  handler: () => {},
+  // @ts-expect-error Apps cannot invent platform hooks, even through host bindings.
+  hook: "patchsmith.custom",
 });

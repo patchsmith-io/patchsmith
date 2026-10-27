@@ -62,3 +62,6 @@ void server.hooks.sync.list({ subjectId: context.subjectId });
 
 // @ts-expect-error Host invocation requires authorized scopes.
 void server.hooks.notify.invoke({ appId: "app", subjectId: context.subjectId });
+
+// @ts-expect-error Platform lifecycle hooks are dispatched automatically, not through host callers.
+void server.hooks["patchsmith.onInstall"];

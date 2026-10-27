@@ -94,6 +94,59 @@ describe("platform deployments-upload", () => {
     }
   );
 
+  it.each(["patchsmith", "patchsmith.custom", "patchsmith.onInstall"])(
+    "only accepts supported platform hooks in deployment metadata: %s",
+    async (hook) => {
+      const app = requireValue(await fixture.db.query.app.findFirst());
+      const context = publishContext("https://uploads.example/bundle");
+      context.storage.createUploadUrl = vi.fn<
+        typeof context.storage.createUploadUrl
+      >(
+        asyncFixture(({ key }) => ({
+          key,
+          uploadUrl: `https://uploads.example/${key}`,
+        }))
+      );
+      context.storage.head = vi
+        .fn()
+        .mockRejectedValue(
+          Object.assign(new Error("Not found"), { name: "NotFound" })
+        );
+
+      const metadata = {
+        checksum: "a".repeat(64),
+        contentLength: 1,
+        contentType: "application/javascript" as const,
+        encoding: "utf-8" as const,
+      };
+
+      const result = call(
+        deploymentRouter.create,
+        {
+          body: {
+            app: { id: app.id },
+            assets: [{ ...metadata, objectKey: "client.js" }],
+            hooks: [hook],
+            scope: productionScope,
+            server: { ...metadata, objectKey: "server.js" },
+          },
+        },
+        { context }
+      );
+
+      if (hook === "patchsmith.onInstall") {
+        await expect(result).resolves.toMatchObject({
+          body: { deployment: { hooks: [hook] } },
+        });
+
+        return;
+      }
+
+      await expect(result).rejects.toMatchObject({ code: "BAD_REQUEST" });
+      expect(context.storage.createUploadUrl).not.toHaveBeenCalled();
+    }
+  );
+
   it("hides a deployment when its app has a malformed stored scope", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const deployment = await createLogoDeployment();

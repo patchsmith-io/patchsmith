@@ -6,6 +6,7 @@ import {
   APP_PUBLIC_KEYS_CACHE_SECONDS,
   appDeploymentMetadata,
 } from "@patchsmith/api-utils/app-auth";
+import { isReservedHookName } from "@patchsmith/app/hooks";
 import type { App, AppDeployment } from "@patchsmith/db/schema/apps";
 import { Clock, Effect } from "effect";
 import { z } from "zod";
@@ -105,7 +106,10 @@ interface RuntimeHookGrant {
   hook?: string;
 }
 
-type RuntimeApp = Pick<z.infer<typeof App>, "id" | "shortId" | "scope"> & {
+export type RuntimeApp = Pick<
+  z.infer<typeof App>,
+  "id" | "shortId" | "scope"
+> & {
   currentDeployment: Pick<z.infer<typeof AppDeployment>, "id" | "hooks"> | null;
 };
 
@@ -205,6 +209,10 @@ export const runtimeSession = protectedRouter
             .string()
             .min(1)
             .max(255)
+            .refine(
+              (name) => !isReservedHookName(name),
+              "Platform hooks can only be triggered by the platform."
+            )
             .regex(
               /^[a-zA-Z][a-zA-Z0-9_]{0,63}(?:\.[a-zA-Z][a-zA-Z0-9_]{0,63})*$/u
             )

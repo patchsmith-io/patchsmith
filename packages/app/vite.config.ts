@@ -11,6 +11,7 @@ export default defineConfig({
     entry: {
       client: "src/client.ts",
       "client-connection": "src/client/connection.ts",
+      hooks: "src/hooks.ts",
       index: "src/index.ts",
       protocol: "src/protocol.ts",
       server: "src/server.ts",

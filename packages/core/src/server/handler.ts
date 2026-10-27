@@ -234,6 +234,7 @@ export const createPatchsmithServer = <
       platform,
       platformHeaders,
       scopeSchemas,
+      toolUrl: `${publicOrigin + basePath}/tools/execute`,
     }),
     handler,
     mcp,

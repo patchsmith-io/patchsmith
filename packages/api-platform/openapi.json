@@ -2053,9 +2053,18 @@
                     "maxLength": 32,
                     "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
                     "description": "Immutable app username, unique within the project. Lowercase letters, digits, and single hyphens."
+                  },
+                  "subjectId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "toolUrl": {
+                    "type": "string",
+                    "format": "uri"
                   }
                 },
-                "required": ["app", "scope"],
+                "required": ["app", "scope", "subjectId", "toolUrl"],
                 "additionalProperties": false
               }
             }

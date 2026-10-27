@@ -49,6 +49,39 @@ Hook files are discovered automatically. The `hook` name must match the file pat
 
 Handlers run in the app's isolated backend. They can call the app's `queries`, `mutations`, and `actions`, plus the server [tools](/concepts/tools#server-tools) you expose. They have no direct database handle; use queries and mutations for installation data.
 
+## Platform lifecycle hooks
+
+Patchsmith defines lifecycle hooks independently of your host contract. Apps can implement `patchsmith.onInstall` to initialize a new installation:
+
+```ts title="src/hooks/patchsmith/onInstall.hook.ts"
+import { defineHook } from "patchsmith/server";
+
+export default defineHook({
+  hook: "patchsmith.onInstall",
+  handler: async ({ mutations, identity }) => {
+    await mutations.settings.initialize({ installedBy: identity.subjectId });
+  },
+});
+```
+
+This example assumes the app declares a `settings.initialize` mutation. Platform hook types are built into the SDK; you do not declare them in `defineContract({ hooks })` or regenerate host bindings to use them. The `patchsmith` name and all `patchsmith.*` names are reserved. Host declarations produce a type error, and apps can only implement platform hook names supported by their SDK.
+
+Install from trusted host code with the authenticated subject and an authorized destination scope:
+
+```ts
+const installation = await patchsmith.experimental.installApp({
+  appId: publishedAppId,
+  scope: { name: "team", value: { id: teamId } },
+  subjectId: user.id,
+});
+```
+
+The SDK supplies its configured host tool endpoint automatically, including for preview environments. The handler receives the installing subject's identity, the installation scope, and the usual queries, mutations, actions, and host tools. It has no input payload or required return value.
+
+`onInstall` runs in the sandbox after the installation record commits, using the deployment selected by installation. Apps without this hook install normally. The install request waits for the hook, with a 30-second execution deadline. Hook failures are logged by the platform and leave the installation in place; the install request still succeeds. Delivery is best effort with no automatic retries. Runtime restarts, deployments, and rollouts do not trigger `onInstall`.
+
+Platform hooks cannot be invoked through `patchsmith.hooks` or granted through the ordinary hook-session endpoint.
+
 ## Find apps and call the hook
 
 Use the server returned by `createServer` in your [host integration](/getting-started/installation#implement-the-server). Resolve the authorized team and subject in trusted server code, then find supporting installations:

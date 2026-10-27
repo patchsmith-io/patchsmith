@@ -158,6 +158,8 @@ export type PatchsmithScopes = Record<string, PatchsmithScope>;
 export interface PatchsmithInstallAppOptions<TScopes = PatchsmithScopes> {
   /** Public app ID or UUID of a deployed app in this project. */
   appId: string;
+  /** Stable identifier of the authenticated product user or service principal installing the app. */
+  subjectId: string;
   scope: {
     [TName in keyof TScopes & string]-?: {
       name: TName;

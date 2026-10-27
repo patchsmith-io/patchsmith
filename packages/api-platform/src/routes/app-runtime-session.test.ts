@@ -249,6 +249,34 @@ describe("platform app-runtime-session", () => {
     );
 
     await fixture.db
+      .update(appDeployment)
+      .set({ hooks: ["patchsmith.onInstall", "patchsmith.custom"] })
+      .where(eq(appDeployment.id, deployment.id));
+    const beforePlatformRequests = testState.issueToken.mock.calls.length;
+
+    await Promise.all(
+      ["patchsmith.onInstall", "patchsmith.custom"].map(async (hook) => {
+        const result = await handler.handle(
+          new Request(
+            "https://platform.test/api/platform/apps/runtime/session",
+            {
+              body: JSON.stringify({ ...input.body, hook }),
+              headers: { "content-type": "application/json" },
+              method: "POST",
+            }
+          ),
+          { context, prefix: "/api/platform" }
+        );
+
+        expect(result.response?.status).toBe(400);
+      })
+    );
+
+    expect(testState.issueToken.mock.calls).toHaveLength(
+      beforePlatformRequests
+    );
+
+    await fixture.db
       .update(appTable)
       .set({ currentDeploymentId: null })
       .where(eq(appTable.id, created.id));

@@ -95,3 +95,21 @@ Hook names are flat contract keys with optional dotted namespaces, such as `"cus
 This interface does not manage schedules, webhook verification, sync checkpoints, concurrency locks, or retries. The host controls triggers; apps can store provider-specific checkpoints in their installation database.
 
 Hook names are recorded per deployment from the build manifest. Existing deployments and older uploaders default to no hooks; rebuild and republish hook-enabled apps to populate the metadata. Installations and rollouts use their selected deployment’s hook list. Deploy the database migration before the updated platform; host invocation checks support before issuing a hook session.
+
+## Install an app
+
+Pass the authenticated user's or service principal's stable identifier when installing an app into a host-authorized scope:
+
+```ts
+const installation = await patchsmith.experimental.installApp({
+  appId: publishedAppId,
+  scope: { name: "team", value: { id: teamId } },
+  subjectId: user.id,
+});
+```
+
+`subjectId` is required and must contain between 1 and 256 characters. Resolve it in trusted host code, alongside authorization for the destination scope. The SDK forwards it to the platform using the host's project credentials.
+
+Apps can implement the built-in `patchsmith.onInstall` hook in `src/hooks/patchsmith/onInstall.hook.ts` using `defineHook` from `patchsmith/server`. No host declaration is needed. The SDK forwards its configured host tool endpoint automatically, and the platform invokes the hook in the sandbox after the installation commits, with the installing subject's identity and the installation scope.
+
+The install request waits up to 30 seconds for hook execution. Failures are logged and leave the installation in place; delivery has no automatic retries. Hosts cannot declare `patchsmith` or `patchsmith.*` hooks, and platform hooks cannot be invoked through host hook callers.
