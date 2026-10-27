@@ -76,10 +76,6 @@ const installation = await patchsmith.experimental.installApp({
 });
 ```
 
-The SDK supplies its configured host tool endpoint automatically, including for preview environments. The handler receives the installing subject's identity, the installation scope, and the usual queries, mutations, actions, and host tools. It has no input payload or required return value.
-
-`onInstall` runs in the sandbox after the installation record commits, using the deployment selected by installation. Apps without this hook install normally. The install request waits for the hook, with a 30-second execution deadline. Hook failures are logged by the platform and leave the installation in place; the install request still succeeds. Delivery is best effort with no automatic retries. Runtime restarts, deployments, and rollouts do not trigger `onInstall`.
-
 Platform hooks cannot be invoked through `patchsmith.hooks` or granted through the ordinary hook-session endpoint.
 
 ## Find apps and call the hook
