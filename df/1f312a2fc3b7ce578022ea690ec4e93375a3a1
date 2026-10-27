@@ -1,0 +1,122 @@
+packages/core/src/server/experimental.test.ts
+  s_149027a8617712::t_88bd9ad2389fce 68-69,75,80-81,96,103,110,117,142,169-191
+  s_149027a8617712::t_9a4058e902bf14 52
+packages/api-platform/src/routes/deployments-upload.test.ts
+  s_149027a8617712::t_2a647f8ca1aaa1 97-101,109,115-122,136-137,141-149
+  s_149027a8617712::t_e254dd57ed8072 102-108,110-114,123-135,138-140
+packages/api-platform/src/app-runtime/lifecycle.test.ts
+  s_149027a8617712::t_dcfb89a0e2e383 25-26,30-47
+  s_149027a8617712::t_2a647f8ca1aaa1 51
+  s_149027a8617712::t_ba00c00ce416eb 14
+  s_149027a8617712::t_e254dd57ed8072 27-29
+  s_149027a8617712::t_d445479044b87b 1-13,15-24,48-50,52-69
+packages/api-platform/src/routes/apps-install.test.ts
+  s_149027a8617712::t_2a647f8ca1aaa1 351-358,363,368-376,381,396,402,406-417,427,431
+  s_149027a8617712::t_88bd9ad2389fce 107,135,384,394,443-444,446-456,458-469
+  s_149027a8617712::t_7a7d0d1510204b 350,388
+  s_149027a8617712::t_e254dd57ed8072 387,433
+  s_149027a8617712::t_b1cacb029e01a2 482-485,487
+  s_149027a8617712::t_ba00c00ce416eb 343
+  s_149027a8617712::t_dcfb89a0e2e383 8,136,344-345,359-362,364-367,378-380,385,395,399-401,403-404,418-426,428-430,436-441,486
+  s_149027a8617712::t_a56fb89b06a5f2 2-3,108,125-126,339-342,346-349,377,382-383,386,389-393,397-398,405,432,434-435,442,445,457
+packages/app/src/server/hooks.test-d.ts
+  s_149027a8617712::t_7923fa96030516 14-15,68-74,77-85
+  s_149027a8617712::t_e9832611e7cb77 75-76
+packages/core/src/schema/hooks.test.ts
+  s_149027a8617712::t_dcfb89a0e2e383 96-109
+  s_149027a8617712::t_7923fa96030516 95
+  s_149027a8617712::t_520ebd81523bf2 52
+packages/vite/src/builder/hooks.test.ts
+  s_149027a8617712::t_7923fa96030516 181-188,193,197-200
+  s_149027a8617712::t_dcfb89a0e2e383 190-192,194-196
+  s_149027a8617712::t_0eedcb59b032d8 189
+packages/api-platform/src/routes/app-runtime-session.test.ts
+  s_149027a8617712::t_2a647f8ca1aaa1 256-274
+  s_149027a8617712::t_f6938d24d859d4 251-255,275-278
+packages/core/README.md
+  s_149027a8617712::t_88bd9ad2389fce 98-111
+  s_149027a8617712::t_1c8de76c20f07f 112-115
+packages/app/src/server/hooks.ts
+  s_149027a8617712::t_dcfb89a0e2e383 42-45
+  s_149027a8617712::t_ea911c8ab271ed 1-2,10-12,23,29,35,41,46-50
+packages/core/src/server/types.ts
+  s_149027a8617712::t_90059504ab47a4 161-162
+.changeset/installation-subject.md
+  s_149027a8617712::t_88bd9ad2389fce 1-9
+  s_149027a8617712::t_c176a176c2f802 10-13
+packages/client-platform/src/client/types.gen.ts
+  s_149027a8617712::t_a9a0e136f6e7aa 570
+  s_149027a8617712::t_7923fa96030516 571
+packages/api-platform/src/app-runtime/lifecycle.ts
+  s_149027a8617712::t_dcfb89a0e2e383 12-16
+  s_149027a8617712::t_2a647f8ca1aaa1 33-42
+  s_149027a8617712::t_e254dd57ed8072 43-45
+  s_149027a8617712::t_e780f7dbce2d9d 1-11,17-32,46-68
+packages/app/src/hooks.ts
+  s_149027a8617712::t_dcfb89a0e2e383 2-4
+  s_149027a8617712::t_842f9eb223215c 1,5-19
+packages/api-platform/openapi.json
+  s_149027a8617712::t_88bd9ad2389fce 2056-2061,2063
+  s_149027a8617712::t_505bb8ee374b6a 2062,2064,2067
+packages/core/src/server/hooks.test-d.ts
+  s_149027a8617712::t_7923fa96030516 65-67
+packages/api-platform/src/routes/app-runtime.ts
+  s_149027a8617712::t_dcfb89a0e2e383 9,109-112,212-215
+packages/core/src/server/types.test-d.ts
+  s_149027a8617712::t_b1cacb029e01a2 184,189,201
+  s_149027a8617712::t_88bd9ad2389fce 190-195,204-209
+packages/app/src/server/hooks.test.ts
+  s_149027a8617712::t_dcfb89a0e2e383 6-12
+  s_149027a8617712::t_52ba5732f138df 1-5,13
+packages/core/src/server/contract.ts
+  s_149027a8617712::t_90059504ab47a4 127
+packages/api-platform/src/routes/apps.ts
+  s_149027a8617712::t_2a647f8ca1aaa1 306
+  s_149027a8617712::t_7ace9da25aef8e 10,33,191-192,298-305,307-310
+packages/vite/src/builder/upload-manifest.test.ts
+  s_149027a8617712::t_7923fa96030516 36,38,46-47
+packages/api-platform/src/routes/deployments.ts
+  s_149027a8617712::t_dcfb89a0e2e383 4,81-86
+  s_149027a8617712::t_a0be81e347e2da 87-89
+packages/core/src/schema/hooks.test-d.ts
+  s_149027a8617712::t_dcfb89a0e2e383 7,9
+  s_149027a8617712::t_7923fa96030516 1-6,10-52
+  s_149027a8617712::t_6dfda386722370 8
+packages/core/src/server/experimental.ts
+  s_149027a8617712::t_90059504ab47a4 29-33,63-68
+  s_149027a8617712::t_db105e89365a48 22
+docs/concepts/hooks.mdx
+  s_149027a8617712::t_d1fe2f360f4f18 52-84
+packages/app/package.json
+  s_149027a8617712::t_b80c2941c9db0a 55-58
+packages/app/vite.config.ts
+  s_149027a8617712::t_0fc8efe4150a96 14
+packages/cli/src/generator/capabilities-skill.test.ts
+  s_149027a8617712::t_492b37ed7ad687 212-217
+packages/core/src/schema/hooks.ts
+  s_149027a8617712::t_5aef0d40fdbed9 1-2,20-22,56-60,84
+packages/core/src/server/handler.ts
+  s_149027a8617712::t_6aa9e4b14cf639 237
+packages/vite/src/builder/hooks.ts
+  s_149027a8617712::t_6ae453d3aa0059 4,65-68
+packages/vite/src/builder/upload-manifest.ts
+  s_149027a8617712::t_40a06a4af846c0 1,82-85
+packages/core/src/server/hooks.ts
+  s_149027a8617712::t_6ae76887f8e182 207-209
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "df1f312a2fc3b7ce578022ea690ec4e93375a3a1",
+  "prompts": {},
+  "sessions": {
+    "s_149027a8617712": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17a5a-98ff-7112-a199-a3e91cfbc5c2",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
