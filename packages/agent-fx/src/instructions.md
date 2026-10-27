@@ -41,6 +41,7 @@ App backend functions include queries for reading data, mutations for transactio
 | `patchsmith.gen.ts` | Generated bindings (`#patchsmith`). |
 | `slots/root.tsx` | Shared UI/providers around views. |
 | `slots/<slot>/` | UI views (`*.view.tsx`), roots, and layouts. |
+| `lib/` | Shared helpers, constants, types, and validation schemas. |
 | `functions/**/*.router.ts` | Automatically registered backend function routers. |
 | `patchsmith.functions.gen.ts` | Generated type-only function registry. |
 | `db/` | Tables, relationships, database builder, and migrations. |

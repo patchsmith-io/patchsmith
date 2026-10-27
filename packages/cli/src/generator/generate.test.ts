@@ -79,6 +79,7 @@ describe("generateApp", () => {
       });
       const sourceFiles = await readdir(path.join(targetDirectory, "slots"));
       expect(sourceFiles).toEqual(["root.tsx"]);
+      expect(await readdir(path.join(targetDirectory, "lib"))).toEqual([]);
       expect(await readdir(targetDirectory)).not.toContain("src");
       expect(await readdir(targetDirectory)).not.toContain("functions");
       expect(await readdir(targetDirectory)).not.toContain("db");
@@ -121,6 +122,8 @@ describe("generateApp", () => {
         "root.tsx"
       );
       expect(await readdir(targetDirectory)).not.toContain("slots");
+      expect(await readdir(targetDirectory)).not.toContain("lib");
+      expect(await readdir(path.join(targetDirectory, "src/lib"))).toEqual([]);
       expect(await readdir(targetDirectory)).not.toContain("patchsmith.gen.ts");
 
       const pkg = await readFile(
@@ -236,6 +239,8 @@ describe("generateApp", () => {
   it("generates all expected files", async () => {
     const targetDirectory = await createTempDir();
     await generateApp({ ...defaultOptions, targetDirectory });
+
+    expect(await readdir(path.join(targetDirectory, "lib"))).toEqual([]);
 
     const files = [
       "package.json",

@@ -264,6 +264,8 @@ export const generateApp = async (
 
   const templateData = appTemplateData(options, starter, sourceDirectory);
 
+  await ensureDirectory(path.join(targetDirectory, sourceDirectory, "lib"));
+
   if (!bare) {
     await ensureDirectory(
       path.join(targetDirectory, sourceDirectory, "db", "migrations")
