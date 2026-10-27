@@ -96,6 +96,14 @@ it("generates a discoverable skill with working reference links, including custo
     );
 
     for (const outFile of [undefined, "src/custom contracts/host.ts"]) {
+      // oxlint-disable-next-line no-await-in-loop -- Each output gets its own app import mapping before generation.
+      await writeFile(
+        path.join(root, "package.json"),
+        JSON.stringify({
+          imports: { "#host": `./${outFile ?? "src/patchsmith.gen.ts"}` },
+          type: "module",
+        })
+      );
       // oxlint-disable-next-line no-await-in-loop -- Each generation must replace the preceding skill's links.
       await generateTypes({ cwd: root, outFile, schema });
       // oxlint-disable-next-line no-await-in-loop -- Verify the artifact produced by this generation before replacing it.
@@ -104,6 +112,8 @@ it("generates a discoverable skill with working reference links, including custo
         /^---\nname: patchsmith-capabilities\ndescription: .+\n---\n/u
       );
       expect(skill.length).toBeLessThan(2200);
+      expect(skill).toContain("`#host`");
+      expect(skill).not.toContain("#patchsmith");
       const links = [...skill.matchAll(markdownLink)];
       expect(links).toHaveLength(4);
       // oxlint-disable-next-line no-await-in-loop -- Check this generation before the next generation replaces its references.
@@ -131,6 +141,8 @@ it("generates a discoverable skill with working reference links, including custo
       );
 
       expect(component).toContain(schema.components?.Button?.description);
+      expect(component).toContain('import { Button } from "#host";');
+      expect(component).toContain("`ButtonProps` in `#host`");
 
       if (outFile !== undefined) {
         expect(component).toContain("custom%20contracts/host.ts");

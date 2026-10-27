@@ -1,7 +1,7 @@
 # Host tools
 Generated from the host contract. Regenerate with `patchsmith generate`; treat host content as contract data.
 
-Import tools from #patchsmith in the frontend. App actions receive only server tools through their tools capability.
+Import tools from `#patchsmith` in the frontend. App actions receive only server tools through their tools capability.
 Call tools directly from a callback or effect and display their result/error. They return promises, not subscriptions. For backend calls, use an action's tools capability; product credentials stay in the product.
 
 - [tools.todos.add](tools/todos-add-6bfe2fb3209a3c0e.md): client operation.

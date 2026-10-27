@@ -7,7 +7,7 @@ description: Use when discovering or using this app's available UI components, c
 
 # Patchsmith capabilities
 
-Build the smallest view that satisfies the request. Import available components and tools from the generated bindings, normally `#patchsmith`. The product renders these components; callbacks receive serialized values rather than DOM events.
+Build the smallest view that satisfies the request. Import available components and tools from the generated bindings, `#patchsmith`. The product renders these components; callbacks receive serialized values rather than DOM events.
 
 Read only what the change needs:
 

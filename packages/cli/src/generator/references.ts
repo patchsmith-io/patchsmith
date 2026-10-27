@@ -155,7 +155,8 @@ const referenceHeader =
 const componentStylingExample = (
   filename: string,
   component: SerializedComponent,
-  responsive: ResponsiveLookup
+  responsive: ResponsiveLookup,
+  bindingsImport: string
 ): string => {
   for (const [prop, field] of Object.entries(
     component.fields?.properties ?? {}
@@ -170,7 +171,13 @@ const componentStylingExample = (
       (value): value is string => typeof value === "string"
     );
 
-    const example = stylingExample(filename, prop, tokens, contract.keys);
+    const example = stylingExample(
+      filename,
+      prop,
+      tokens,
+      contract.keys,
+      bindingsImport
+    );
 
     if (example !== "") {
       return example;
@@ -183,7 +190,8 @@ const componentStylingExample = (
 const renderComponentReference = (
   { name, filename, component }: ReferenceComponent,
   responsive: ResponsiveLookup,
-  bindingsPath: string
+  bindingsPath: string,
+  bindingsImport: string
 ): string => {
   const lines = [`# ${name}`, referenceHeader];
 
@@ -192,8 +200,8 @@ const renderComponentReference = (
   }
 
   lines.push(
-    `Import from \`#patchsmith\`. ${component.children === true ? "Accepts children between JSX tags." : "Does not accept children."}`,
-    `Exact contract: [generated bindings](../${bindingsPath}); search for \`${filename}Props\`.`,
+    `Import from \`${bindingsImport}\`. ${component.children === true ? "Accepts children between JSX tags." : "Does not accept children."}`,
+    `Exact contract: \`${filename}Props\` in \`${bindingsImport}\` ([source](../${bindingsPath})).`,
     "",
     "## Props",
     "",
@@ -246,9 +254,9 @@ const renderComponentReference = (
     "",
     "Use the listed props, callbacks, and styling values.",
     "",
-    componentExample(filename, component.children === true),
-    valueCallbackExample(filename, component),
-    componentStylingExample(filename, component, responsive)
+    componentExample(filename, component.children === true, bindingsImport),
+    valueCallbackExample(filename, component, bindingsImport),
+    componentStylingExample(filename, component, responsive, bindingsImport)
   );
 
   return `${lines.join("\n").trimEnd()}\n`;
@@ -263,6 +271,7 @@ const renderToolReferences = (
   tools: SerializedTools,
   files: GeneratedFiles,
   bindingsPath: string,
+  bindingsImport: string,
   segments: string[] = []
 ): string[] => {
   const lines: string[] = [];
@@ -272,7 +281,15 @@ const renderToolReferences = (
     const qualified = `tools.${parts.join(".")}`;
 
     if (!isTool(tool)) {
-      lines.push(...renderToolReferences(tool, files, bindingsPath, parts));
+      lines.push(
+        ...renderToolReferences(
+          tool,
+          files,
+          bindingsPath,
+          bindingsImport,
+          parts
+        )
+      );
       continue;
     }
 
@@ -297,7 +314,7 @@ const renderToolReferences = (
       `Input: ${summarize(tool.input)}.`,
       `Result: ${summarize(tool.output)}.`,
       "",
-      toolExample(parts, tool.input !== undefined),
+      toolExample(parts, tool.input !== undefined, bindingsImport),
       "",
       `Exact contracts: [generated bindings](../${bindingsPath}); search for the tool name in PatchsmithTools or PatchsmithBackendTools.`,
       "",
@@ -309,7 +326,8 @@ const renderToolReferences = (
 
 const renderViewsReference = (
   schema: PatchsmithSchemaFile,
-  bindingsPath: string
+  bindingsPath: string,
+  bindingsImport: string
 ): string => {
   const views = [
     "# Slots and context",
@@ -339,7 +357,7 @@ const renderViewsReference = (
           ? "Use stable instance keys and product-supported metadata."
           : "Keep the app's ClientProvider above this view when using backend hooks.",
         "",
-        viewExample(name, firstView, slot.multiple === true),
+        viewExample(name, firstView, slot.multiple === true, bindingsImport),
         ""
       );
     }
@@ -370,14 +388,23 @@ export const renderReferences = (
   schema: PatchsmithSchemaFile,
   components: ReferenceComponent[],
   responsive: ResponsiveLookup,
-  { bindingsPath }: { bindingsPath: string }
+  {
+    bindingsPath,
+    bindingsImport = "#patchsmith",
+    sourceDirectory = ".",
+  }: { bindingsPath: string; bindingsImport?: string; sourceDirectory?: string }
 ): GeneratedFiles => {
   const files: GeneratedFiles = {};
 
   const index = [
     "# Host reference",
     referenceHeader,
-    "Read this index, then only the component or capability needed for the change. Keep app imports on `#patchsmith`.",
+    `Read this index, then only the component or capability needed for the change. Import bindings from \`${bindingsImport}\`.`,
+    ...(bindingsImport.startsWith(".")
+      ? [
+          `Relative imports in examples are from the app source root (\`${sourceDirectory}\`); adjust them for the consuming file.`,
+        ]
+      : []),
     "",
     "- [Slots and context](views.md): choose a supported surface and read its context.",
     "- [Host tools](tools.md): inputs, results, and client/server execution.",
@@ -395,19 +422,29 @@ export const renderReferences = (
     files[`components/${component.filename}.md`] = renderComponentReference(
       component,
       responsive,
-      bindingsPath
+      bindingsPath,
+      bindingsImport
     );
   }
 
   files["index.md"] = `${index.join("\n")}\n`;
-  files["views.md"] = renderViewsReference(schema, bindingsPath);
+  files["views.md"] = renderViewsReference(
+    schema,
+    bindingsPath,
+    bindingsImport
+  );
   files["tools.md"] = [
     "# Host tools",
     referenceHeader,
-    "Import tools from #patchsmith in the frontend. App actions receive only server tools through their tools capability.",
+    `Import tools from \`${bindingsImport}\` in the frontend. App actions receive only server tools through their tools capability.`,
     "Call tools directly from a callback or effect and display their result/error. They return promises, not subscriptions. For backend calls, use an action's tools capability; product credentials stay in the product.",
     "",
-    ...renderToolReferences(schema.tools ?? {}, files, bindingsPath),
+    ...renderToolReferences(
+      schema.tools ?? {},
+      files,
+      bindingsPath,
+      bindingsImport
+    ),
     `Exact contracts: [generated bindings](${bindingsPath}); search for \`PatchsmithTools\` and \`PatchsmithBackendTools\`.`,
     "",
   ].join("\n");

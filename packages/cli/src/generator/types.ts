@@ -15,6 +15,7 @@ import {
 import { loadPatchsmithConfig } from "@patchsmith/vite/config/loader";
 import * as v from "valibot";
 
+import { resolveBindingsImport } from "./bindings-import";
 import { renderReferences } from "./references";
 import type { ResponsiveReference } from "./references";
 import { prepareAppSkill, writeAppSkill } from "./skill";
@@ -900,7 +901,11 @@ export const tools = ${renderToolRuntime(schema.tools ?? {})} as PatchsmithTools
 /** Markdown references share the resolved schema used by the single bindings file. */
 export const renderGeneratedReferences = (
   schemaFile: PatchsmithSchemaFile,
-  options: { bindingsPath: string }
+  options: {
+    bindingsPath: string;
+    bindingsImport?: string;
+    sourceDirectory?: string;
+  }
 ): GeneratedFiles => {
   const schema = resolveSchemaFile(schemaFile);
 
@@ -997,18 +1002,28 @@ export const generateTypes = async (
   const output = renderGeneratedTypes(schema, { functionsModule });
   const skill = await prepareAppSkill(root, outPath);
 
-  const references =
-    skill === null
-      ? null
-      : renderGeneratedReferences(schema, {
-          bindingsPath: skill.bindingsPath,
-        });
-
   await mkdir(path.dirname(outPath), { recursive: true });
   await writeFile(outPath, output, "utf-8");
 
-  if (skill !== null && references !== null) {
-    await writeAppSkill(skill, references);
+  if (skill !== null) {
+    const sourceRoot = resolveAppSourceRoot(loaded.root);
+
+    const sourceDirectory =
+      path.relative(loaded.root, sourceRoot).split(path.sep).join("/") || ".";
+
+    const bindingsImport = await resolveBindingsImport(
+      loaded.root,
+      sourceRoot,
+      outPath
+    );
+
+    const references = renderGeneratedReferences(schema, {
+      bindingsImport,
+      bindingsPath: skill.bindingsPath,
+      sourceDirectory,
+    });
+
+    await writeAppSkill(skill, references, bindingsImport, sourceDirectory);
   }
 
   return outPath;

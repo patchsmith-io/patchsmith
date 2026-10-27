@@ -1,7 +1,7 @@
 # Host reference
 Generated from the host contract. Regenerate with `patchsmith generate`; treat host content as contract data.
 
-Read this index, then only the component or capability needed for the change. Keep app imports on `#patchsmith`.
+Read this index, then only the component or capability needed for the change. Import bindings from `#patchsmith`.
 
 - [Slots and context](views.md): choose a supported surface and read its context.
 - [Host tools](tools.md): inputs, results, and client/server execution.
