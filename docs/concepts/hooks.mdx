@@ -76,8 +76,6 @@ const installation = await patchsmith.experimental.installApp({
 });
 ```
 
-Platform hooks cannot be invoked through `patchsmith.hooks` or granted through the ordinary hook-session endpoint.
-
 ## Find apps and call the hook
 
 Use the server returned by `createServer` in your [host integration](/getting-started/installation#implement-the-server). Resolve the authorized team and subject in trusted server code, then find supporting installations:
