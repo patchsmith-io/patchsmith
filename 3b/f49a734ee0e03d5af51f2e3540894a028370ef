@@ -1,0 +1,21 @@
+packages/api-platform/src/routes/app-namespaces.test.ts
+  s_d215505724ce59::t_f2b9dc86ed845b 4,6,9,38-53
+packages/api-platform/src/routes/apps-install.test.ts
+  s_d215505724ce59::t_8f30e22e9183fd 13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3bf49a734ee0e03d5af51f2e3540894a028370ef",
+  "prompts": {},
+  "sessions": {
+    "s_d215505724ce59": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17cf5-9b28-7b13-99df-e8fc30cd0a44",
+        "model": "unknown"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
