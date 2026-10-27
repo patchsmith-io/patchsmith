@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { PGlite } from "@electric-sql/pglite";
 import { expect, it } from "vite-plus/test";
 
-it("preserves old inserts during expansion, then enforces shared and scope-local uniqueness after contraction", async () => {
+it("preserves shared names during expansion, then defaults new rows to local after contraction", async () => {
   const client = new PGlite();
 
   try {
@@ -41,13 +41,30 @@ it("preserves old inserts during expansion, then enforces shared and scope-local
 
     const contraction = await readFile(
       new URL(
-        "../../db/src/migrations/20261027110737_magenta_the_hunter/migration.sql",
+        "../../db/src/migrations/20261027113142_ancient_madame_masque/migration.sql",
         import.meta.url
       ),
       "utf-8"
     );
 
     await client.exec(contraction);
+
+    // Changing a default preserves rows written before the switch.
+    const { rows: retainedRows } = await client.query<{ is_shared: boolean }>(
+      "SELECT is_shared FROM app"
+    );
+
+    expect(retainedRows).toEqual([{ is_shared: true }, { is_shared: true }]);
+    await client.exec(`
+      INSERT INTO app (project_id, scope_key, slug) VALUES
+        ('project', 'first', 'default-local'), ('project', 'second', 'default-local');
+    `);
+
+    const { rows: localRows } = await client.query<{ is_shared: boolean }>(
+      "SELECT is_shared FROM app WHERE slug = 'default-local'"
+    );
+
+    expect(localRows).toEqual([{ is_shared: false }, { is_shared: false }]);
     await client.exec(`
       INSERT INTO app VALUES ('project', 'first', 'stripe', false), ('project', 'second', 'stripe', false);
       INSERT INTO app VALUES ('other-project', 'first', 'stripe', true);

@@ -65,8 +65,7 @@ export const app = pgTable(
     id: uuid("id")
       .default(sql`pg_catalog.gen_random_uuid()`)
       .primaryKey(),
-    // Existing apps and old-server inserts retain their project-wide names.
-    isShared: boolean("is_shared").notNull().default(true),
+    isShared: boolean("is_shared").notNull().default(false),
     name: text("name").notNull(),
     projectId: uuid("project_id")
       .notNull()

@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "027231cd-a1f0-4b67-8dc7-8063a8329aff",
+  "id": "81febcfc-eaac-4f7c-b4e4-397c1a146d8d",
   "prevIds": ["4c357567-3b57-4f09-8427-ee3e95338f71"],
   "ddl": [
     {
@@ -1593,7 +1593,7 @@
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": "true",
+      "default": "false",
       "generated": null,
       "identity": null,
       "name": "is_shared",
