@@ -544,6 +544,7 @@ describe("platform apps-crud", () => {
     await fixture.db.insert(appTable).values([
       {
         id,
+        isShared: true,
         name: "Original",
         projectId,
         shortId,
@@ -551,12 +552,14 @@ describe("platform apps-crud", () => {
         ...canonicalizeScope(productionScope),
       },
       {
+        isShared: true,
         name: "Short ID slug",
         projectId,
         slug: shortId,
         ...canonicalizeScope(productionScope),
       },
       {
+        isShared: true,
         name: "Scoped slug",
         projectId,
         slug: scopedSlug,

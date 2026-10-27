@@ -1,7 +1,7 @@
 import { call } from "@orpc/server";
 import { app, appDeployment } from "@patchsmith/db/schema/apps";
 import { eq } from "drizzle-orm";
-import { describe, expect, it } from "vite-plus/test";
+import { beforeEach, describe, expect, it } from "vite-plus/test";
 
 import {
   appTestFixture,
@@ -14,6 +14,14 @@ import { appRouter } from "./apps";
 
 describe("app slug namespaces", () => {
   const fixture = appTestFixture();
+
+  beforeEach(async () => {
+    // Exercise the final namespace rules before the separate contraction PR ships.
+    // Other suites retain the legacy index to cover the backend rollout stage.
+    await fixture.client.exec(
+      "DROP INDEX IF EXISTS app_project_id_slug_unique"
+    );
+  });
 
   const create = async (scope = productionScope, isShared = false) => {
     const { body } = await call(
