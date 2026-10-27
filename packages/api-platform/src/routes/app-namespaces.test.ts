@@ -1,10 +1,12 @@
 import { call } from "@orpc/server";
 import { app, appDeployment } from "@patchsmith/db/schema/apps";
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 
+import { canonicalizeScope } from "#scope";
 import {
   appTestFixture,
+  projectId,
   productionScope,
   stagingScope,
   otherProjectId,
@@ -14,14 +16,6 @@ import { appRouter } from "./apps";
 
 describe("app slug namespaces", () => {
   const fixture = appTestFixture();
-
-  beforeEach(async () => {
-    // Exercise the final namespace rules before the separate contraction PR ships.
-    // Other suites retain the legacy index to cover the backend rollout stage.
-    await fixture.client.exec(
-      "DROP INDEX IF EXISTS app_project_id_slug_unique"
-    );
-  });
 
   const create = async (scope = productionScope, isShared = false) => {
     const { body } = await call(
@@ -40,6 +34,22 @@ describe("app slug namespaces", () => {
 
     return body;
   };
+
+  it("defaults database inserts to local names within their scopes", async () => {
+    const inserted = await fixture.db
+      .insert(app)
+      .values(
+        [productionScope, stagingScope].map((scope) => ({
+          name: "Stripe",
+          projectId,
+          slug: "stripe",
+          ...canonicalizeScope(scope),
+        }))
+      )
+      .returning({ isShared: app.isShared });
+
+    expect(inserted).toEqual([{ isShared: false }, { isShared: false }]);
+  });
 
   it("allows a shared slug and independent local slugs while rejecting concurrent duplicates within each namespace", async () => {
     const local = await create();
