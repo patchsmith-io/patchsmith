@@ -1,0 +1,44 @@
+packages/api-platform/openapi.json
+  s_c7d0d02532a696::t_357db1188b680d 111
+packages/agent/src/agent.integration.test.ts
+  s_c7d0d02532a696::t_c7aabf68f33ad8 164-171
+packages/agent/src/agent.ts
+  s_c7d0d02532a696::t_0921ed8f827a29 41-45
+packages/client-platform/src/agent.ts
+  s_c7d0d02532a696::t_0921ed8f827a29 17
+packages/agent-fx/src/agent.integration.test.ts
+  s_c7d0d02532a696::t_0921ed8f827a29 147
+  s_c7d0d02532a696::t_fd4fdf5f0bf88a 404
+packages/agent/README.md
+  s_c7d0d02532a696::t_0921ed8f827a29 72
+packages/agent/src/gateway-model.ts
+  s_c7d0d02532a696::t_0921ed8f827a29 13-15,33-35,39
+packages/agent-fx/src/agent.ts
+  s_c7d0d02532a696::t_0921ed8f827a29 31-35
+packages/agent-fx/README.md
+  s_c7d0d02532a696::t_0921ed8f827a29 9
+.changeset/sol-fast-builder.md
+  s_c7d0d02532a696::t_0921ed8f827a29 1-7
+packages/client-platform/src/client/types.gen.ts
+  s_c7d0d02532a696::t_9df03c1ea45364 84
+packages/api-platform/src/agent-model.ts
+  s_c7d0d02532a696::t_0921ed8f827a29 5
+packages/patchsmith/README.md
+  s_c7d0d02532a696::t_0921ed8f827a29 26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9b669cb6a133d953cf7989a30aa1d256cd6ee281",
+  "prompts": {},
+  "sessions": {
+    "s_c7d0d02532a696": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17cd7-f12e-7de1-b7e7-f226b5b8a807",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
