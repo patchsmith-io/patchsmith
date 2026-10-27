@@ -1,5 +1,19 @@
 # patchsmith
 
+## 0.1.0-beta.71
+
+### Patch Changes
+
+- 9b669cb: Add `openai/gpt-6.1-sol-fast` as a supported `agent.model` option for CLI and MCP app-building runs. Sol Fast uses low reasoning effort, and omitting the setting keeps regular Sol as the default.
+- Updated dependencies [9b669cb]
+  - @patchsmith/core@0.1.0-beta.71
+  - @patchsmith/ai-sdk@0.1.0-beta.71
+  - @patchsmith/cli@0.1.0-beta.71
+  - @patchsmith/react@0.1.0-beta.71
+  - @patchsmith/app@0.1.0-beta.71
+  - @patchsmith/app-db@0.1.0-beta.71
+  - @patchsmith/vite@0.1.0-beta.71
+
 ## 0.1.0-beta.70
 
 ### Patch Changes
