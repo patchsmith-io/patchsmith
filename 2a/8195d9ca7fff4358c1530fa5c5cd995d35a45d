@@ -1,0 +1,25 @@
+packages/db/scoped-slugs-rollout.md
+  s_d215505724ce59::t_5de53918319c0d 1-15
+packages/db/src/migrations/20261027110427_steady_joshua_kane/migration.sql
+  s_d215505724ce59::t_7dd3f98cd21f38 1-3
+packages/db/src/migrations/20261027110427_steady_joshua_kane/snapshot.json
+  s_d215505724ce59::t_fb47fda78fb06f 1-4349
+packages/db/src/schema/apps.ts
+  s_d215505724ce59::t_b418d40ef999df 68-69,93-98,113
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2a8195d9ca7fff4358c1530fa5c5cd995d35a45d",
+  "prompts": {},
+  "sessions": {
+    "s_d215505724ce59": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17cf5-9b28-7b13-99df-e8fc30cd0a44",
+        "model": "unknown"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
