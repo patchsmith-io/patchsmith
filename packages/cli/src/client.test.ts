@@ -146,6 +146,36 @@ it("retains actionable platform authentication errors", async () => {
   });
 });
 
+it("requires an app ID for direct agent lookups rather than guessing the host's slug prefix", async () => {
+  const jwt = await token();
+  vi.stubEnv("PATCHSMITH_AGENT_TOKEN", jwt);
+  const requests: Request[] = [];
+
+  const client = createCliClient({
+    fetch: asyncFixture((input, init) => {
+      requests.push(
+        input instanceof Request ? input : new Request(input, init)
+      );
+
+      return Response.json({ id: "app-one" });
+    }),
+    token: jwt,
+    url: "https://host.test/api/patchsmith",
+  });
+
+  await expect(client.apps.get({ slug: "@stripe" })).rejects.toThrow(
+    "Use an app ID"
+  );
+  expect(requests).toHaveLength(0);
+  await expect(client.apps.get({ appId: "app-one" })).resolves.toMatchObject({
+    id: "app-one",
+  });
+  await expect(requests[0]?.json()).resolves.toEqual({
+    app: { shortId: "app-one" },
+    scopes: [scope],
+  });
+});
+
 it.each([
   "https://platform.test/api/platform",
   "http://localhost/api/platform",

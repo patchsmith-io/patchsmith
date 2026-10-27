@@ -194,8 +194,14 @@ export const createCliClient = (options: {
               client,
             })
           ),
-        get: async (input: Input<"apps", "get">) =>
-          await request(
+        get: async (input: Input<"apps", "get">) => {
+          if ("slug" in input) {
+            throw new Error(
+              "Slug lookup requires the host's prefix configuration. Use an app ID with agent credentials."
+            );
+          }
+
+          return await request(
             appsGet({
               body: {
                 app: platformAppSelector(input.appId),
@@ -203,7 +209,8 @@ export const createCliClient = (options: {
               },
               client,
             })
-          ),
+          );
+        },
         list: async (input?: Input<"apps", "list">) =>
           await request(
             appsList({
@@ -221,6 +228,7 @@ export const createCliClient = (options: {
               body: {
                 app: platformAppSelector(input.appId),
                 description: input.description,
+                isShared: input.isShared,
                 name: input.name,
                 scope,
               },

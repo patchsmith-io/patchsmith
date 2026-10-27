@@ -36,6 +36,7 @@ describe("platform apps-install", () => {
       {
         body: {
           description: "An inbox",
+          isShared: true,
           name: "Shared inbox",
           scope: productionScope,
         },
@@ -125,12 +126,12 @@ describe("platform apps-install", () => {
           body: {
             app: { slug: source.slug },
             scope: productionScope,
-            slug: installed.slug,
+            slug: source.slug,
           },
         },
         { context }
       )
-    ).rejects.toMatchObject({ code: "CONFLICT" });
+    ).resolves.toMatchObject({ body: { isShared: false, slug: source.slug } });
 
     const { body: listed } = await call(
       appRouter.list,

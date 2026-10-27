@@ -20,6 +20,7 @@ export interface PatchsmithRuntimeContext {
 }
 
 export interface Context {
+  localSlugPrefix?: string;
   publicOrigin: string;
   toolUrl: string;
   schemaSerializer?: SchemaSerializer;
@@ -48,6 +49,7 @@ export interface Context {
 }
 
 export interface CreateContextOptions {
+  localSlugPrefix?: string;
   toolExecutor?: (
     request: Request,
     input: ToolExecutionInput
@@ -86,6 +88,7 @@ export const createContext = async (
     agentModel: options.agentModel,
     authenticate: options.authenticate,
     cliAuthSignInPath: options.cliAuthSignInPath,
+    localSlugPrefix: options.localSlugPrefix,
     platform: options.platform,
     platformHeaders,
     publicOrigin: options.publicOrigin,

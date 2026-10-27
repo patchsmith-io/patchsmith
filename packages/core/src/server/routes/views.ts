@@ -6,6 +6,7 @@ import { Effect } from "effect";
 import * as v from "valibot";
 
 import type { PatchsmithSchema } from "#schema/schema";
+import { withAppSlug } from "#server/app-slug";
 import { httpPolicy, recordHttpTiming } from "#server/http";
 import { listApps } from "#server/list-apps";
 import { o, requireHostAuth } from "#server/procedures";
@@ -291,7 +292,17 @@ export const views = o
           );
         }
 
-        return data;
+        if (data.status !== "ready") {
+          return data;
+        }
+
+        return {
+          ...data,
+          data: data.data.map((entry) => ({
+            ...entry,
+            app: withAppSlug(entry.app, context.localSlugPrefix),
+          })),
+        };
       });
     })
   );

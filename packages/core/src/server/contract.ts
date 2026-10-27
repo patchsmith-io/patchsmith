@@ -144,6 +144,7 @@ export const createServer = <const T extends PatchsmithContract>(
     },
     hooks: createHookCallers<T["hooks"], Partial<ContractScopes<T>>>({
       hooks: contract.hooks,
+      localSlugPrefix: configuration.$internal?.localSlugPrefix,
       platform: createClient({
         baseUrl: platformUrl,
         fetch: configuration.$internal?.platformFetch,

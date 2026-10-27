@@ -1,11 +1,12 @@
 import { appsList } from "@patchsmith/client-platform/client";
 import type { AppsListResponses } from "@patchsmith/client-platform/client/types.gen";
 
+import { withAppSlug } from "./app-slug";
 import type { Context } from "./context";
 import type { PatchsmithNamedScope } from "./types";
 
 export const listApps = async (
-  context: Pick<Context, "platform" | "platformHeaders">,
+  context: Pick<Context, "platform" | "platformHeaders" | "localSlugPrefix">,
   scopes: PatchsmithNamedScope[],
   signal: AbortSignal
 ): Promise<AppsListResponses[200]["items"]> => {
@@ -23,7 +24,9 @@ export const listApps = async (
       throwOnError: true,
     });
 
-    items.push(...data.items);
+    items.push(
+      ...data.items.map((app) => withAppSlug(app, context.localSlugPrefix))
+    );
 
     if (!data.pagination.hasMore) {
       return items;

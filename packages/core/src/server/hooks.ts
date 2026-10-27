@@ -53,6 +53,7 @@ const invocation = reference<
 >("_patchsmith.hooks.invoke", "action");
 
 export const createHookCallers = <T extends ContractHooks, TScopes>(options: {
+  localSlugPrefix?: string;
   hooks: T;
   scopeSchemas: PatchsmithScopeSchemas;
   platform: Client;
@@ -185,7 +186,11 @@ export const createHookCallers = <T extends ContractHooks, TScopes>(options: {
       const scopes = await validateContext(input);
 
       const apps = await listApps(
-        { platform: options.platform, platformHeaders: await headers() },
+        {
+          localSlugPrefix: options.localSlugPrefix,
+          platform: options.platform,
+          platformHeaders: await headers(),
+        },
         Object.entries(scopes).map(([nameValue, value]) => ({
           name: nameValue,
           value,

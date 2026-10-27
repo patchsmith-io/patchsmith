@@ -467,6 +467,7 @@ describe("platform apps-crud", () => {
     const input = {
       body: {
         description: null,
+        isShared: true,
         name: "Inbox",
         scope: productionScope,
         slug: "shared-inbox",
@@ -674,7 +675,10 @@ describe("platform apps-crud", () => {
     const found = await call(
       appRouter.get,
       {
-        body: { app: { slug: maxLengthSlug }, scopes: [productionScope] },
+        body: {
+          app: { isShared: false, slug: maxLengthSlug },
+          scopes: [productionScope],
+        },
       },
       { context }
     );

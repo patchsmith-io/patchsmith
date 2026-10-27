@@ -87,6 +87,11 @@ export interface PatchsmithServerBaseOptions<
    * @internal
    */
   $internal?: {
+    /**
+     * Local slug prefix. Defaults to "@". Must fit one URL segment and include
+     * a symbol ordinary slugs cannot contain. This override is experimental.
+     */
+    localSlugPrefix?: string;
     toolExecutor?: (
       request: Request,
       input: ToolExecutionInput
