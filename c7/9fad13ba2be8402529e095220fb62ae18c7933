@@ -1,0 +1,41 @@
+.changeset/scoped-app-slug-namespaces.md
+  s_149027a8617712::t_96707837f3ef0e 8
+packages/core/src/server/app-slug.ts
+  s_149027a8617712::t_52c69c8027ebe5 5-6,9-14,22,34
+packages/core/src/server/context.ts
+  s_149027a8617712::t_4ba629657267c0 6,24,53
+packages/core/src/server/experimental.ts
+  s_149027a8617712::t_fae523693c83d4 6,21
+packages/core/src/server/hooks.ts
+  s_149027a8617712::t_33311303d448b7 14,57
+packages/core/src/server/types.ts
+  s_149027a8617712::t_d6ecdcda1c2c99 21,92-93,95
+packages/core/src/server/app-slug.test.ts
+  s_149027a8617712::t_68ce107a248491 4-5,9-20,42,108-165,167,223-256,277-280,282-322
+packages/core/src/views.ts
+  s_d215505724ce59::t_3d1cb6ff02beae 117
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c79fad13ba2be8402529e095220fb62ae18c7933",
+  "prompts": {},
+  "sessions": {
+    "s_149027a8617712": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17a5a-98ff-7112-a199-a3e91cfbc5c2",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    },
+    "s_d215505724ce59": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17cf5-9b28-7b13-99df-e8fc30cd0a44",
+        "model": "unknown"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
