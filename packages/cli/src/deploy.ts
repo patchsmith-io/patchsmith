@@ -107,6 +107,7 @@ const appCreateSchema = z.object({ id: z.string() });
 
 const appDetailsSchema = z.object({
   description: z.string().nullable(),
+  isShared: z.boolean().optional(),
   name: z.string(),
 });
 
@@ -330,6 +331,7 @@ export const runDeploy = async (
   options: DeployOptions
 ): Promise<DeployResult> => {
   const loaded = await loadPatchsmithConfig(options.configPath, options.cwd);
+  const isShared = loaded.config.$internal?.isShared;
   const agent = getAgentAuth();
   let appId = options.appId ?? loaded.config.appId ?? agent?.appId;
   let createdApp = false;
@@ -482,13 +484,19 @@ export const runDeploy = async (
       throw new Error("Deployment cancelled.");
     }
 
+    const createInput: Parameters<typeof client.apps.create>[0] = {
+      description: loaded.config.description ?? null,
+      name: appName,
+      slug: loaded.config.slug,
+    };
+
+    if (isShared !== undefined) {
+      createInput.isShared = isShared;
+    }
+
     const app = unwrapRpcResult(
       appCreateSchema,
-      await client.apps.create({
-        description: loaded.config.description ?? null,
-        name: appName,
-        slug: loaded.config.slug,
-      })
+      await client.apps.create(createInput)
     );
 
     appId = app.id;
@@ -603,15 +611,23 @@ export const runDeploy = async (
     const appDescription =
       description === undefined ? app.description : description;
 
-    if (app.name !== name || app.description !== appDescription) {
-      unwrapRpcResult(
-        appCreateSchema,
-        await client.apps.update({
-          appId,
-          description: appDescription,
-          name,
-        })
-      );
+    const sharingChanged = isShared !== undefined && app.isShared !== isShared;
+
+    const metadataChanged =
+      app.name !== name || app.description !== appDescription;
+
+    if (metadataChanged || sharingChanged) {
+      const updateInput: Parameters<typeof client.apps.update>[0] = {
+        appId,
+        description: appDescription,
+        name,
+      };
+
+      if (sharingChanged) {
+        updateInput.isShared = isShared;
+      }
+
+      unwrapRpcResult(appCreateSchema, await client.apps.update(updateInput));
     }
   }
 

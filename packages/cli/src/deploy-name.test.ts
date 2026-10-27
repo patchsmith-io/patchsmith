@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 
+import { asyncFixture } from "@patchsmith/config/testing";
 import { SignJWT } from "jose";
 import {
   afterEach,
@@ -38,11 +39,12 @@ let host: string;
 let missingApp: boolean;
 let currentName: string;
 let description: string | null;
+let isShared: boolean;
 let updateFails: boolean;
 
 type PlatformResponse =
   | { scope: typeof scope }
-  | { description: string | null; name: string }
+  | { description: string | null; isShared: boolean; name: string }
   | { id: string; status?: string }
   | { code?: string; message: string }
   | {
@@ -69,8 +71,11 @@ const handleRequest = async (
     chunks.push(chunk);
   });
   await once(request, "end");
+
+  const body = Buffer.concat(chunks).toString("utf-8");
+
   requests.push({
-    body: Buffer.concat(chunks).toString("utf-8"),
+    body,
     method: request.method,
     path: request.url,
   });
@@ -83,12 +88,20 @@ const handleRequest = async (
     }
 
     case "/apps/lookup": {
-      respond(response, { description, name: currentName });
+      respond(response, { description, isShared, name: currentName });
 
       return;
     }
 
     case "/apps/update": {
+      const { isShared: shared } = z
+        .object({ isShared: z.boolean().optional() })
+        .parse(JSON.parse(body));
+
+      if (!updateFails && shared !== undefined) {
+        isShared = shared;
+      }
+
       respond(
         response,
         updateFails
@@ -152,6 +165,7 @@ beforeEach(async () => {
   missingApp = false;
   currentName = "Old Name";
   description = "Keep this description";
+  isShared = false;
   updateFails = false;
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -201,11 +215,12 @@ afterEach(async () => {
 
 const writeConfig = async (
   name = "Old Name",
-  appDescription?: string | null
+  appDescription?: string | null,
+  shared?: boolean
 ) => {
   await writeFile(
     path.join(root, "patchsmith.config.ts"),
-    `export default ${JSON.stringify({ description: appDescription, host, name, slug: "my-app" })};`
+    `export default ${JSON.stringify({ $internal: shared === undefined ? undefined : { isShared: shared }, description: appDescription, host, name, slug: "my-app" })};`
   );
 };
 
@@ -241,6 +256,64 @@ it.each(["  My app description  ", undefined, null])(
       await readFile(path.join(root, "patchsmith.config.ts"), "utf-8")
     ).toContain('appId: "new-app"');
     expect(requests.some((r) => r.path === "/apps/update")).toBe(false);
+  }
+);
+
+it.each([true, false])(
+  "creates an app with the explicitly configured internal sharing flag %s",
+  async (shared) => {
+    missingApp = true;
+    await writeConfig(undefined, undefined, shared);
+    await runDeploy({ cwd: root, onMissingAppId: asyncFixture(() => true) });
+
+    const create = requests.find((request) => request.path === "/apps");
+
+    expect(JSON.parse(create?.body ?? "null")).toMatchObject({
+      isShared: shared,
+    });
+    expect(
+      await readFile(path.join(root, "patchsmith.config.ts"), "utf-8")
+    ).toContain(`"$internal":{"isShared":${shared}}`);
+  }
+);
+
+it.each([true, false])(
+  "synchronizes an explicit sharing change to %s before publishing and skips subsequent matching deployments",
+  async (shared) => {
+    isShared = !shared;
+    await writeConfig(undefined, undefined, shared);
+    await runDeploy({ cwd: root });
+
+    const update = requests.find((request) => request.path === "/apps/update");
+
+    expect(JSON.parse(update?.body ?? "null")).toEqual({
+      app: { shortId: "app-one" },
+      description,
+      isShared: shared,
+      name: currentName,
+      scope,
+    });
+    expect(requests.at(-1)?.path).toBe("/deployments/deployment");
+
+    await runDeploy({ cwd: root });
+
+    expect(
+      requests.filter((request) => request.path === "/apps/update")
+    ).toHaveLength(1);
+  }
+);
+
+it.each([true, false])(
+  "preserves an existing sharing value %s when the config omits it",
+  async (shared) => {
+    isShared = shared;
+    await writeConfig("New name");
+    await runDeploy({ cwd: root });
+
+    const update = requests.find((request) => request.path === "/apps/update");
+
+    expect(JSON.parse(update?.body ?? "null")).not.toHaveProperty("isShared");
+    expect(isShared).toBe(shared);
   }
 );
 
@@ -303,13 +376,14 @@ it.each(["Keep this description", null])(
   }
 );
 
-it.each(["name", "description"])(
+it.each(["name", "description", "isShared"])(
   "fails deployment if the configured %s cannot be synchronized",
   async (field) => {
     updateFails = true;
     await writeConfig(
       field === "name" ? "My App" : undefined,
-      field === "description" ? "New description" : undefined
+      field === "description" ? "New description" : undefined,
+      field === "isShared" ? true : undefined
     );
     await expect(runDeploy({ cwd: root })).rejects.toThrow(
       "Cannot rename app."

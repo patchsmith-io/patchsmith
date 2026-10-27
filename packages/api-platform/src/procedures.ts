@@ -8,6 +8,7 @@ import { setSpanAttributes } from "@patchsmith/observability";
 import { Effect } from "effect";
 
 import type { AppSelector } from "#app-selector";
+import { appSelectorWhere } from "#app-selector";
 import {
   attempt,
   buildPlatformContext,
@@ -40,34 +41,58 @@ export const findAppInScopesEffect = (
   Effect.gen(function* findAppInScopes() {
     const db = yield* PlatformDatabase;
 
-    const app = yield* attempt(
-      async () =>
-        await db.query.app.findFirst({
-          where: {
-            projectId,
-            ...selector,
-            RAW: (fields, { and, eq, or }) =>
-              requireValue(
-                and(
-                  or(
-                    ...scopes.map(({ scope, scopeKey }) =>
-                      and(
-                        eq(fields.scopeKey, scopeKey),
-                        eq(fields.scope, scope)
-                      )
-                    )
-                  )
-                )
-              ),
-          },
-          with: {
-            currentDeployment: {
-              where: { status: "published" },
-              with: { app: { columns: { shortId: true } } },
-            },
-          },
+    if (scopes.length === 0) {
+      return yield* Effect.fail(
+        new ORPCError("BAD_REQUEST", {
+          message: "At least one authorized scope is required.",
         })
-    );
+      );
+    }
+
+    const query = {
+      where: {
+        projectId,
+        ...appSelectorWhere(selector),
+        RAW: (fields, { and, eq, or }) =>
+          requireValue(
+            and(
+              or(
+                ...scopes.map(({ scope, scopeKey }) =>
+                  and(eq(fields.scopeKey, scopeKey), eq(fields.scope, scope))
+                )
+              )
+            )
+          ),
+      },
+      with: {
+        currentDeployment: {
+          where: { status: "published" },
+          with: { app: { columns: { shortId: true } } },
+        },
+      },
+    } satisfies NonNullable<Parameters<typeof db.query.app.findMany>[0]>;
+
+    const apps = yield* attempt(async () => {
+      if ("slug" in selector && selector.isShared === false) {
+        return await db.query.app.findMany({ ...query, limit: 2 });
+      }
+
+      // IDs and shared names have a project-wide uniqueness constraint.
+      const found = await db.query.app.findFirst(query);
+
+      return found ? [found] : [];
+    });
+
+    if (apps.length > 1) {
+      return yield* Effect.fail(
+        new ORPCError("CONFLICT", {
+          message:
+            "App slug matches multiple scopes. Select one scope or use an app ID.",
+        })
+      );
+    }
+
+    const [app] = apps;
 
     if (!app) {
       return yield* Effect.fail(new ORPCError("NOT_FOUND"));

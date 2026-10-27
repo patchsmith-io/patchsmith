@@ -158,7 +158,7 @@ describe("platform app-runtime-session", () => {
       [
         { id: created.id },
         { shortId: created.shortId },
-        { slug: created.slug },
+        { isShared: created.isShared, slug: created.slug },
       ],
       async (app) => {
         await Array.fromAsync(

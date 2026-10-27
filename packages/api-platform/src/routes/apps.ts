@@ -7,7 +7,7 @@ import { Effect } from "effect";
 import { z } from "zod";
 
 import { AppWithCurrentDeployment, discoverAppsEffect } from "#app-discovery";
-import { appSelectorSchema } from "#app-selector";
+import { appSelectorSchema, appSelectorWhere } from "#app-selector";
 import { withAppAssetUrl } from "#asset-url";
 import type { Context } from "#context";
 import { paginatedOutput, paginationQuery } from "#pagination";
@@ -35,6 +35,8 @@ import {
 
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+
+const uniqueViolationSchema = z.object({ code: z.literal("23505") });
 
 const createUniqueAppShortIdEffect = (projectId: string) =>
   Effect.gen(function* createUniqueAppShortId() {
@@ -110,6 +112,12 @@ const getApp = cliRouter
 
 const createAppInput = z.object({
   description: App.shape.description,
+  isShared: z
+    .boolean()
+    .optional()
+    .describe(
+      "Reserve a project-wide slug without changing visibility or scope access. Defaults to false."
+    ),
   name: App.shape.name,
   scope: scopeSchema,
   slug: App.shape.slug.optional(),
@@ -123,6 +131,14 @@ export const createAppRecordEffect = (
   Effect.gen(function* createAppRecord() {
     const db = yield* PlatformDatabase;
 
+    if (input.isShared === true && (createdByAgent || context.agentToken)) {
+      return yield* Effect.fail(
+        new ORPCError("FORBIDDEN", {
+          message: "Agent-created apps cannot reserve shared slugs.",
+        })
+      );
+    }
+
     const scope = canonicalizeScope(input.scope);
 
     const shortId = yield* createUniqueAppShortIdEffect(context.project.id);
@@ -134,6 +150,7 @@ export const createAppRecordEffect = (
           .values({
             createdByAgent,
             description: input.description?.trim() ?? undefined,
+            isShared: input.isShared ?? false,
             name: input.name.trim(),
             projectId: context.project.id,
             scope: scope.scope,
@@ -141,14 +158,14 @@ export const createAppRecordEffect = (
             shortId,
             slug: input.slug,
           })
-          .onConflictDoNothing({ target: [app.projectId, app.slug] })
+          .onConflictDoNothing()
           .returning()
     );
 
     if (!createdApp) {
       return yield* Effect.fail(
         new ORPCError("CONFLICT", {
-          message: "App slug is already in use in this project.",
+          message: "App slug is already in use in this namespace.",
         })
       );
     }
@@ -186,6 +203,7 @@ const installApp = protectedRouter
         app: appSelectorSchema,
         scope: scopeSchema,
         slug: App.shape.slug.optional(),
+        sourceScope: scopeSchema.optional(),
       }),
     })
   )
@@ -194,12 +212,35 @@ const installApp = protectedRouter
     handlerGen(function* installApp({ context, input }) {
       const db = yield* PlatformDatabase;
 
+      const selector = input.body.app;
+      const localSource = "slug" in selector && selector.isShared === false;
+
+      if (localSource && input.body.sourceScope === undefined) {
+        return yield* Effect.fail(
+          new ORPCError("BAD_REQUEST", {
+            message:
+              "A source scope is required when installing by local slug. Use an app ID to select a source directly.",
+          })
+        );
+      }
+
+      const sourceScope =
+        input.body.sourceScope === undefined
+          ? undefined
+          : canonicalizeScope(input.body.sourceScope);
+
       const source = yield* attempt(
         async () =>
           await db.query.app.findFirst({
             where: {
               projectId: context.project.id,
-              ...input.body.app,
+              ...appSelectorWhere(selector),
+              RAW:
+                sourceScope === undefined
+                  ? undefined
+                  : (fields, { eq: eqValue }) =>
+                      eqValue(fields.scope, sourceScope.scope),
+              scopeKey: sourceScope?.scopeKey,
             },
             with: {
               currentDeployment: {
@@ -257,14 +298,15 @@ const installApp = protectedRouter
               .values({
                 currentDeploymentId: selectedDeployment.id,
                 description: source.description,
+                isShared: false,
                 name: source.name,
                 projectId: context.project.id,
                 scope: scope.scope,
                 scopeKey: scope.scopeKey,
                 shortId,
-                slug: input.body.slug,
+                slug: input.body.slug ?? source.slug,
               })
-              .onConflictDoNothing({ target: [app.projectId, app.slug] })
+              .onConflictDoNothing()
               .returning();
 
             return {
@@ -277,7 +319,7 @@ const installApp = protectedRouter
       if (!installed) {
         return yield* Effect.fail(
           new ORPCError("CONFLICT", {
-            message: "App slug is already in use in this project.",
+            message: "App slug is already in use in this namespace.",
           })
         );
       }
@@ -382,6 +424,7 @@ const updateApp = cliRouter
       body: App.pick({ description: true, name: true })
         .extend({
           app: appSelectorSchema,
+          isShared: z.boolean().optional(),
           scope: scopeSchema,
         })
         .strict(),
@@ -393,20 +436,43 @@ const updateApp = cliRouter
     handlerGen(function* updateApp({ context, input }) {
       const db = yield* PlatformDatabase;
 
-      const [updatedApp] = yield* attempt(
-        async () =>
-          await db
+      if (input.body.isShared === true && context.agentToken) {
+        return yield* Effect.fail(
+          new ORPCError("FORBIDDEN", {
+            message: "Agents cannot reserve shared slugs.",
+          })
+        );
+      }
+
+      const [updatedApp] = yield* attempt(async () => {
+        try {
+          return await db
             .update(app)
             .set({
               description:
                 input.body.description === undefined
                   ? undefined
                   : (input.body.description?.trim() ?? null),
+              isShared: input.body.isShared,
               name: input.body.name?.trim(),
             })
             .where(eq(app.id, context.app.id))
-            .returning()
-      );
+            .returning();
+        } catch (error) {
+          if (
+            uniqueViolationSchema.safeParse(error).success ||
+            uniqueViolationSchema.safeParse(
+              error instanceof Error ? error.cause : undefined
+            ).success
+          ) {
+            throw new ORPCError("CONFLICT", {
+              message: "App slug is already in use in this namespace.",
+            });
+          }
+
+          throw error;
+        }
+      });
 
       if (!updatedApp) {
         return yield* Effect.fail(

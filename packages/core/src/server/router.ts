@@ -1,7 +1,7 @@
 import type { RouterClient } from "@orpc/server";
 
 import { appAgentRouter } from "./routes/app-agent";
-import { appRouter, discoverApps } from "./routes/apps";
+import { appRouter, discoverApps, lookupApp } from "./routes/apps";
 import { backendSession } from "./routes/backend";
 import { cliAuthRouter } from "./routes/cli-auth";
 import { cliAuthPageRouter } from "./routes/cli-auth-page";
@@ -23,6 +23,7 @@ export type PatchsmithRouterClient = RouterClient<PatchsmithRouter>;
 
 /** Existing plain HTTP URLs, served by oRPC's OpenAPI transport. */
 export const patchsmithHttpRouter = {
+  appLookup: lookupApp,
   apps: discoverApps,
   backend: { session: backendSession },
   cliAuthPage: cliAuthPageRouter,

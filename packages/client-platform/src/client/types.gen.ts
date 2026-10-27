@@ -66,7 +66,11 @@ export type AppAgentChatData = {
       shortId: string;
     } | {
       /**
-       * Immutable app username, unique within the project. Lowercase letters, digits, and single hyphens.
+       * Defaults to true for a project-wide name. Set false to resolve a local name within the supplied scopes.
+       */
+      isShared?: boolean;
+      /**
+       * App username without a local prefix. Shared names are unique within the project; local names are unique within their installation scope. Lowercase letters, digits, and single hyphens.
        */
       slug: string;
     };
@@ -95,7 +99,11 @@ export type AppAgentChatData = {
       shortId: string;
     } | {
       /**
-       * Immutable app username, unique within the project. Lowercase letters, digits, and single hyphens.
+       * Defaults to true for a project-wide name. Set false to resolve a local name within the supplied scopes.
+       */
+      isShared?: boolean;
+      /**
+       * App username without a local prefix. Shared names are unique within the project; local names are unique within their installation scope. Lowercase letters, digits, and single hyphens.
        */
       slug: string;
     };
@@ -144,7 +152,7 @@ export type AppAgentCreateData = {
     name: string;
     deployToken: string;
     /**
-     * Immutable app username, unique within the project. Lowercase letters, digits, and single hyphens.
+     * App username without a local prefix. Shared names are unique within the project; local names are unique within their installation scope. Lowercase letters, digits, and single hyphens.
      */
     slug?: string;
   };
@@ -163,6 +171,7 @@ export type AppAgentCreateResponses = {
     currentDeploymentId: string | null;
     description: string | null;
     id: string;
+    isShared: boolean;
     name: string;
     projectId: string;
     scope: {
@@ -173,7 +182,7 @@ export type AppAgentCreateResponses = {
     };
     shortId: string;
     /**
-     * Immutable app username, unique within the project. Lowercase letters, digits, and single hyphens.
+     * App username without a local prefix. Shared names are unique within the project; local names are unique within their installation scope. Lowercase letters, digits, and single hyphens.
      */
     slug: string;
     updatedAt: string;
@@ -228,6 +237,10 @@ export type AppAgentCreateResponse = AppAgentCreateResponses[keyof AppAgentCreat
 export type AppsCreateData = {
   body: {
     description: string | null;
+    /**
+     * Reserve a project-wide slug without changing visibility or scope access. Defaults to false.
+     */
+    isShared?: boolean;
     name: string;
     scope: {
       name: string;
@@ -236,7 +249,7 @@ export type AppsCreateData = {
       };
     };
     /**
-     * Immutable app username, unique within the project. Lowercase letters, digits, and single hyphens.
+     * App username without a local prefix. Shared names are unique within the project; local names are unique within their installation scope. Lowercase letters, digits, and single hyphens.
      */
     slug?: string;
   };
@@ -255,6 +268,7 @@ export type AppsCreateResponses = {
     currentDeploymentId: string | null;
     description: string | null;
     id: string;
+    isShared: boolean;
     name: string;
     projectId: string;
     scope: {
@@ -265,7 +279,7 @@ export type AppsCreateResponses = {
     };
     shortId: string;
     /**
-     * Immutable app username, unique within the project. Lowercase letters, digits, and single hyphens.
+     * App username without a local prefix. Shared names are unique within the project; local names are unique within their installation scope. Lowercase letters, digits, and single hyphens.
      */
     slug: string;
     updatedAt: string;
@@ -325,7 +339,11 @@ export type AppsDeleteData = {
       shortId: string;
     } | {
       /**
-       * Immutable app username, unique within the project. Lowercase letters, digits, and single hyphens.
+       * Defaults to true for a project-wide name. Set false to resolve a local name within the supplied scopes.
+       */
+      isShared?: boolean;
+      /**
+       * App username without a local prefix. Shared names are unique within the project; local names are unique within their installation scope. Lowercase letters, digits, and single hyphens.
        */
       slug: string;
     };
@@ -360,7 +378,11 @@ export type AppsDeployData = {
       shortId: string;
     } | {
       /**
-       * Immutable app username, unique within the project. Lowercase letters, digits, and single hyphens.
+       * Defaults to true for a project-wide name. Set false to resolve a local name within the supplied scopes.
+       */
+      isShared?: boolean;
+      /**
+       * App username without a local prefix. Shared names are unique within the project; local names are unique within their installation scope. Lowercase letters, digits, and single hyphens.
        */
       slug: string;
     };
@@ -387,6 +409,7 @@ export type AppsDeployResponses = {
     currentDeploymentId: string | null;
     description: string | null;
     id: string;
+    isShared: boolean;
     name: string;
     projectId: string;
     scope: {
@@ -397,7 +420,7 @@ export type AppsDeployResponses = {
     };
     shortId: string;
     /**
-     * Immutable app username, unique within the project. Lowercase letters, digits, and single hyphens.
+     * App username without a local prefix. Shared names are unique within the project; local names are unique within their installation scope. Lowercase letters, digits, and single hyphens.
      */
     slug: string;
     updatedAt: string;
@@ -457,7 +480,11 @@ export type AppsGetData = {
       shortId: string;
     } | {
       /**
-       * Immutable app username, unique within the project. Lowercase letters, digits, and single hyphens.
+       * Defaults to true for a project-wide name. Set false to resolve a local name within the supplied scopes.
+       */
+      isShared?: boolean;
+      /**
+       * App username without a local prefix. Shared names are unique within the project; local names are unique within their installation scope. Lowercase letters, digits, and single hyphens.
        */
       slug: string;
     };
@@ -483,6 +510,7 @@ export type AppsGetResponses = {
     currentDeploymentId: string | null;
     description: string | null;
     id: string;
+    isShared: boolean;
     name: string;
     projectId: string;
     scope: {
@@ -493,7 +521,7 @@ export type AppsGetResponses = {
     };
     shortId: string;
     /**
-     * Immutable app username, unique within the project. Lowercase letters, digits, and single hyphens.
+     * App username without a local prefix. Shared names are unique within the project; local names are unique within their installation scope. Lowercase letters, digits, and single hyphens.
      */
     slug: string;
     updatedAt: string;
@@ -553,7 +581,11 @@ export type AppsInstallData = {
       shortId: string;
     } | {
       /**
-       * Immutable app username, unique within the project. Lowercase letters, digits, and single hyphens.
+       * Defaults to true for a project-wide name. Set false to resolve a local name within the supplied scopes.
+       */
+      isShared?: boolean;
+      /**
+       * App username without a local prefix. Shared names are unique within the project; local names are unique within their installation scope. Lowercase letters, digits, and single hyphens.
        */
       slug: string;
     };
@@ -564,9 +596,15 @@ export type AppsInstallData = {
       };
     };
     /**
-     * Immutable app username, unique within the project. Lowercase letters, digits, and single hyphens.
+     * App username without a local prefix. Shared names are unique within the project; local names are unique within their installation scope. Lowercase letters, digits, and single hyphens.
      */
     slug?: string;
+    sourceScope?: {
+      name: string;
+      value: {
+        [key: string]: Schema0;
+      };
+    };
   };
   path?: never;
   query?: never;
@@ -583,6 +621,7 @@ export type AppsInstallResponses = {
     currentDeploymentId: string | null;
     description: string | null;
     id: string;
+    isShared: boolean;
     name: string;
     projectId: string;
     scope: {
@@ -593,7 +632,7 @@ export type AppsInstallResponses = {
     };
     shortId: string;
     /**
-     * Immutable app username, unique within the project. Lowercase letters, digits, and single hyphens.
+     * App username without a local prefix. Shared names are unique within the project; local names are unique within their installation scope. Lowercase letters, digits, and single hyphens.
      */
     slug: string;
     updatedAt: string;
@@ -672,6 +711,7 @@ export type AppsListResponses = {
       currentDeploymentId: string | null;
       description: string | null;
       id: string;
+      isShared: boolean;
       name: string;
       projectId: string;
       scope: {
@@ -682,7 +722,7 @@ export type AppsListResponses = {
       };
       shortId: string;
       /**
-       * Immutable app username, unique within the project. Lowercase letters, digits, and single hyphens.
+       * App username without a local prefix. Shared names are unique within the project; local names are unique within their installation scope. Lowercase letters, digits, and single hyphens.
        */
       slug: string;
       updatedAt: string;
@@ -802,6 +842,7 @@ export type AppsRuntimeResolveResponses = {
         currentDeploymentId: string | null;
         description: string | null;
         id: string;
+        isShared: boolean;
         name: string;
         projectId: string;
         scope: {
@@ -812,7 +853,7 @@ export type AppsRuntimeResolveResponses = {
         };
         shortId: string;
         /**
-         * Immutable app username, unique within the project. Lowercase letters, digits, and single hyphens.
+         * App username without a local prefix. Shared names are unique within the project; local names are unique within their installation scope. Lowercase letters, digits, and single hyphens.
          */
         slug: string;
         updatedAt: string;
@@ -888,7 +929,11 @@ export type AppsRuntimeSessionData = {
       shortId: string;
     } | {
       /**
-       * Immutable app username, unique within the project. Lowercase letters, digits, and single hyphens.
+       * Defaults to true for a project-wide name. Set false to resolve a local name within the supplied scopes.
+       */
+      isShared?: boolean;
+      /**
+       * App username without a local prefix. Shared names are unique within the project; local names are unique within their installation scope. Lowercase letters, digits, and single hyphens.
        */
       slug: string;
     };
@@ -946,10 +991,15 @@ export type AppsUpdateData = {
       shortId: string;
     } | {
       /**
-       * Immutable app username, unique within the project. Lowercase letters, digits, and single hyphens.
+       * Defaults to true for a project-wide name. Set false to resolve a local name within the supplied scopes.
+       */
+      isShared?: boolean;
+      /**
+       * App username without a local prefix. Shared names are unique within the project; local names are unique within their installation scope. Lowercase letters, digits, and single hyphens.
        */
       slug: string;
     };
+    isShared?: boolean;
     scope: {
       name: string;
       value: {
@@ -972,6 +1022,7 @@ export type AppsUpdateResponses = {
     currentDeploymentId: string | null;
     description: string | null;
     id: string;
+    isShared: boolean;
     name: string;
     projectId: string;
     scope: {
@@ -982,7 +1033,7 @@ export type AppsUpdateResponses = {
     };
     shortId: string;
     /**
-     * Immutable app username, unique within the project. Lowercase letters, digits, and single hyphens.
+     * App username without a local prefix. Shared names are unique within the project; local names are unique within their installation scope. Lowercase letters, digits, and single hyphens.
      */
     slug: string;
     updatedAt: string;
@@ -1168,7 +1219,11 @@ export type DeploymentsCreateData = {
       shortId: string;
     } | {
       /**
-       * Immutable app username, unique within the project. Lowercase letters, digits, and single hyphens.
+       * Defaults to true for a project-wide name. Set false to resolve a local name within the supplied scopes.
+       */
+      isShared?: boolean;
+      /**
+       * App username without a local prefix. Shared names are unique within the project; local names are unique within their installation scope. Lowercase letters, digits, and single hyphens.
        */
       slug: string;
     };
@@ -1383,7 +1438,11 @@ export type DeploymentsListData = {
       shortId: string;
     } | {
       /**
-       * Immutable app username, unique within the project. Lowercase letters, digits, and single hyphens.
+       * Defaults to true for a project-wide name. Set false to resolve a local name within the supplied scopes.
+       */
+      isShared?: boolean;
+      /**
+       * App username without a local prefix. Shared names are unique within the project; local names are unique within their installation scope. Lowercase letters, digits, and single hyphens.
        */
       slug: string;
     };

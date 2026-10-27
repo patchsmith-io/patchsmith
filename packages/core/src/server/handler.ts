@@ -11,6 +11,7 @@ import type {
 import { createPatchsmithSchema } from "#schema/schema";
 import type { EmptyDefinitionMap } from "#schema/shared";
 
+import { validateLocalSlugPrefix } from "./app-slug";
 import { normalizeBaseUrl } from "./base-url";
 import { createContext } from "./context";
 import type { PatchsmithRuntimeContext } from "./context";
@@ -74,7 +75,10 @@ export const createPatchsmithServer = <
     options.agent ?? {}
   );
 
+  const internal = options.$internal ?? {};
   const agentInstructions = instructions === "" ? undefined : instructions;
+
+  const localSlugPrefix = validateLocalSlugPrefix(internal.localSlugPrefix);
 
   const { basePath, publicOrigin } = normalizeBaseUrl(options.baseUrl);
   const scopeSchemas = validatePatchsmithScopeSchemas(options.scopes);
@@ -93,7 +97,7 @@ export const createPatchsmithServer = <
     views: options.views,
   });
 
-  const runtimeResolveBaseUrl = options.$internal?.runtimeResolveBaseUrl;
+  const { runtimeResolveBaseUrl } = internal;
 
   if (runtimeResolveBaseUrl !== undefined) {
     const target = new URL(runtimeResolveBaseUrl);
@@ -115,18 +119,17 @@ export const createPatchsmithServer = <
     }
   }
 
-  const platformBaseUrl =
-    options.$internal?.platformBaseUrl ?? defaultPlatformBaseUrl;
+  const platformBaseUrl = internal.platformBaseUrl ?? defaultPlatformBaseUrl;
 
   const platform = createClient({
     baseUrl: platformBaseUrl,
-    fetch: options.$internal?.platformFetch,
+    fetch: internal.platformFetch,
     responseStyle: "data",
     throwOnError: true,
   });
 
   const platformHeaders =
-    options.$internal?.platformHeaders ??
+    internal.platformHeaders ??
     (options.projectKey !== undefined &&
     options.projectKey !== null &&
     options.projectKey !== ""
@@ -194,6 +197,7 @@ export const createPatchsmithServer = <
       agentModel,
       authenticate,
       cliAuthSignInPath: options.cliAuth?.signInPath,
+      localSlugPrefix,
       platform,
       platformHeaders,
       publicOrigin,
@@ -202,7 +206,7 @@ export const createPatchsmithServer = <
       schema,
       schemaSerializer: options.schemaSerializer,
       scopeSchemas,
-      toolExecutor: options.$internal?.toolExecutor,
+      toolExecutor: internal.toolExecutor,
       toolUrl: `${publicOrigin + basePath}/tools/execute`,
     });
 
@@ -231,6 +235,7 @@ export const createPatchsmithServer = <
   return {
     $internal: { platformBaseUrl, router: patchsmithRouter, schema },
     experimental: createExperimental({
+      localSlugPrefix,
       platform,
       platformHeaders,
       scopeSchemas,

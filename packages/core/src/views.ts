@@ -114,6 +114,9 @@ export const composeViewContext = (
 };
 
 export interface PatchsmithApp {
+  /** Host-formatted slug; local apps default to an "@" prefix. */
+  slug?: string;
+  isShared?: boolean;
   scope?: { name: string };
   views?: {
     slot: string;
@@ -223,12 +226,14 @@ export const patchsmithAppSchema: v.GenericSchema<PatchsmithApp> =
     ),
     description: v.optional(v.nullable(v.string())),
     id: v.string(),
+    isShared: v.optional(v.boolean()),
     logoPaths: v.optional(
       v.object({ dark: v.optional(v.string()), light: v.optional(v.string()) })
     ),
     name: v.optional(v.string()),
     projectId: v.optional(v.string()),
     scope: v.optional(v.looseObject({ name: v.string() })),
+    slug: v.optional(v.string()),
     views: v.optional(
       v.array(
         v.object({

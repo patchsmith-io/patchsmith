@@ -5,7 +5,24 @@ import { z } from "zod";
 export const appSelectorSchema = z.union([
   z.strictObject({ id: z.uuid() }),
   z.strictObject({ shortId: App.shape.shortId }),
-  z.strictObject({ slug: App.shape.slug }),
+  z.strictObject({
+    isShared: z
+      .boolean()
+      .optional()
+      .describe(
+        "Defaults to true for a project-wide name. Set false to resolve a local name within the supplied scopes."
+      ),
+    slug: App.shape.slug,
+  }),
 ]);
 
 export type AppSelector = z.infer<typeof appSelectorSchema>;
+
+/** Slug namespace is explicit; IDs always address the same app. */
+export const appSelectorWhere = (selector: AppSelector) => {
+  if ("slug" in selector) {
+    return { isShared: selector.isShared ?? true, slug: selector.slug };
+  }
+
+  return selector;
+};

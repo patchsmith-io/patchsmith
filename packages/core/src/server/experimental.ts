@@ -2,6 +2,8 @@ import { appsInstall } from "@patchsmith/client-platform/client";
 import type { Client } from "@patchsmith/client-platform/client/client/index";
 import * as v from "valibot";
 
+import { withAppSlug } from "#server/app-slug";
+import type { LocalSlugPrefix } from "#server/app-slug";
 import { platformAppSelector } from "#server/platform-app-selector";
 
 import { selectPatchsmithScopes, validatePatchsmithScopes } from "./scope";
@@ -16,6 +18,7 @@ const isFunctionValue = <TValue>(
 ): value is Extract<TValue, CallableFunction> => typeof value === "function";
 
 export const createExperimental = (options: {
+  localSlugPrefix?: LocalSlugPrefix;
   platform: Client;
   platformHeaders?: PatchsmithPlatformOptions["headers"];
   scopeSchemas: PatchsmithScopeSchemas;
@@ -61,6 +64,6 @@ export const createExperimental = (options: {
       throwOnError: true,
     });
 
-    return data;
+    return withAppSlug(data, options.localSlugPrefix);
   },
 });

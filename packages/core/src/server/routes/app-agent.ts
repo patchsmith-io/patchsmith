@@ -11,6 +11,7 @@ import {
 } from "@patchsmith/client-platform/client";
 import * as v from "valibot";
 
+import { withAppSlug } from "#server/app-slug";
 import { platformAppSelector } from "#server/platform-app-selector";
 import {
   getCliDeployToken,
@@ -109,6 +110,6 @@ export const appAgentRouter = {
         throwOnError: true,
       });
 
-      return data;
+      return withAppSlug(data, context.localSlugPrefix);
     }),
 };
