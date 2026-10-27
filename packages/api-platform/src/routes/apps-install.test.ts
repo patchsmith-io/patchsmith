@@ -10,7 +10,7 @@ import {
   appDeploymentFile,
 } from "@patchsmith/db/schema/apps";
 import { eq } from "drizzle-orm";
-import { describe, expect, it } from "vite-plus/test";
+import { beforeEach, describe, expect, it } from "vite-plus/test";
 import { z } from "zod";
 
 import { canonicalizeScope } from "#scope";
@@ -27,6 +27,14 @@ import { appRouter } from "./apps";
 describe("platform apps-install", () => {
   const fixture = appTestFixture();
   const { createContext, seedRuntimeApp, testState } = fixture;
+
+  beforeEach(async () => {
+    // Same-slug installations become available after the separate contraction PR.
+    // Simulate that stage only in this disposable installation test database.
+    await fixture.client.exec(
+      "DROP INDEX IF EXISTS app_project_id_slug_unique"
+    );
+  });
 
   it("installs a published app with separate scope and runtime identity while retaining its artifacts", async () => {
     const context = createContext();
