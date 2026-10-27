@@ -81,7 +81,7 @@ export type AppAgentChatData = {
       }>;
       role: 'user' | 'assistant';
     }>;
-    model?: 'openai/gpt-6.1-sol' | 'anthropic/claude-sonnet-5.5' | 'anthropic/claude-opus-5.5' | 'openai/gpt-6-astra' | 'deepseek/deepseek-v4.1-flash';
+    model?: 'openai/gpt-6.1-sol' | 'openai/gpt-6.1-sol-fast' | 'anthropic/claude-sonnet-5.5' | 'anthropic/claude-opus-5.5' | 'openai/gpt-6-astra' | 'deepseek/deepseek-v4.1-flash';
     schema?: {
       [key: string]: unknown;
     };

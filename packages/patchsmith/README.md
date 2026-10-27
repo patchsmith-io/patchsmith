@@ -23,6 +23,7 @@ export const patchsmith = createServer({
 Use your existing contract and project key. Supported model IDs are:
 
 - `openai/gpt-6.1-sol` (default)
+- `openai/gpt-6.1-sol-fast`
 - `anthropic/claude-sonnet-5.5`
 - `anthropic/claude-opus-5.5`
 - `openai/gpt-6-astra`

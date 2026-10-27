@@ -35,7 +35,6 @@ const { dirname, join } = nodePath;
 
 // oxlint-disable-next-line typescript/strict-void-return -- execFile also returns a ChildProcess; promisify consumes its completion callback, not that return value.
 const execute = promisify(execFile);
-const modelId = "openai/gpt-6.1-sol";
 
 const bytes = async (path: string) => await readFile(path).catch(() => null);
 
@@ -162,9 +161,14 @@ const messageEvents = (call: number, text: string) => {
     .join("");
 };
 
-it.each(["api-key", "runtime-oidc"])(
-  "streams typed Pi tools and restores history using %s authentication",
-  async (mode) => {
+it.each([
+  { mode: "api-key", modelId: "openai/gpt-6.1-sol" },
+  { mode: "runtime-oidc", modelId: "openai/gpt-6.1-sol" },
+  { mode: "api-key", modelId: "openai/gpt-6.1-sol-fast" },
+  { mode: "runtime-oidc", modelId: "openai/gpt-6.1-sol-fast" },
+])(
+  "streams typed Pi tools and restores history using $mode authentication and $modelId",
+  async ({ mode, modelId }) => {
     authentication.env.AI_GATEWAY_BASE_URL = "https://gateway.test";
     delete authentication.env.AI_GATEWAY_API_KEY;
     delete authentication.env.VERCEL_OIDC_TOKEN;

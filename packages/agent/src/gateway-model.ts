@@ -10,7 +10,9 @@ export const gatewayModelProviders = (
     auth.AI_GATEWAY_API_KEY !== undefined ||
     auth.VERCEL_OIDC_TOKEN !== undefined;
 
-  if (!useGateway || modelId !== "openai/gpt-6.1-sol") {
+  const isSolFast = modelId === "openai/gpt-6.1-sol-fast";
+
+  if (!useGateway || (modelId !== "openai/gpt-6.1-sol" && !isSolFast)) {
     return {};
   }
 
@@ -28,11 +30,13 @@ export const gatewayModelProviders = (
           // Operational budget: Pi's 16,384-token reserve triggers compaction
           // around 256K, leaving headroom below the 272K pricing threshold.
           contextWindow: 272_000,
-          cost: { cacheRead: 0.1, cacheWrite: 2.5, input: 2, output: 10 },
+          cost: isSolFast
+            ? { cacheRead: 0.2, cacheWrite: 5, input: 4, output: 20 }
+            : { cacheRead: 0.1, cacheWrite: 2.5, input: 2, output: 10 },
           id: modelId,
           input: ["text", "image"],
           maxTokens: 128_000,
-          name: "GPT-6.1 Sol",
+          name: isSolFast ? "GPT-6.1 Sol (Fast)" : "GPT-6.1 Sol",
           reasoning: true,
         },
       ],
