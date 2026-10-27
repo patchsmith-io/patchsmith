@@ -1,4 +1,3 @@
-import { isPlatformHookName, isReservedHookName } from "#hooks";
 import type { PlatformHooks, ReservedHookName } from "#hooks";
 import type { PatchsmithServerFunctions } from "#views";
 
@@ -20,31 +19,10 @@ export type HookContext = Omit<
   readonly actions: FunctionCalls<PatchsmithServerFunctions, "action">;
 };
 
-type HookInput<N extends HookName> = HookDefinitions[N] extends {
-  input: infer I;
-}
-  ? I
-  : undefined;
-
-type HookOutput<N extends HookName> = HookDefinitions[N] extends {
-  output: infer O;
-}
-  ? O
-  : never;
-
 /** Bind an app handler to a host-defined or built-in platform hook. */
 export const defineHook = <const N extends HookName>(definition: {
   hook: N;
   handler: (
-    context: HookContext & { readonly input: HookInput<N> }
-  ) => HookOutput<N> | Promise<HookOutput<N>>;
-}) => {
-  if (
-    isReservedHookName(definition.hook) &&
-    !isPlatformHookName(definition.hook)
-  ) {
-    throw new Error(`Unknown platform hook "${definition.hook}".`);
-  }
-
-  return Object.freeze(definition);
-};
+    context: HookContext & { readonly input: HookDefinitions[N]["input"] }
+  ) => HookDefinitions[N]["output"] | Promise<HookDefinitions[N]["output"]>;
+}) => Object.freeze(definition);

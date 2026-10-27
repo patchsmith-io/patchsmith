@@ -824,6 +824,9 @@ importers:
       '@opentelemetry/api':
         specifier: 'catalog:'
         version: 1.9.1
+      '@orpc/client':
+        specifier: 'catalog:'
+        version: 2.0.0-beta.40
       '@orpc/experimental-effect':
         specifier: 'catalog:'
         version: 2.0.0-beta.40(crossws@0.4.15(srvx@1.0.4))(effect@4.0.5)

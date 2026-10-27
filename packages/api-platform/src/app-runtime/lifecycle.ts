@@ -1,19 +1,13 @@
-import { createClient, reference } from "@patchsmith/app/client/connection";
+import { createORPCClient } from "@orpc/client";
+import { RPCLink } from "@orpc/client/fetch";
+import { onInstallHook } from "@patchsmith/app/hooks";
+import type { PlatformClient } from "@patchsmith/app/protocol";
 import { Effect } from "effect";
 
 import type { Context } from "#context";
-import { PlatformDependencyError } from "#errors";
 import { createRuntimeSessionEffect } from "#routes/app-runtime";
 import type { RuntimeApp } from "#routes/app-runtime";
 import { attempt, PlatformHttp } from "#services";
-
-const installationHook = "patchsmith.onInstall";
-
-const invocation = reference<
-  "action",
-  { hook: typeof installationHook },
-  unknown
->("_patchsmith.hooks.invoke", "action");
 
 /** Invoke only the newly committed installation, using its selected deployment. */
 export const invokeInstallationHookEffect = (
@@ -22,47 +16,31 @@ export const invokeInstallationHookEffect = (
   input: { subjectId: string; toolUrl: string }
 ) =>
   Effect.gen(function* invokeInstallationHook() {
-    if (app.currentDeployment?.hooks.includes(installationHook) !== true) {
+    if (app.currentDeployment?.hooks.includes(onInstallHook) !== true) {
       return;
     }
 
     const session = yield* createRuntimeSessionEffect(context, app, {
       ...input,
-      hook: installationHook,
+      hook: onInstallHook,
     });
 
     const http = yield* PlatformHttp;
+    const url = new URL(session.url);
+
+    const runtime = createORPCClient<Pick<PlatformClient, "actions">>(
+      new RPCLink({
+        fetch: http.fetch,
+        headers: { authorization: `Bearer ${session.token}` },
+        origin: url.origin,
+        url: `/${url.pathname.slice(1)}`,
+      })
+    );
 
     yield* attempt(async (signal) => {
-      const backend = createClient({
-        fetch: http.fetch,
-        // oxlint-disable-next-line require-await -- Reuse this invocation's platform-issued hook session.
-        getSession: async () => session,
-      });
-
-      const close = () => {
-        backend.close();
-      };
-
-      signal.addEventListener("abort", close, { once: true });
-
-      try {
-        signal.throwIfAborted();
-        await backend.action(invocation, { hook: installationHook });
-      } finally {
-        signal.removeEventListener("abort", close);
-        close();
-      }
+      await runtime.actions(
+        { args: { hook: onInstallHook }, name: "_patchsmith.hooks.invoke" },
+        { signal }
+      );
     });
-  }).pipe(
-    Effect.timeoutOrElse({
-      duration: 30_000,
-      orElse: () =>
-        Effect.fail(
-          new PlatformDependencyError({
-            cause: undefined,
-            message: "Installation hook timed out",
-          })
-        ),
-    })
-  );
+  }).pipe(Effect.timeout(30_000));
