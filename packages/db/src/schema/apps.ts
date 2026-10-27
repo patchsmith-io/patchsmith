@@ -89,7 +89,6 @@ export const app = pgTable(
   (table) => [
     check("app_short_id_format", sql`${table.shortId} ~ '^[a-z0-9]{12}$'`),
     check("app_slug_format", sql`${table.slug} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`),
-    uniqueIndex("app_project_id_slug_unique").on(table.projectId, table.slug),
     uniqueIndex("app_project_shared_slug_unique")
       .on(table.projectId, table.slug)
       .where(sql`${table.isShared} = true`),
