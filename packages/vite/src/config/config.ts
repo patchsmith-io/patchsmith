@@ -14,6 +14,11 @@ export const logosConfigSchema = v.object({
 });
 
 const patchsmithConfigSchema = v.strictObject({
+  $internal: v.optional(
+    v.strictObject({
+      isShared: v.optional(v.boolean()),
+    })
+  ),
   appId: v.optional(v.pipe(v.string(), v.minLength(1))),
   description: v.optional(
     v.nullable(v.pipe(v.string(), v.trim(), v.maxLength(255)))
@@ -41,6 +46,20 @@ const patchsmithConfigSchema = v.strictObject({
 export interface PatchsmithConfig extends v.InferInput<
   typeof patchsmithConfigSchema
 > {
+  /**
+   * Experimental implementation options, outside the stable configuration API.
+   * @internal
+   */
+  $internal?: {
+    /**
+     * Reserve a project-wide slug instead of a scope-local name.
+     * Applied on creation and synchronized during deployment when explicitly set.
+     * Omit to preserve an existing app's setting; new apps default to false.
+     * Does not grant installation permissions or change visibility. Installation
+     * eligibility remains a host policy independent of the slug namespace.
+     */
+    isShared?: boolean;
+  };
   /**
    * ID of the app on the Patchsmith host, used for deployment.
    * When omitted, the first deployment creates an app and saves its ID here.

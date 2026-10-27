@@ -19,6 +19,52 @@ it("requires name and slug in the public and resolved config types", () => {
   }>();
 });
 
+it.each([true, false])(
+  "loads the internal shared-slug option without changing its value: %s",
+  async (isShared) => {
+    const root = await mkdtemp(
+      path.join(tmpdir(), "patchsmith-internal-config-")
+    );
+
+    try {
+      const input = {
+        ...config,
+        $internal: { isShared },
+      } satisfies PatchsmithConfig;
+
+      await writeFile(
+        path.join(root, "patchsmith.config.mjs"),
+        `export default ${JSON.stringify(input)};`
+      );
+      const loaded = await loadPatchsmithConfig(undefined, root);
+
+      expect(loaded.config.$internal?.isShared).toBe(isShared);
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  }
+);
+
+it("leaves the sharing option unset when omitted", () => {
+  expect(v.parse(patchsmithConfigSchema, config).$internal).toBeUndefined();
+  expect(
+    v.parse(patchsmithConfigSchema, { ...config, $internal: {} }).$internal
+      ?.isShared
+  ).toBeUndefined();
+});
+
+it.each([
+  { isShared: true },
+  { $internal: { isShared: "true" } },
+  { $internal: { isShared: 1 } },
+  { $internal: { isShared: null } },
+  { $internal: { installable: true } },
+])("rejects unsupported sharing configuration: %j", (input) => {
+  expect(() =>
+    v.parse(patchsmithConfigSchema, { ...config, ...input })
+  ).toThrow();
+});
+
 it.each(["name", "slug"])("rejects a missing %s", (field) => {
   const input = { ...config, [field]: undefined };
   expect(() => v.parse(patchsmithConfigSchema, input)).toThrow();
