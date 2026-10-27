@@ -1,0 +1,29 @@
+packages/api-platform/src/routes/app-namespaces.test.ts
+  s_d215505724ce59::t_984584df865ed3 4,18-25
+packages/api-platform/src/routes/apps-crud.test.ts
+  s_a8a3f36239dcd7::t_b3c5e035205277 547,555,562
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a0676e8f0734be8576588ec201991e1e31f96a66",
+  "prompts": {},
+  "sessions": {
+    "s_a8a3f36239dcd7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17d35-5932-7bc0-b4ac-057e7533567a",
+        "model": "unknown"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    },
+    "s_d215505724ce59": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17cf5-9b28-7b13-99df-e8fc30cd0a44",
+        "model": "unknown"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
