@@ -1,0 +1,35 @@
+packages/core/src/server/contract.ts
+  s_149027a8617712::t_2e8730b422c5ec 123
+packages/app/src/server/hooks.ts
+  s_149027a8617712::t_afafb9eb3d9a16 26-28
+packages/api-platform/package.json
+  s_149027a8617712::t_afafb9eb3d9a16 57
+packages/app/src/hooks.ts
+  s_149027a8617712::t_afafb9eb3d9a16 2,4,17
+packages/api-platform/src/app-runtime/lifecycle.ts
+  s_149027a8617712::t_5c2c6112ff75c0 42
+  s_149027a8617712::t_afafb9eb3d9a16 1-4,19,25,29,31-32,34-38,40-41,43-44
+  s_149027a8617712::t_2a1fc318575444 46
+packages/api-platform/src/app-runtime/lifecycle.test.ts
+  s_149027a8617712::t_5c2c6112ff75c0 68,72
+  s_149027a8617712::t_210669ac66cd11 12-20,22-24,26-34,36-37,39-49,51-56,58-60,62-63,65-67,69-71,73-77,79-87
+  s_149027a8617712::t_49660deace1af3 78
+pnpm-lock.yaml
+  s_149027a8617712::t_19aecbdd4635ae 827-829
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9e477c1f60cfa8154cfa347c342899b846240fad",
+  "prompts": {},
+  "sessions": {
+    "s_149027a8617712": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17a5a-98ff-7112-a199-a3e91cfbc5c2",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
