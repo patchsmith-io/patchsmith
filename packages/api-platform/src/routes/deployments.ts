@@ -1,6 +1,7 @@
 import { handlerGen, middlewareGen } from "@orpc/experimental-effect";
 import { openapi } from "@orpc/openapi";
 import { ORPCError } from "@orpc/server";
+import { isPlatformHookName, isReservedHookName } from "@patchsmith/app/hooks";
 import { maxDeploymentBytes } from "@patchsmith/asset-delivery";
 import {
   maxLogoBytes,
@@ -77,7 +78,15 @@ const createDeploymentInput = z
   .object({
     app: appSelectorSchema,
     assets: z.tuple([createDeploymentAssetInput]),
-    hooks: AppDeployment.shape.hooks.optional(),
+    hooks: AppDeployment.shape.hooks
+      .refine(
+        (hooks) =>
+          hooks.every(
+            (name) => !isReservedHookName(name) || isPlatformHookName(name)
+          ),
+        "Unknown platform hook."
+      )
+      .optional(),
     logos: deploymentLogos.optional(),
     scope: scopeSchema,
     server: createDeploymentServerInput.optional(),

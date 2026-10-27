@@ -1,6 +1,7 @@
 import { readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { isPlatformHookName, isReservedHookName } from "@patchsmith/app/hooks";
 import { parseSync } from "vite";
 import type { Plugin, ESTree } from "vite";
 
@@ -59,6 +60,10 @@ export const discoverHooks = async (root: string): Promise<HookFile[]> => {
           )
         ) {
           throw new Error(`Invalid hook file path: ${filename}`);
+        }
+
+        if (isReservedHookName(name) && !isPlatformHookName(name)) {
+          throw new Error(`Unknown platform hook "${name}" in ${filename}.`);
         }
 
         if (names.has(name)) {

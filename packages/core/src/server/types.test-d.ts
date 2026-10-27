@@ -181,20 +181,32 @@ for (const installApp of [
   void installApp({
     appId: "app",
     scope: { name: "org", value: { orgId: "org_1" } },
+    subjectId: "user_1",
   });
   void installApp({
     appId: "app",
     scope: { name: "userOrg", value: { orgId: "org_1", userId: "user_1" } },
+    subjectId: "user_1",
   });
-  // @ts-expect-error installation requires a declared scope name
-  void installApp({ appId: "app", scope: { name: "missing", value: {} } });
+  void installApp({
+    appId: "app",
+    // @ts-expect-error installation requires a declared scope name
+    scope: { name: "missing", value: {} },
+    subjectId: "user_1",
+  });
   void installApp({
     appId: "app",
     // @ts-expect-error the named scope's value must include its required fields
     scope: { name: "userOrg", value: { orgId: "org_1" } },
+    subjectId: "user_1",
   });
   // @ts-expect-error installation requires an explicit scope
-  void installApp({ appId: "app" });
+  void installApp({ appId: "app", subjectId: "user_1" });
+  // @ts-expect-error installation requires an explicit subject
+  void installApp({
+    appId: "app",
+    scope: { name: "org", value: { orgId: "org_1" } },
+  });
 }
 
 createServer({

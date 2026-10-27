@@ -49,6 +49,7 @@ it("rejects invalid hook names and keeps hook builders immutable", () => {
     "_private",
     "a/b",
   ]) {
+    // @ts-expect-error Untyped callers can supply names that static hook maps reject.
     expect(() => defineContract({ hooks: { [name]: base } })).toThrow(
       "Invalid hook name"
     );
@@ -91,3 +92,18 @@ it.each([
     expect(serialized.views["/"]?.contextOptional).toBe(expected);
   }
 );
+
+it.each([
+  "patchsmith",
+  "patchsmith.onInstall",
+  "patchsmith.custom",
+  "patchsmith.nested.custom",
+])("reserves platform hook declarations at runtime: %s", (name) => {
+  const hooks = { [name]: hook() };
+  // @ts-expect-error Exercise runtime validation for untyped host declarations.
+  expect(() => defineContract({ hooks })).toThrow("namespace is reserved");
+  // @ts-expect-error Exercise runtime validation for untyped low-level schemas.
+  expect(() => createPatchsmithSchema({ components: {}, hooks })).toThrow(
+    "namespace is reserved"
+  );
+});

@@ -567,6 +567,8 @@ export type AppsInstallData = {
      * Immutable app username, unique within the project. Lowercase letters, digits, and single hyphens.
      */
     slug?: string;
+    subjectId: string;
+    toolUrl: string;
   };
   path?: never;
   query?: never;

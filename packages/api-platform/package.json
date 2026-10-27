@@ -54,6 +54,7 @@
   },
   "dependencies": {
     "@opentelemetry/api": "catalog:",
+    "@orpc/client": "catalog:",
     "@orpc/experimental-effect": "catalog:",
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",

@@ -52,6 +52,10 @@
       "types": "./dist/server/internal.d.ts",
       "import": "./dist/server-internal.js"
     },
+    "./hooks": {
+      "types": "./dist/hooks.d.ts",
+      "import": "./dist/hooks.js"
+    },
     "./protocol": {
       "types": "./dist/protocol.d.ts",
       "import": "./dist/protocol.js"

@@ -209,6 +209,12 @@ import { Button, Input, tools } from "./host";
 import { defineHook } from "patchsmith/server";
 defineHook({ hook: "sync", handler: ({ input }) => input.length });
 defineHook({ hook: "notify", handler: () => {} });
+defineHook({ hook: "patchsmith.onInstall", handler: ({ input, identity }) => {
+  const absent: undefined = input;
+  const installer: string = identity.subjectId;
+} });
+// @ts-expect-error Apps cannot invent hooks in the platform namespace.
+defineHook({ hook: "patchsmith.custom", handler: () => {} });
 // @ts-expect-error Hook output stays typed through generated module augmentation.
 defineHook({ hook: "sync", handler: () => "wrong" });
 // @ts-expect-error Hook names must be declared by the host.

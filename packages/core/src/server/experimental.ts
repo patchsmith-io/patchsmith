@@ -19,11 +19,17 @@ export const createExperimental = (options: {
   platform: Client;
   platformHeaders?: PatchsmithPlatformOptions["headers"];
   scopeSchemas: PatchsmithScopeSchemas;
+  toolUrl: string;
 }) => ({
   installApp: async <TScopes>(input: PatchsmithInstallAppOptions<TScopes>) => {
     if (!input.appId || input.appId.length > 256) {
       throw new TypeError("A deployed app ID is required.");
     }
+
+    const subjectId = v.parse(
+      v.pipe(v.string(), v.minLength(1), v.maxLength(256)),
+      input.subjectId
+    );
 
     const scope = v.parse(
       v.strictObject({ name: v.string(), value: v.unknown() }),
@@ -54,7 +60,12 @@ export const createExperimental = (options: {
     }
 
     const { data } = await appsInstall({
-      body: { app: platformAppSelector(input.appId), scope: validatedScope },
+      body: {
+        app: platformAppSelector(input.appId),
+        scope: validatedScope,
+        subjectId,
+        toolUrl: options.toolUrl,
+      },
       client: options.platform,
       headers,
       responseStyle: "fields",

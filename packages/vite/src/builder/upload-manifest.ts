@@ -1,3 +1,4 @@
+import { isPlatformHookName, isReservedHookName } from "@patchsmith/app/hooks";
 import {
   maxDeploymentBytes,
   maxStaticAssets,
@@ -77,6 +78,10 @@ export const patchsmithUploadManifestSchema = v.pipe(
             v.maxLength(255),
             v.regex(
               /^[a-zA-Z][a-zA-Z0-9_]{0,63}(?:\.[a-zA-Z][a-zA-Z0-9_]{0,63})*$/u
+            ),
+            v.check(
+              (name) => !isReservedHookName(name) || isPlatformHookName(name),
+              "Unknown platform hook"
             ),
             v.check(
               (name) =>

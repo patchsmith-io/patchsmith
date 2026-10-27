@@ -120,11 +120,7 @@ export const createServer = <const T extends PatchsmithContract>(
     experimental: {
       installApp: async (
         input: PatchsmithInstallAppOptions<ContractScopes<T>>
-      ) =>
-        await server.experimental.installApp({
-          appId: input.appId,
-          scope: input.scope,
-        }),
+      ) => await server.experimental.installApp({ ...input }),
     },
     handler: async (
       request: Request,

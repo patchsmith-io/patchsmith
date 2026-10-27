@@ -49,6 +49,7 @@ it("installs from the public server API with host credentials and validated scop
     patchsmith.experimental.installApp({
       appId: "published001",
       scope: { name: "org", value: { tenant: "  workspace  " } },
+      subjectId: "user_1",
     })
   ).resolves.toEqual(installed);
   expect(platformFetch).toHaveBeenCalledOnce();
@@ -64,15 +65,20 @@ it("installs from the public server API with host credentials and validated scop
   expect(await request.json()).toEqual({
     app: { shortId: "published001" },
     scope: installed.scope,
+    subjectId: "user_1",
+    toolUrl: "https://host.test/api/patchsmith/tools/execute",
   });
 
   await patchsmith.experimental.installApp({
     appId: "published001",
     scope: { name: "day", value: { at: new Date("2026-10-16T00:00:00.000Z") } },
+    subjectId: "user_2",
   });
   expect(await requests().at(-1)?.json()).toEqual({
     app: { shortId: "published001" },
     scope: { name: "day", value: { at: "2026-10-16T00:00:00.000Z" } },
+    subjectId: "user_2",
+    toolUrl: "https://host.test/api/patchsmith/tools/execute",
   });
 });
 
@@ -87,24 +93,28 @@ it("rejects invalid or undeclared scopes before sending a platform request", asy
     }),
     platformHeaders: { authorization: "Bearer secret" },
     scopeSchemas: contract.scopes,
+    toolUrl: "https://host.test/api/patchsmith/tools/execute",
   });
 
   await expect(
     experimental.installApp({
       appId: "app",
       scope: { name: "org", value: { tenant: "" } },
+      subjectId: "user_1",
     })
   ).rejects.toThrow("Standard Schema");
   await expect(
     experimental.installApp({
       appId: "app",
       scope: { name: "missing", value: { tenant: "workspace" } },
+      subjectId: "user_1",
     })
   ).rejects.toThrow("undeclared scope");
   await expect(
     experimental.installApp({
       appId: "",
       scope: { name: "org", value: { tenant: "workspace" } },
+      subjectId: "user_1",
     })
   ).rejects.toThrow("app ID");
   expect(fetch).not.toHaveBeenCalled();
@@ -129,6 +139,7 @@ it("requires host credentials and propagates platform installation errors", asyn
   const input = {
     appId: "app",
     scope: { name: "org" as const, value: { tenant: "workspace" } },
+    subjectId: "user_1",
   };
 
   await expect(server.experimental.installApp(input)).rejects.toThrow(
@@ -155,3 +166,26 @@ it("requires host credentials and propagates platform installation errors", asyn
     { code: "NOT_FOUND" }
   );
 });
+
+it.each(["", "u".repeat(257)])(
+  "rejects an invalid installer subject before sending a platform request: %j",
+  async (subjectId) => {
+    const platformFetch = vi.fn<typeof fetch>();
+
+    const server = createServer({
+      $internal: { platformFetch },
+      baseUrl: "https://host.test/api/patchsmith",
+      contract,
+      projectKey: "secret",
+    });
+
+    await expect(
+      server.experimental.installApp({
+        appId: "published001",
+        scope: { name: "org", value: { tenant: "workspace" } },
+        subjectId,
+      })
+    ).rejects.toThrow();
+    expect(platformFetch).not.toHaveBeenCalled();
+  }
+);

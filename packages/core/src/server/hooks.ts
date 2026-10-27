@@ -204,10 +204,9 @@ export const createHookCallers = <T extends ContractHooks, TScopes>(options: {
     /* oxlint-disable typescript/no-unsafe-type-assertion -- Each own contract hook key is mapped to a caller that validates that hook's schemas before returning its typed result. */
     Object.freeze(
       Object.fromEntries(
-        Object.entries(options.hooks).map(([name, definition]) => [
-          name,
-          caller(name, definition),
-        ])
+        Object.entries<ContractHook>(options.hooks).map(
+          ([name, definition]) => [name, caller(name, definition)]
+        )
       )
     ) as HookCallers<T, TScopes>
     /* oxlint-enable typescript/no-unsafe-type-assertion */

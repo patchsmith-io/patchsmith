@@ -178,3 +178,23 @@ it.each([".", "src"])(
   },
   30_000
 );
+
+it("discovers the installation hook and rejects unknown platform hook files", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "patchsmith-platform-hook-"));
+
+  try {
+    const directory = path.join(root, "src/hooks/patchsmith");
+    await mkdir(directory, { recursive: true });
+    await writeFile(path.join(directory, "onInstall.hook.ts"), "");
+    const discovered = await discoverHooks(root);
+    expect(discovered.map(({ name }) => name)).toEqual([
+      "patchsmith.onInstall",
+    ]);
+    await writeFile(path.join(directory, "custom.hook.ts"), "");
+    await expect(discoverHooks(root)).rejects.toThrow(
+      'Unknown platform hook "patchsmith.custom"'
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
