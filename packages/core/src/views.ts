@@ -114,7 +114,7 @@ export const composeViewContext = (
 };
 
 export interface PatchsmithApp {
-  /** Host-formatted slug; local apps include the configured localSlugPrefix. */
+  /** Host-formatted slug; local apps default to an "@" prefix. */
   slug?: string;
   isShared?: boolean;
   scope?: { name: string };

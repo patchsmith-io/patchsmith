@@ -1,17 +1,17 @@
 import { ORPCError } from "@orpc/server";
 
-const pathPrefixPattern = /^[A-Za-z0-9._~!$&'()*+,;=:@-]{1,32}$/u;
-const namespaceMarkerPattern = /[^A-Za-z0-9-]/u;
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
+
+export type LocalSlugPrefix = "@" | "~" | "_";
 
 export const defaultLocalSlugPrefix = "@";
 
-/** A prefix must fit one URL segment and distinguish local names from ordinary slugs. */
-export const validateLocalSlugPrefix = (prefix = defaultLocalSlugPrefix) => {
-  if (!pathPrefixPattern.test(prefix) || !namespaceMarkerPattern.test(prefix)) {
-    throw new TypeError(
-      "localSlugPrefix must contain 1–32 unencoded URL path characters, including a symbol other than a hyphen. Slashes, percent escapes, queries, and fragments are not allowed."
-    );
+/** Internal overrides are restricted to single-character namespace markers. */
+export const validateLocalSlugPrefix = (
+  prefix: string = defaultLocalSlugPrefix
+): LocalSlugPrefix => {
+  if (prefix !== "@" && prefix !== "~" && prefix !== "_") {
+    throw new TypeError('localSlugPrefix must be "@", "~", or "_".');
   }
 
   return prefix;
@@ -19,7 +19,7 @@ export const validateLocalSlugPrefix = (prefix = defaultLocalSlugPrefix) => {
 
 export const withAppSlug = <T extends { slug?: string; isShared?: boolean }>(
   app: T,
-  prefix = defaultLocalSlugPrefix
+  prefix: LocalSlugPrefix = defaultLocalSlugPrefix
 ): T => {
   if (app.slug === undefined || app.isShared !== false) {
     return app;
@@ -31,7 +31,7 @@ export const withAppSlug = <T extends { slug?: string; isShared?: boolean }>(
 /** The platform stores raw names; only the host interprets its configured prefix. */
 export const slugSelector = (
   value: string,
-  prefix = defaultLocalSlugPrefix
+  prefix: LocalSlugPrefix = defaultLocalSlugPrefix
 ) => {
   const local = value.startsWith(prefix);
   const slug = local ? value.slice(prefix.length) : value;

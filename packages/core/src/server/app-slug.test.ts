@@ -1,8 +1,22 @@
 import { describe, expect, it } from "vite-plus/test";
 import { z } from "zod";
 
+import { slugSelector, validateLocalSlugPrefix, withAppSlug } from "./app-slug";
+import type { LocalSlugPrefix } from "./app-slug";
 import { createPatchsmithClient } from "./client";
 import { createPatchsmithServer } from "./handler";
+
+const prefixes: LocalSlugPrefix[] = ["@", "~", "_"];
+
+const prefixChanges = prefixes.flatMap((previous) =>
+  prefixes.flatMap((current) => {
+    if (current === previous) {
+      return [];
+    }
+
+    return [{ current, previous }];
+  })
+);
 
 const scope = { name: "org", value: { customerId: "123" } };
 
@@ -25,7 +39,7 @@ const authenticateContext = () => ({
   subjectId: "viewer",
 });
 
-const fixture = (localSlugPrefix?: string, lookupStatus = 200) => {
+const fixture = (localSlugPrefix?: LocalSlugPrefix, lookupStatus = 200) => {
   const requests: Request[] = [];
 
   const server = createPatchsmithServer({
@@ -91,8 +105,66 @@ const fixture = (localSlugPrefix?: string, lookupStatus = 200) => {
   return { authenticate: authenticateContext, client, requests, server };
 };
 
+describe("local slug prefix helpers", () => {
+  it("uses @ when no override is supplied", () => {
+    expect(validateLocalSlugPrefix()).toBe("@");
+    expect(withAppSlug(localApp)).toEqual({ ...localApp, slug: "@stripe" });
+    expect(slugSelector("@stripe")).toEqual({
+      isShared: false,
+      slug: "stripe",
+    });
+    expect(slugSelector("stripe")).toEqual({ isShared: true, slug: "stripe" });
+  });
+
+  it.each(prefixes)("round-trips local slugs with %s", (prefix) => {
+    expect(validateLocalSlugPrefix(prefix)).toBe(prefix);
+    const formatted = withAppSlug(localApp, prefix);
+
+    expect(formatted.slug).toBe(`${prefix}stripe`);
+    expect(slugSelector(formatted.slug, prefix)).toEqual({
+      isShared: false,
+      slug: "stripe",
+    });
+    expect(withAppSlug(sharedApp, prefix)).toBe(sharedApp);
+    expect(slugSelector(sharedApp.slug, prefix)).toEqual({
+      isShared: true,
+      slug: "stripe",
+    });
+    expect(localApp.slug).toBe("stripe");
+  });
+
+  it.each([
+    "",
+    "local",
+    "local-",
+    "custom:",
+    "local@",
+    "@local",
+    "@@",
+    "@~",
+    "__",
+    "~~",
+    ".",
+    ":",
+    "!",
+    "+",
+    "/",
+    "@/",
+    "?",
+    "#",
+    "%40",
+    "has space",
+    "é",
+    "@".repeat(33),
+  ])("rejects unsupported prefix %j", (prefix) => {
+    expect(() => validateLocalSlugPrefix(prefix)).toThrow(
+      'localSlugPrefix must be "@", "~", or "_".'
+    );
+  });
+});
+
 describe("host app slug namespaces", () => {
-  it.each(["@", "~", "custom:", "local@", "_"])(
+  it.each(prefixes)(
     "formats and resolves local names with prefix %s without changing stored names",
     async (prefix) => {
       const { server, requests, client, authenticate } = fixture(prefix);
@@ -148,32 +220,40 @@ describe("host app slug namespaces", () => {
     }
   );
 
-  it("defaults to @ and formats create, list, update and deployment responses consistently", async () => {
-    const { client, server } = fixture();
-    await expect(
-      client.apps.create({ description: null, name: "Stripe", slug: "stripe" })
-    ).resolves.toMatchObject({ slug: "@stripe" });
-    await expect(client.apps.list()).resolves.toMatchObject({
-      items: [sharedApp, { ...localApp, slug: "@stripe" }],
-    });
-    await expect(
-      client.apps.update({
-        appId: localApp.id,
-        description: null,
-        name: "Renamed",
-      })
-    ).resolves.toMatchObject({ slug: "@stripe" });
-    await expect(
-      client.apps.deploy({ appId: localApp.id, deploymentId: "deployment" })
-    ).resolves.toMatchObject({ slug: "@stripe" });
+  it.each([undefined, ...prefixes])(
+    "formats all app responses with prefix %s (default @)",
+    async (configuredPrefix) => {
+      const prefix = configuredPrefix ?? "@";
+      const { client, server } = fixture(configuredPrefix);
+      await expect(
+        client.apps.create({
+          description: null,
+          name: "Stripe",
+          slug: "stripe",
+        })
+      ).resolves.toMatchObject({ slug: `${prefix}stripe` });
+      await expect(client.apps.list()).resolves.toMatchObject({
+        items: [sharedApp, { ...localApp, slug: `${prefix}stripe` }],
+      });
+      await expect(
+        client.apps.update({
+          appId: localApp.id,
+          description: null,
+          name: "Renamed",
+        })
+      ).resolves.toMatchObject({ slug: `${prefix}stripe` });
+      await expect(
+        client.apps.deploy({ appId: localApp.id, deploymentId: "deployment" })
+      ).resolves.toMatchObject({ slug: `${prefix}stripe` });
 
-    await expect(
-      server.experimental.installApp({
-        appId: "source",
-        scope: { name: "org", value: scope.value },
-      })
-    ).resolves.toMatchObject({ slug: "@stripe" });
-  });
+      await expect(
+        server.experimental.installApp({
+          appId: "source",
+          scope: { name: "org", value: scope.value },
+        })
+      ).resolves.toMatchObject({ slug: `${prefix}stripe` });
+    }
+  );
 
   it.each([404, 409])(
     "preserves upstream lookup status %s for browser and RPC callers",
@@ -194,37 +274,50 @@ describe("host app slug namespaces", () => {
     }
   );
 
-  it("changes presented names when reconfigured and rejects obsolete prefixes and unauthorized scope names", async () => {
-    const { client, requests } = fixture("custom:");
-    await expect(
-      client.apps.get({ slug: "custom:stripe" })
-    ).resolves.toMatchObject({ slug: "custom:stripe" });
-    await expect(client.apps.get({ slug: "@stripe" })).rejects.toMatchObject({
-      code: "BAD_REQUEST",
-    });
-    await expect(
-      client.apps.get({ scopes: ["other"], slug: "custom:stripe" })
-    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
-    await expect(
-      client.apps.get({ slug: "custom-stripe" })
-    ).resolves.toMatchObject(sharedApp);
-    expect(
-      requests.filter((request) => request.url.endsWith("/apps/lookup"))
-    ).toHaveLength(2);
-  });
+  it.each(prefixChanges)(
+    "changes presented names from $previous to $current and rejects the previous prefix",
+    async ({ current, previous }) => {
+      const original = fixture(previous);
 
-  it.each([
-    "",
-    "local",
-    "local-",
-    "/",
-    "@/",
-    "?",
-    "#",
-    "%40",
-    "has space",
-    "@".repeat(33),
-  ])("rejects ambiguous or invalid URL prefixes: %j", (prefix) => {
-    expect(() => fixture(prefix)).toThrow("localSlugPrefix");
-  });
+      await expect(
+        original.client.apps.get({ slug: `${previous}stripe` })
+      ).resolves.toMatchObject({ id: localApp.id, slug: `${previous}stripe` });
+
+      const { client, requests, server, authenticate } = fixture(current);
+      await expect(client.apps.list()).resolves.toMatchObject({
+        items: [sharedApp, { ...localApp, slug: `${current}stripe` }],
+      });
+      await expect(
+        client.apps.get({ slug: `${current}stripe` })
+      ).resolves.toMatchObject({ id: localApp.id, slug: `${current}stripe` });
+      await expect(
+        client.apps.get({ slug: `${previous}stripe` })
+      ).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+      });
+
+      const obsoleteUrl = new URL(
+        "https://host.test/api/patchsmith/apps/lookup"
+      );
+
+      obsoleteUrl.searchParams.set("slug", `${previous}stripe`);
+
+      const obsoleteResponse = await server.handler(new Request(obsoleteUrl), {
+        authenticate,
+      });
+
+      expect(obsoleteResponse.status).toBe(400);
+
+      await expect(
+        client.apps.get({ scopes: ["other"], slug: `${current}stripe` })
+      ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+      await expect(client.apps.get({ slug: "stripe" })).resolves.toMatchObject(
+        sharedApp
+      );
+      expect(
+        requests.filter((request) => request.url.endsWith("/apps/lookup"))
+      ).toHaveLength(2);
+      expect(localApp.slug).toBe("stripe");
+    }
+  );
 });

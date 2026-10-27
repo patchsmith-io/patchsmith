@@ -18,6 +18,7 @@ import type {
 } from "#schema/index";
 import type { EmptyDefinitionMap } from "#schema/shared";
 
+import type { LocalSlugPrefix } from "./app-slug";
 import type { PatchsmithRouter } from "./router";
 
 export type { AgentModel } from "@patchsmith/client-platform/agent";
@@ -88,10 +89,10 @@ export interface PatchsmithServerBaseOptions<
    */
   $internal?: {
     /**
-     * Local slug prefix. Defaults to "@". Must fit one URL segment and include
-     * a symbol ordinary slugs cannot contain. This override is experimental.
+     * Internal testing override for local slug formatting. Defaults to "@".
+     * @internal
      */
-    localSlugPrefix?: string;
+    localSlugPrefix?: LocalSlugPrefix;
     toolExecutor?: (
       request: Request,
       input: ToolExecutionInput

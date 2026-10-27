@@ -3,6 +3,7 @@ import type { Client as PlatformClient } from "@patchsmith/client-platform/clien
 
 import type { PatchsmithSchema, SchemaSerializer } from "#schema/index";
 
+import type { LocalSlugPrefix } from "./app-slug";
 import type { PatchsmithScopeSchemas } from "./scope";
 import type {
   PatchsmithPlatformOptions,
@@ -20,7 +21,7 @@ export interface PatchsmithRuntimeContext {
 }
 
 export interface Context {
-  localSlugPrefix?: string;
+  localSlugPrefix?: LocalSlugPrefix;
   publicOrigin: string;
   toolUrl: string;
   schemaSerializer?: SchemaSerializer;
@@ -49,7 +50,7 @@ export interface Context {
 }
 
 export interface CreateContextOptions {
-  localSlugPrefix?: string;
+  localSlugPrefix?: LocalSlugPrefix;
   toolExecutor?: (
     request: Request,
     input: ToolExecutionInput

@@ -11,6 +11,7 @@ import type {
 } from "#schema/hooks";
 import { validateToolValue } from "#schema/tools";
 
+import type { LocalSlugPrefix } from "./app-slug";
 import { listApps } from "./list-apps";
 import { platformAppSelector } from "./platform-app-selector";
 import { validatePatchsmithScopes } from "./scope";
@@ -53,7 +54,7 @@ const invocation = reference<
 >("_patchsmith.hooks.invoke", "action");
 
 export const createHookCallers = <T extends ContractHooks, TScopes>(options: {
-  localSlugPrefix?: string;
+  localSlugPrefix?: LocalSlugPrefix;
   hooks: T;
   scopeSchemas: PatchsmithScopeSchemas;
   platform: Client;
