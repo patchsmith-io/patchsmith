@@ -1,0 +1,27 @@
+.changeset/internal-app-sharing-config.md
+  s_d215505724ce59::t_123bdef13db968 1-6
+packages/cli/src/deploy-name.test.ts
+  s_d215505724ce59::t_5d6d73d1526161 10,42,47,74-76,78,91,97-104,168,218-219,223,262-319,379,385-386
+packages/cli/src/deploy.ts
+  s_d215505724ce59::t_09359210afc160 110,334,487-496,499,614-630
+packages/vite/src/config/config.ts
+  s_d215505724ce59::t_582cbc3035a75b 17-21,49-62
+packages/vite/src/config/loader.test.ts
+  s_d215505724ce59::t_16059dd9bd8609 22-67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8f4c335652dbecc0f294f3dfc9804c3ee2377b28",
+  "prompts": {},
+  "sessions": {
+    "s_d215505724ce59": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17cf5-9b28-7b13-99df-e8fc30cd0a44",
+        "model": "unknown"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
