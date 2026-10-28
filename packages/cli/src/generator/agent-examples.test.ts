@@ -10,6 +10,7 @@ import { primitives } from "@patchsmith/core/primitives/zod";
 import { createPatchsmithSchema } from "@patchsmith/core/schema";
 import {
   discoverFunctionFiles,
+  discoverHooks,
   generateFunctionTypes,
 } from "@patchsmith/vite/builder";
 import { build } from "vite";
@@ -74,6 +75,29 @@ const schema: PatchsmithSchemaFile = {
         type: "object",
       },
     },
+  },
+  hooks: {
+    contactCreated: {
+      input: {
+        properties: {
+          contact: {
+            properties: { name: { type: "string" } },
+            required: ["name"],
+            type: "object",
+          },
+        },
+        required: ["contact"],
+        type: "object",
+      },
+    },
+    notify: {},
+    "records.created": {
+      input: { type: "string" },
+      inputOptional: true,
+      output: { type: "boolean" },
+      outputOptional: true,
+    },
+    sync: { input: { type: "string" }, output: { type: "number" } },
   },
   slots: {
     panel: { views: ["/", "/records/detail"] },
@@ -145,6 +169,7 @@ it("typechecks and bundles examples with scaffold imports and the public SDK", a
       [
         "../../../agent-fx/src/skills/database.md",
         "../../../agent-fx/src/skills/functions.md",
+        "../../../agent-fx/src/skills/hooks.md",
         "../../../agent-fx/src/skills/frontend.md",
         "../../../agent-fx/src/skills/views.md",
         "../../../agent/src/skills/references/drafts.md",
@@ -232,6 +257,13 @@ it("typechecks and bundles examples with scaffold imports and the public SDK", a
       })
     );
     await generateFunctionTypes(root, await discoverFunctionFiles(root));
+    expect(await discoverHooks(root)).toEqual([
+      {
+        filename: path.join(root, "hooks/contactCreated.hook.ts"),
+        name: "contactCreated",
+      },
+    ]);
+
     const require = createRequire(import.meta.url);
     const preact = path.dirname(require.resolve("preact/package.json"));
     const appServer = import.meta.resolve("@patchsmith/app/server");

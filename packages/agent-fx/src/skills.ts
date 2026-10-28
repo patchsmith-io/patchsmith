@@ -3,6 +3,7 @@ import type { HarnessAgentSkill } from "@ai-sdk/harness/agent";
 import database from "./skills/database.md?raw";
 import frontend from "./skills/frontend.md?raw";
 import functions from "./skills/functions.md?raw";
+import hooks from "./skills/hooks.md?raw";
 import workflowExamples from "./skills/references/workflows.md?raw";
 import views from "./skills/views.md?raw";
 
@@ -32,6 +33,13 @@ const guides = [
       "Functions: queries, mutations, external actions, or reactive client hooks.",
     filename: "functions-guide.md",
     name: "patchsmith-functions",
+  },
+  {
+    content: withReferencePaths(hooks),
+    description:
+      "Host hooks: implement backend event handlers and automations triggered by the product, including while app UI is closed.",
+    filename: "hooks-guide.md",
+    name: "patchsmith-hooks",
   },
   {
     content: withReferencePaths(database),

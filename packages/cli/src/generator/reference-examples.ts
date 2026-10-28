@@ -138,6 +138,18 @@ export const toolExample = (segments: string[], hasInput: boolean): string => {
   ].join("\n");
 };
 
+/** Accept the implementation so required hook outputs stay typed without inventing data. */
+export const hookExample = (name: string): string =>
+  [
+    "```ts",
+    'import type {} from "#patchsmith";',
+    'import { defineHook } from "patchsmith/server";',
+    "",
+    `export const implement = (handler: Parameters<typeof defineHook<${JSON.stringify(name)}>>[0]["handler"]) =>`,
+    `  defineHook({ hook: ${JSON.stringify(name)}, handler });`,
+    "```",
+  ].join("\n");
+
 export const viewExample = (
   slot: string,
   view: string,

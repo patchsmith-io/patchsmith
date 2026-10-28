@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import {
   componentExample,
+  hookExample,
   stylingExample,
   toolExample,
   valueCallbackExample,
@@ -366,6 +367,61 @@ const renderViewsReference = (
   return `${views.join("\n").trimEnd()}\n`;
 };
 
+const renderHookReferences = (
+  schema: PatchsmithSchemaFile,
+  files: GeneratedFiles,
+  bindingsPath: string
+): string => {
+  const lines = [
+    "# Host hooks",
+    referenceHeader,
+    "Hooks let the host invoke app backend logic, including while app UI is closed. They are separate from UI callbacks and client hooks. Host tools run in the opposite direction: the app calls the host.",
+    "",
+  ];
+
+  const hooks = Object.entries(schema.hooks ?? {});
+
+  if (hooks.length === 0) {
+    lines.push("This host contract declares no hooks.", "");
+  }
+
+  for (const [name, hook] of hooks) {
+    const filename = `hooks/${encodeURIComponent(name)}.md`;
+    const entry = `hooks/${name.split(".").join("/")}.hook.ts`;
+    lines.push(`- [${tableCell(name)}](${filename})`);
+    files[filename] = [
+      `# ${tableCell(name)}`,
+      referenceHeader,
+      `Register in \`${entry}\` under the app source root (optionally \`src/\`). Use the exact hook name \`${name}\`.`,
+      `${hook.inputOptional === true ? "Optional input" : "Input"}: ${summarize(hook.input)}.`,
+      hook.output === undefined
+        ? "Output: none; finish without returning a value."
+        : `${hook.outputOptional === true ? "Optional output" : "Required output"}: ${summarize(hook.output)}.`,
+      "",
+      "Handlers receive input, queries, mutations, actions, server tools, identity, scope, requestId, and signal. Use queries/mutations for installation data; no direct db handle is available.",
+      "",
+      "## Registration",
+      "",
+      "This helper keeps your implementation's input and output typed. In the hook entry file, default-export implement(yourHandler); yourHandler must perform the requested work and return the declared output, if any.",
+      "",
+      hookExample(name),
+      "",
+      "The builder discovers the hook entry automatically. Publish the app so its selected deployment advertises this hook to the host. The host controls invocation and retries; a hook does not create a frontend subscription or durable job.",
+      "",
+      `Exact contract: [generated bindings](../${bindingsPath}); search for \`PatchsmithHooks\` and ${JSON.stringify(name)}.`,
+      "",
+    ].join("\n");
+  }
+
+  lines.push(
+    "",
+    `Exact contracts: [generated bindings](${bindingsPath}); search for \`PatchsmithHooks\`.`,
+    ""
+  );
+
+  return lines.join("\n");
+};
+
 export const renderReferences = (
   schema: PatchsmithSchemaFile,
   components: ReferenceComponent[],
@@ -381,6 +437,7 @@ export const renderReferences = (
     "",
     "- [Slots and context](views.md): choose a supported surface and read its context.",
     "- [Host tools](tools.md): inputs, results, and client/server execution.",
+    "- [Host hooks](hooks.md): backend event handlers the host can invoke.",
     "- [Styling](styling.md): token and responsive/state lookup.",
     `- App functions: \`api\` references routers discovered in \`functions/**/*.router.ts\` under the app source root (optionally \`src/\`); search the [generated bindings](${bindingsPath}) for \`AppServerFunctions\` and inspect your own function source when needed.`,
     "",
@@ -401,6 +458,7 @@ export const renderReferences = (
 
   files["index.md"] = `${index.join("\n")}\n`;
   files["views.md"] = renderViewsReference(schema, bindingsPath);
+  files["hooks.md"] = renderHookReferences(schema, files, bindingsPath);
   files["tools.md"] = [
     "# Host tools",
     referenceHeader,

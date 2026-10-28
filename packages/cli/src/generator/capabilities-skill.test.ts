@@ -45,7 +45,26 @@ const schema: PatchsmithSchemaFile = {
     },
   },
   hooks: {
+    contactCreated: {
+      input: {
+        properties: {
+          contact: {
+            properties: { id: { type: "string" }, name: { type: "string" } },
+            required: ["id", "name"],
+            type: "object",
+          },
+        },
+        required: ["contact"],
+        type: "object",
+      },
+    },
     notify: {},
+    "records.created": {
+      input: { type: "string" },
+      inputOptional: true,
+      output: { type: "boolean" },
+      outputOptional: true,
+    },
     sync: { input: { type: "string" }, output: { type: "number" } },
   },
   slots: {
@@ -105,7 +124,7 @@ it("generates a discoverable skill with working reference links, including custo
       );
       expect(skill.length).toBeLessThan(2200);
       const links = [...skill.matchAll(markdownLink)];
-      expect(links).toHaveLength(4);
+      expect(links).toHaveLength(5);
       // oxlint-disable-next-line no-await-in-loop -- Check this generation before the next generation replaces its references.
       await Promise.all(
         links.map(async (link) => {
@@ -327,6 +346,57 @@ it("carries component and slot descriptions from a host contract into skill refe
   expect(files["components/Input.md"]).not.toContain("undefined");
 });
 
+it("exposes every host hook with its payload, output and registration path", () => {
+  const files = renderGeneratedReferences(schema, {
+    bindingsPath: "../../../src/patchsmith.gen.ts",
+  });
+
+  const hookIndex = files["hooks.md"] ?? "";
+
+  const targets = [...hookIndex.matchAll(markdownLink)].flatMap((link) => {
+    const target = link.groups?.target;
+
+    return target?.startsWith("hooks/") === true ? [target] : [];
+  });
+
+  expect(targets).toHaveLength(Object.keys(schema.hooks ?? {}).length);
+
+  for (const target of targets) {
+    expect(files[target]).toBeDefined();
+  }
+
+  expect(files["index.md"]).toContain("](hooks.md)");
+  expect(files["hooks/contactCreated.md"]).toContain("contact (required)");
+  expect(files["hooks/contactCreated.md"]).toContain("id (required): string");
+  expect(files["hooks/contactCreated.md"]).toContain(
+    "hooks/contactCreated.hook.ts"
+  );
+  expect(files["hooks/notify.md"]).toContain("Input: no payload");
+  expect(files["hooks/notify.md"]).toContain("Output: none");
+  expect(files["hooks/sync.md"]).toContain("Input: string");
+  expect(files["hooks/sync.md"]).toContain("Required output: number");
+  expect(files["hooks/records.created.md"]).toContain("Optional input: string");
+  expect(files["hooks/records.created.md"]).toContain(
+    "Optional output: boolean"
+  );
+  expect(files["hooks/records.created.md"]).toContain(
+    "hooks/records/created.hook.ts"
+  );
+});
+
+it("distinguishes a host without hooks from a host with unimplemented hooks", () => {
+  for (const contract of [{}, { hooks: {} }]) {
+    const files = renderGeneratedReferences(contract, {
+      bindingsPath: "../../../patchsmith.gen.ts",
+    });
+
+    expect(files["hooks.md"]).toContain("declares no hooks");
+    expect(
+      Object.keys(files).filter((filename) => filename.startsWith("hooks/"))
+    ).toEqual([]);
+  }
+});
+
 it("keeps responsive primitive references small without dropping the host's keys or tokens", () => {
   const contract = createPatchsmithSchema({
     components: primitives({
@@ -375,9 +445,15 @@ it("removes obsolete references on regeneration and preserves unrelated source a
     expect(await readFile(extensionless, "utf-8")).toContain(
       "export const Button"
     );
-    await generateTypes({ cwd: root, schema: { ...schema, components: {} } });
+    await generateTypes({
+      cwd: root,
+      schema: { ...schema, components: {}, hooks: {} },
+    });
     await expect(
       readFile(path.join(skillDirectory, "references/components/Button.md"))
+    ).rejects.toThrow();
+    await expect(
+      readFile(path.join(skillDirectory, "references/hooks/contactCreated.md"))
     ).rejects.toThrow();
     expect(
       await readFile(path.join(root, "patchsmith.gen.ts"), "utf-8")
