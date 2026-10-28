@@ -1,5 +1,15 @@
 # @patchsmith/cli
 
+## 0.1.0-beta.72
+
+### Patch Changes
+
+- 7b65025: Generate a host-hooks capability index and per-hook input, output, and registration references so app-building agents can discover and implement host-triggered automations.
+- 3de8902: Scaffold an empty lib folder for shared app code, including bare apps and apps using src/.
+- @patchsmith/client-platform@0.1.0-beta.72
+  - @patchsmith/core@0.1.0-beta.72
+  - @patchsmith/vite@0.1.0-beta.72
+
 ## 0.1.0-beta.71
 
 ### Patch Changes

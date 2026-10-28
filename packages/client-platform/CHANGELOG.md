@@ -1,5 +1,9 @@
 # @patchsmith/client-platform
 
+## 0.1.0-beta.72
+
+No changes in this release.
+
 ## 0.1.0-beta.71
 
 ### Patch Changes
