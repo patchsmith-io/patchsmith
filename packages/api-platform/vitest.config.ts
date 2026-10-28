@@ -1,5 +1,8 @@
 import { defineConfig } from "vite-plus";
 
+// oxlint-disable-next-line no-restricted-properties -- Test runner configuration reads CI before application environment validation.
+const isCI = process.env.CI === "true" || process.env.CI === "1";
+
 export default defineConfig({
   test: {
     env: {
@@ -12,7 +15,8 @@ export default defineConfig({
       NODE_ENV: "test",
     },
     environment: "node",
-    fileParallelism: false,
+    // Keep database-heavy workers serial only on smaller CI runners.
+    maxWorkers: isCI ? 1 : 4,
     pool: "forks",
   },
 });

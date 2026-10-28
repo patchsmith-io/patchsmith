@@ -4,6 +4,9 @@ import { defineConfig } from "vite-plus";
 
 import packageJson from "./package.json" with { type: "json" };
 
+// oxlint-disable-next-line no-restricted-properties -- Test runner configuration reads CI before application environment validation.
+const isCI = process.env.CI === "true" || process.env.CI === "1";
+
 export default defineConfig({
   pack: {
     clean: true,
@@ -32,6 +35,6 @@ export default defineConfig({
   },
   test: {
     // PGlite startup competes with imports in the other files and package tasks.
-    maxWorkers: 2,
+    maxWorkers: isCI ? 2 : 4,
   },
 });

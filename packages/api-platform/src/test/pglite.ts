@@ -10,7 +10,7 @@ const { resolve } = nodePath;
 const platformDir = import.meta.dirname;
 const migrationsDir = resolve(platformDir, "../../../db/src/migrations");
 
-export const createTestDb = async () => {
+const createMigratedSnapshot = async () => {
   const client = new PGlite();
 
   const db = drizzle({
@@ -18,7 +18,23 @@ export const createTestDb = async () => {
     relations,
   });
 
-  await migrate(db, { migrationsFolder: migrationsDir });
+  try {
+    await migrate(db, { migrationsFolder: migrationsDir });
+
+    return await client.dumpDataDir("none");
+  } finally {
+    await client.close();
+  }
+};
+
+// Cache only the migrated template. Each test owns and closes a separate database.
+let snapshot: ReturnType<typeof createMigratedSnapshot> | undefined;
+
+export const createTestDb = async () => {
+  snapshot ??= createMigratedSnapshot();
+  const client = new PGlite({ loadDataDir: await snapshot });
+  await client.waitReady;
+  const db = drizzle({ client, relations });
 
   return { client, db };
 };

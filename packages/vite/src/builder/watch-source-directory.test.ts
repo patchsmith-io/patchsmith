@@ -1,4 +1,5 @@
-import { watch } from "node:fs";
+import { statSync } from "node:fs";
+import type { WatchListener } from "node:fs";
 import { mkdir, mkdtemp, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -13,14 +14,53 @@ interface Subscription {
   directory: string;
   recursive: boolean;
   closed: boolean;
+  listener: WatchListener<string>;
 }
+
+// Exercise rebinding deterministically; builder integration tests cover native delivery.
+const createWatchFixture = () => {
+  const subscriptions: Subscription[] = [];
+
+  const watch = (
+    directory: string,
+    options: { recursive: boolean },
+    listener: WatchListener<string>
+  ) => {
+    statSync(directory);
+
+    const subscription = {
+      closed: false,
+      directory,
+      listener,
+      recursive: options.recursive,
+    };
+
+    subscriptions.push(subscription);
+
+    return {
+      close: () => {
+        subscription.closed = true;
+      },
+    };
+  };
+
+  const emit = (directory: string, filename: string) => {
+    for (const subscription of subscriptions.filter(
+      (entry) => !entry.closed && entry.directory === directory
+    )) {
+      subscription.listener("rename", filename);
+    }
+  };
+
+  return { emit, subscriptions, watch };
+};
 
 it.each(["slots", "functions", "hooks"] as const)(
   "scopes recursive %s watching and follows directory creation and recreation",
   async (name) => {
     const root = await mkdtemp(path.join(tmpdir(), "patchsmith-scoped-watch-"));
     const directory = path.join(root, name);
-    const subscriptions: Subscription[] = [];
+    const { subscriptions, watch, emit } = createWatchFixture();
     let changes = 0;
 
     const watcher = watchSourceDirectory(
@@ -29,24 +69,7 @@ it.each(["slots", "functions", "hooks"] as const)(
       () => {
         changes += 1;
       },
-      (target, options, listener) => {
-        const native = watch(target, options, listener);
-
-        const subscription = {
-          closed: false,
-          directory: target,
-          recursive: options.recursive,
-        };
-
-        subscriptions.push(subscription);
-
-        return {
-          close: () => {
-            subscription.closed = true;
-            native.close();
-          },
-        };
-      }
+      watch
     );
 
     const activeRecursive = () =>
@@ -60,21 +83,29 @@ it.each(["slots", "functions", "hooks"] as const)(
 
     try {
       expect(activeRecursive()).toEqual([]);
-      expect(subscriptions).toEqual([
-        { closed: false, directory: root, recursive: false },
-      ]);
+      expect(subscriptions).toHaveLength(1);
+      expect(subscriptions[0]).toMatchObject({
+        closed: false,
+        directory: root,
+        recursive: false,
+      });
       await mkdir(path.join(directory, "nested"), { recursive: true });
-      await expect.poll(activeRecursive).toEqual([directory]);
+      emit(root, name);
+      expect(activeRecursive()).toEqual([directory]);
       const before = changes;
       await writeFile(path.join(directory, "nested/first.ts"), "export {};");
-      await expect.poll(() => changes).toBeGreaterThan(before);
+      emit(directory, "nested/first.ts");
+      expect(changes).toBeGreaterThan(before);
       await rm(directory, { recursive: true });
-      await expect.poll(activeRecursive).toEqual([]);
+      emit(root, name);
+      expect(activeRecursive()).toEqual([]);
       await mkdir(path.join(directory, "nested"), { recursive: true });
-      await expect.poll(activeRecursive).toEqual([directory]);
+      emit(root, name);
+      expect(activeRecursive()).toEqual([directory]);
       const afterRecreation = changes;
       await writeFile(path.join(directory, "nested/second.ts"), "export {};");
-      await expect.poll(() => changes).toBeGreaterThan(afterRecreation);
+      emit(directory, "nested/second.ts");
+      expect(changes).toBeGreaterThan(afterRecreation);
       expect(
         subscriptions.every(
           (subscription) =>
@@ -95,7 +126,7 @@ it.each(["slots", "functions", "hooks"] as const)(
 it("starts scoped watching immediately for an existing directory", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "patchsmith-scoped-watch-"));
   await mkdir(path.join(root, "slots"));
-  const subscriptions: { directory: string; recursive: boolean }[] = [];
+  const { subscriptions, watch } = createWatchFixture();
 
   const watcher = watchSourceDirectory(
     root,
@@ -103,16 +134,16 @@ it("starts scoped watching immediately for an existing directory", async () => {
     () => {
       /* Events are checked by the lifecycle tests. */
     },
-    (directory, options, listener) => {
-      const native = watch(directory, options, listener);
-      subscriptions.push({ directory, recursive: options.recursive });
-
-      return native;
-    }
+    watch
   );
 
   try {
-    expect(subscriptions).toEqual([
+    expect(
+      subscriptions.map(({ directory, recursive }) => ({
+        directory,
+        recursive,
+      }))
+    ).toEqual([
       { directory: root, recursive: false },
       { directory: path.join(root, "slots"), recursive: true },
     ]);
@@ -140,7 +171,7 @@ it.each(
       initial === "." ? path.join(nestedRoot, name) : path.join(root, name);
 
     await mkdir(path.join(first, "nested"), { recursive: true });
-    const subscriptions: Subscription[] = [];
+    const { subscriptions, watch, emit } = createWatchFixture();
     let changes = 0;
 
     const watcher = watchSourceDirectory(
@@ -149,24 +180,7 @@ it.each(
       () => {
         changes += 1;
       },
-      (directory, options, listener) => {
-        const native = watch(directory, options, listener);
-
-        const subscription = {
-          closed: false,
-          directory,
-          recursive: options.recursive,
-        };
-
-        subscriptions.push(subscription);
-
-        return {
-          close: () => {
-            subscription.closed = true;
-            native.close();
-          },
-        };
-      }
+      watch
     );
 
     const activeRecursive = () =>
@@ -182,29 +196,34 @@ it.each(
       expect(activeRecursive()).toEqual([first]);
       await mkdir(path.dirname(second), { recursive: true });
       await rename(first, second);
-      await expect.poll(activeRecursive).toEqual([second]);
+      emit(root, "src");
+      emit(root, name);
+      expect(activeRecursive()).toEqual([second]);
       const afterMove = changes;
       await writeFile(path.join(second, "nested/moved.ts"), "export {};");
-      await expect.poll(() => changes).toBeGreaterThan(afterMove);
+      emit(second, "nested/moved.ts");
+      expect(changes).toBeGreaterThan(afterMove);
 
       if (initial === "src") {
         await rm(nestedRoot, { recursive: true });
-        await expect
-          .poll(() =>
-            subscriptions.some(
-              (subscription) =>
-                subscription.directory === nestedRoot && !subscription.closed
-            )
+        emit(root, "src");
+        expect(
+          subscriptions.some(
+            (subscription) =>
+              subscription.directory === nestedRoot && !subscription.closed
           )
-          .toBe(false);
+        ).toBe(false);
       }
 
       await mkdir(path.dirname(first), { recursive: true });
       await rename(second, first);
-      await expect.poll(activeRecursive).toEqual([first]);
+      emit(root, "src");
+      emit(root, name);
+      expect(activeRecursive()).toEqual([first]);
       const afterReturn = changes;
       await writeFile(path.join(first, "nested/returned.ts"), "export {};");
-      await expect.poll(() => changes).toBeGreaterThan(afterReturn);
+      emit(first, "nested/returned.ts");
+      expect(changes).toBeGreaterThan(afterReturn);
       expect(
         subscriptions.every(
           (subscription) =>
@@ -227,23 +246,31 @@ it.each(
 it("reports mixed layouts and recovers when the source tree becomes valid", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "patchsmith-watch-mixed-"));
   await mkdir(path.join(root, "slots"));
+  const { watch, emit } = createWatchFixture();
   let resolved = root;
   let errorMessage = "";
 
-  const watcher = watchSourceDirectory(root, "slots", () => {
-    try {
-      resolved = resolveAppSourceRoot(root);
-      errorMessage = "";
-    } catch (error) {
-      errorMessage = error instanceof Error ? error.message : String(error);
-    }
-  });
+  const watcher = watchSourceDirectory(
+    root,
+    "slots",
+    () => {
+      try {
+        resolved = resolveAppSourceRoot(root);
+        errorMessage = "";
+      } catch (error) {
+        errorMessage = error instanceof Error ? error.message : String(error);
+      }
+    },
+    watch
+  );
 
   try {
     await mkdir(path.join(root, "src/slots"), { recursive: true });
-    await expect.poll(() => errorMessage).toContain("not both");
+    emit(root, "src");
+    expect(errorMessage).toContain("not both");
     await rm(path.join(root, "slots"), { recursive: true });
-    await expect.poll(() => resolved).toBe(path.join(root, "src"));
+    emit(root, "slots");
+    expect(resolved).toBe(path.join(root, "src"));
     expect(errorMessage).toBe("");
   } finally {
     watcher.close();
