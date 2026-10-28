@@ -1,0 +1,39 @@
+.changeset/dotted-hook-path-alternatives.md
+  s_a39e9b7595fc7b::t_7fa41d02e42ab3 1-5
+packages/agent/vite.config.ts
+  s_a39e9b7595fc7b::t_408cd9181381fd 7-9,38
+packages/api-platform/src/test/pglite.test.ts
+  s_a39e9b7595fc7b::t_75c04a0aeda2f6 1-33
+packages/api-platform/src/test/pglite.ts
+  s_a39e9b7595fc7b::t_251b0cf55d710e 13,21-37
+packages/api-platform/vitest.config.ts
+  s_a39e9b7595fc7b::t_eae894fafdeec3 3-5,18-19
+packages/api/src/test/pglite.test.ts
+  s_a39e9b7595fc7b::t_b96a724554e764 1-33
+packages/api/src/test/pglite.ts
+  s_a39e9b7595fc7b::t_794b5f2c54af6e 13,21-37
+packages/api/vitest.config.ts
+  s_a39e9b7595fc7b::t_f4cd7b8f87b15f 3-5,18-19
+packages/cli/src/generator/capabilities-skill.test.ts
+  s_a39e9b7595fc7b::t_3f5beffaa4bf1a 393
+packages/cli/src/generator/references.ts
+  s_a39e9b7595fc7b::t_4e68519ed26645 390-396,401
+packages/vite/src/builder/watch-source-directory.test.ts
+  s_a39e9b7595fc7b::t_e1f926b7922ebe 1-2,17,20-57,63,72,86-91,93-94,97-98,100-101,103-104,107-108,129,137,141-146,174,183,199-201,204-205,209-213,215,220-222,225-226,249,253-265,269-270,272-273
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6f1d02a5269bf0bbdb7d31af2ae2380c2165e525",
+  "prompts": {},
+  "sessions": {
+    "s_a39e9b7595fc7b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1800d-2c76-7af0-8516-233dd2f0beee",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
