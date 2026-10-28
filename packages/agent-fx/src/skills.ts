@@ -1,5 +1,6 @@
 import type { HarnessAgentSkill } from "@ai-sdk/harness/agent";
 
+import backend from "./skills/backend.md?raw";
 import database from "./skills/database.md?raw";
 import frontend from "./skills/frontend.md?raw";
 import functions from "./skills/functions.md?raw";
@@ -33,6 +34,13 @@ const guides = [
       "Functions: queries, mutations, external actions, or reactive client hooks.",
     filename: "functions-guide.md",
     name: "patchsmith-functions",
+  },
+  {
+    content: withReferencePaths(backend),
+    description:
+      "Backend runtime: Workers compatibility, outbound HTTP/webhooks, redirects, async lifetimes, integration failures, and safe delivery/retries.",
+    filename: "backend-guide.md",
+    name: "patchsmith-backend",
   },
   {
     content: withReferencePaths(hooks),

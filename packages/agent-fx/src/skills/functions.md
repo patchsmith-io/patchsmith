@@ -84,6 +84,8 @@ export default defineRouter({ summary });
 
 Actions have no `db`. Import routers explicitly (for example, `import notes from "#functions/notes.router"`). Declare `.functions({ notes })` to use `queries.notes.list()` or `mutations.notes.add(input)` in the handler. Each mutation commits separately. Use handler `tools` for host server operations. Pass `signal` to fetch and design external writes for the service's retry behavior.
 
+For external requests and integration failures, read the [backend runtime guide](references/backend-guide.md) for Workers compatibility, redirect handling, lifetimes, and delivery diagnostics.
+
 ## Access control
 
 `identity.subjectId` is the authenticated user or service principal supplied by the host and is always a nonempty string. For private records, filter reads, updates, and deletes by an owner column matched to that subject. Shared records follow the feature's shared access rule. Throw `AppError` for expected failures such as `UNAUTHORIZED` or `NOT_FOUND`; caller-supplied IDs do not grant access.

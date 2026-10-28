@@ -38,6 +38,8 @@ Component state holds temporary values such as drafts and filters. Managed SQLit
 
 App backend functions include queries for reading data, mutations for transactional changes, and actions for work such as calling external services or server tools. Patchsmith hosts this backend and database. `patchsmith-functions` covers these APIs and access rules; `patchsmith-database` covers tables, relationships, and migrations.
 
+The deployed backend runs in isolated Cloudflare Workers, not the workspace's Node.js shell. For external requests, webhooks, async work, or backend failures, read `patchsmith-backend` for the exposed runtime, compatibility checks, lifetimes, and delivery diagnostics. Workers rejects `redirect: "error"` before sending a request; use `redirect: "manual"` and inspect the status instead. Apps do not receive Cloudflare bindings, `ctx.waitUntil`, or platform environment secrets.
+
 ## App files
 
 | Path | Purpose |
