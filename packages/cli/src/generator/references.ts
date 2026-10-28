@@ -375,7 +375,8 @@ const renderHookReferences = (
   const lines = [
     "# Host hooks",
     referenceHeader,
-    "Hooks let the host invoke app backend logic, including while app UI is closed. They are separate from UI callbacks and client hooks. Host tools run in the opposite direction: the app calls the host.",
+    "Hooks usually let apps respond to product events, such as a contact being created, including while app UI is closed. The host can also use hooks as callbacks, approval steps, or other extension points, asking the app for a result or decision before continuing.",
+    "The host declares each hook's input and output, decides when to invoke it, and controls how its result is used. Host hooks run on the backend, separately from UI callbacks and client hooks. Host tools run in the opposite direction: the app calls the host.",
     "",
   ];
 
@@ -444,7 +445,7 @@ export const renderReferences = (
     "",
     "- [Slots and context](views.md): choose a supported surface and read its context.",
     "- [Host tools](tools.md): inputs, results, and client/server execution.",
-    "- [Host hooks](hooks.md): backend event handlers the host can invoke.",
+    "- [Host hooks](hooks.md): product events, callbacks, approval steps, and other host extension points.",
     "- [Styling](styling.md): token and responsive/state lookup.",
     `- App functions: \`api\` references routers discovered in \`functions/**/*.router.ts\` under the app source root (optionally \`src/\`); search the [generated bindings](${bindingsPath}) for \`AppServerFunctions\` and inspect your own function source when needed.`,
     "",

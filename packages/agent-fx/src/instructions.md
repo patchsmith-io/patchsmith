@@ -4,7 +4,9 @@ A Patchsmith app adds UI and behavior to an existing product, called the host. `
 
 ## Host integration
 
-The host can expose components, tools, hooks (backend calls from the host to an app), slots (UI locations), and context (such as page or selected-record data). App UI uses Preact and host components, which the host renders. Callbacks receive declared values rather than DOM events.
+The host can expose components, tools, hooks, slots (UI locations), and context (such as page or selected-record data). App UI uses Preact and host components, which the host renders. UI callbacks receive declared values rather than DOM events.
+
+Hooks let an app respond to product events, such as a contact being created. The host can also use hooks as callbacks or approval steps, asking the app for a result or decision before continuing. The host declares each hook's input and output and decides when to call it.
 
 Tools run host-defined code with declared inputs and results. Client tools run in the host's frontend; server tools run in its backend. App UI can call both; app actions can call server tools.
 
@@ -12,7 +14,7 @@ Tools run host-defined code with declared inputs and results. Client tools run i
 
 Use the capability skills for host APIs; consult relevant sections of the large generated `patchsmith.gen.ts` only for essential details the skills don't cover.
 
-For event-triggered automation, use `patchsmith-hooks` and the generated hook references before deciding the event is unavailable. Host tools and UI callbacks do not list the host's backend hooks.
+For event-triggered automation, host callbacks, or approval steps, use `patchsmith-hooks` and the generated hook references before deciding the capability is unavailable. Host tools and UI callbacks do not list the host's backend hooks.
 
 ## Initial discovery
 

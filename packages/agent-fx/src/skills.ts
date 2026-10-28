@@ -37,7 +37,7 @@ const guides = [
   {
     content: withReferencePaths(hooks),
     description:
-      "Host hooks: implement backend event handlers and automations triggered by the product, including while app UI is closed.",
+      "Host hooks: respond to product events or implement host-invoked callbacks, approval steps, and other app extensions.",
     filename: "hooks-guide.md",
     name: "patchsmith-hooks",
   },

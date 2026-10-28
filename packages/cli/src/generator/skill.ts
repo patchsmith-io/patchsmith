@@ -76,7 +76,7 @@ export const prepareAppSkill = async (
 
   const content = `---
 name: patchsmith-capabilities
-description: Use when discovering or using this app's available UI components, callbacks, styling, slots, view context, product tools, and host hooks for backend automations.
+description: Use when discovering or using this app's available UI components, callbacks, styling, slots, view context, product tools, and host hooks for events, callbacks, or approval steps.
 ---
 
 ${generatedMarker}
@@ -91,7 +91,7 @@ Read only what the change needs:
 - [Views](references/views.md): supported slots, context, and registration examples.
 - [Styling](references/styling.md): tokens and optional responsive/state values.
 - [Tools](references/tools.md): available operations and their call examples.
-- [Host hooks](references/hooks.md): events and backend calls the host exposes; follow the matching hook's registration reference.
+- [Host hooks](references/hooks.md): product events, callbacks, approval steps, and other host extension points; follow the matching hook's registration reference.
 
 Start with ordinary components and local state. Use app backend queries/mutations for app-owned persistent data; consult the installed SDK for those APIs. Add abstractions or coordination only for an actual feature need.
 

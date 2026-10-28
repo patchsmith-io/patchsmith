@@ -1,12 +1,14 @@
 # Host hooks
 
-A host hook lets the product call app backend logic, including when no app panel is open. It is separate from Preact hooks, UI callbacks, and host tools: tools let the app call the product; host hooks let the product call the app.
+A host hook is a named point where the product calls app logic. Most hooks let an app react to product events, such as a contact being created, including when no app panel is open. Hosts can also use hooks as callbacks that return a result, approval steps that return a decision, or other extensions to product behavior.
 
-## Discover the event
+The host declares the input and output and decides when to invoke the hook and how to use its result. An event notification may need no return value; a callback or approval step may require one. Host hooks run on the backend, separately from Preact hooks and UI callbacks. Tools work in the other direction: the app calls the product.
 
-For requests such as “when a contact is created”, read `.agents/skills/patchsmith-capabilities/references/hooks.md`, then the matching hook's reference. These pages come from the host contract and describe each hook's input, output, and registration path. Check them before concluding an event is unavailable; the tools list is not an event catalog.
+## Discover the hook
 
-If the references are from an older generator, inspect `hooks` in the host schema supplied to the workspace or search `PatchsmithHooks` in `patchsmith.gen.ts`. Regenerate bindings with the configured host or supplied schema when needed. An absent handler in the app means the app has not implemented the hook, not that the host lacks it. If the current host contract has no matching hook, explain that limitation rather than inventing a subscription or silently replacing the requested automation with polling or manual testing.
+For requests such as “when a contact is created” or “check whether this request should be approved”, read `.agents/skills/patchsmith-capabilities/references/hooks.md`, then the matching hook's reference. These pages come from the host contract and describe each hook's input, output, and registration path. Check them before concluding the capability is unavailable; the tools list does not list host hooks.
+
+If the references are from an older generator, inspect `hooks` in the host schema supplied to the workspace or search `PatchsmithHooks` in `patchsmith.gen.ts`. Regenerate bindings with the configured host or supplied schema when needed. An absent handler in the app means the app has not implemented the hook, not that the host lacks it. If the current host contract has no matching hook, explain that limitation rather than inventing a hook or silently replacing the requested behavior with polling or manual testing.
 
 ## Implement a handler
 
