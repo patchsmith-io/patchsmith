@@ -1,0 +1,19 @@
+.changeset/app-backend-runtime-guidance.md
+  s_a39e9b7595fc7b::t_e2b2a0f8e8715d 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "96b3fa4675663e175d35586dbecdd83608a6f2fd",
+  "prompts": {},
+  "sessions": {
+    "s_a39e9b7595fc7b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1800d-2c76-7af0-8516-233dd2f0beee",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
