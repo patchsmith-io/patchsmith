@@ -397,6 +397,35 @@ it("distinguishes a host without hooks from a host with unimplemented hooks", ()
   }
 });
 
+it("keeps references writable and distinct for long host hook names", () => {
+  const prefix = ["a".repeat(64), "b".repeat(64), "c".repeat(64)].join(".");
+  const names = [`${prefix}.created`, `${prefix}.updated`];
+
+  const files = renderGeneratedReferences(
+    { hooks: Object.fromEntries(names.map((name) => [name, {}])) },
+    { bindingsPath: "../../../patchsmith.gen.ts" }
+  );
+
+  const references = Object.keys(files).filter((filename) =>
+    filename.startsWith("hooks/")
+  );
+
+  expect(references).toHaveLength(2);
+
+  for (const filename of references) {
+    expect(path.basename(filename).length).toBeLessThanOrEqual(255);
+    expect(files["hooks.md"]).toContain(`](${filename})`);
+  }
+
+  for (const name of names) {
+    expect(
+      references.some(
+        (filename) => files[filename]?.includes(`# ${name}\n`) === true
+      )
+    ).toBe(true);
+  }
+});
+
 it("keeps responsive primitive references small without dropping the host's keys or tokens", () => {
   const contract = createPatchsmithSchema({
     components: primitives({

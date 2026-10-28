@@ -386,7 +386,14 @@ const renderHookReferences = (
   }
 
   for (const [name, hook] of hooks) {
-    const filename = `hooks/${encodeURIComponent(name)}.md`;
+    const slug = encodeURIComponent(name);
+
+    const filename = `hooks/${
+      slug.length <= 200
+        ? slug
+        : `${slug.slice(0, 180)}-${createHash("sha256").update(name).digest("hex").slice(0, 16)}`
+    }.md`;
+
     const entry = `hooks/${name.split(".").join("/")}.hook.ts`;
     lines.push(`- [${tableCell(name)}](${filename})`);
     files[filename] = [
