@@ -65,6 +65,8 @@ export const app = pgTable(
     id: uuid("id")
       .default(sql`pg_catalog.gen_random_uuid()`)
       .primaryKey(),
+    // Existing apps and old-server inserts retain their project-wide names.
+    isShared: boolean("is_shared").notNull().default(true),
     name: text("name").notNull(),
     projectId: uuid("project_id")
       .notNull()
@@ -88,6 +90,12 @@ export const app = pgTable(
     check("app_short_id_format", sql`${table.shortId} ~ '^[a-z0-9]{12}$'`),
     check("app_slug_format", sql`${table.slug} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`),
     uniqueIndex("app_project_id_slug_unique").on(table.projectId, table.slug),
+    uniqueIndex("app_project_shared_slug_unique")
+      .on(table.projectId, table.slug)
+      .where(sql`${table.isShared} = true`),
+    uniqueIndex("app_project_scope_slug_unique")
+      .on(table.projectId, table.scopeKey, table.slug)
+      .where(sql`${table.isShared} = false`),
     index("app_project_scope_key_idx").on(table.projectId, table.scopeKey),
     uniqueIndex("app_project_id_short_id_unique").on(
       table.projectId,
@@ -102,7 +110,7 @@ export const appSlugSchema = z
   .max(32)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u)
   .describe(
-    "Immutable app username, unique within the project. Lowercase letters, digits, and single hyphens."
+    "App username without a local prefix. Shared names are unique within the project; local names are unique within their installation scope. Lowercase letters, digits, and single hyphens."
   );
 
 const AppSchema = createSelectSchema(app, {
