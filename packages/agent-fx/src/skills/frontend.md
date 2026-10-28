@@ -4,7 +4,18 @@ App frontend code runs in a hidden, sandboxed iframe. Patchsmith serializes the 
 
 Import UI components and host tools from `#patchsmith`. The generated capability pages list each control's props, callbacks, children, and styling options. Compose those controls with Preact; use their layout, spacing, color, and accessibility props.
 
-When the user hasn't specified a style and you're unsure about details such as button size or text color, use the host components' defaults. Focus on the simplest design that solves the user's problem.
+## Interface design
+
+Build compact, task-focused app interfaces. Unless the user requests a different style, use the host components' default sizing, spacing, and colors, with a simple layout centered on the task.
+
+- Start with the necessary data, clearly labeled controls, and primary action. Add headings or containers only when they help people navigate or understand a group; small forms often need neither cards nor section introductions.
+- Let labels explain the interaction. Name fields for the information they collect and actions for what they do. Prefer a clearer label over a subtitle or helper paragraph. Omit taglines, welcome copy, promotional language, and descriptions that repeat the title, label, or button.
+- Supporting text earns space only when the labels and current state leave something necessary unclear: an input requirement, a consequential action, an unexpected limitation, or how to recover from an error. Keep it short and place it beside the relevant control. Ordinary controls need no instructions explaining how to use them.
+- Show each status once, where it matters. Use button state for pending work and a concise result for success or failure. An empty state usually needs one short message or the action that fills it; avoid stacking a badge, heading, and paragraph that convey the same fact.
+- State limitations briefly in user terms and give a next step when one exists. Keep technical implementation details in the conversation or optional help unless they affect a decision the person must make here. Keep essential consequences visible before the action.
+- Preserve accessibility through associated labels, accessible names, keyboard interaction, and supported status announcements. Use visible descriptions when they provide necessary guidance, and connect them to the control when supported. Accessibility does not require a paragraph beneath every field; tooltips and placeholders do not replace labels.
+
+Before finishing, remove every text block, badge, divider, and container whose removal leaves the task equally clear and usable. Let the requested task determine the interface's structure and controls.
 
 Review the available components and their documented capabilities before building an interaction. Choose the component that best fits the user's task. Prefer one component that handles the interaction well over combining several controls when it makes the UI simpler and preserves the required behavior and accessibility.
 
