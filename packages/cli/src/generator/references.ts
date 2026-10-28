@@ -2,7 +2,6 @@ import { createHash } from "node:crypto";
 
 import {
   componentExample,
-  hookExample,
   stylingExample,
   toolExample,
   valueCallbackExample,
@@ -372,13 +371,7 @@ const renderHookReferences = (
   files: GeneratedFiles,
   bindingsPath: string
 ): string => {
-  const lines = [
-    "# Host hooks",
-    referenceHeader,
-    "Hooks usually let apps respond to product events, including while app UI is closed. The host can also use hooks as callbacks, approval steps, or other extension points, asking the app for a result or decision before continuing.",
-    "The host declares each hook's input and output, decides when to invoke it, and controls how its result is used. Host hooks run on the backend, separately from UI callbacks and client hooks. Host tools run in the opposite direction: the app calls the host.",
-    "",
-  ];
+  const lines = ["# Host hooks", referenceHeader];
 
   const hooks = Object.entries(schema.hooks ?? {});
 
@@ -399,22 +392,12 @@ const renderHookReferences = (
     lines.push(`- [${tableCell(name)}](${filename})`);
     files[filename] = [
       `# ${tableCell(name)}`,
-      referenceHeader,
-      `Register in \`${entry}\` under the app source root (optionally \`src/\`). Use the exact hook name \`${name}\`.`,
-      `${hook.inputOptional === true ? "Optional input" : "Input"}: ${summarize(hook.input)}.`,
+      "",
+      `- File: \`${entry}\``,
+      `- ${hook.inputOptional === true ? "Optional input" : "Input"}: ${summarize(hook.input)}.`,
       hook.output === undefined
-        ? "Output: none; finish without returning a value."
-        : `${hook.outputOptional === true ? "Optional output" : "Required output"}: ${summarize(hook.output)}.`,
-      "",
-      "Handlers receive input, queries, mutations, actions, server tools, identity, scope, requestId, and signal. Use queries/mutations for installation data; no direct db handle is available.",
-      "",
-      "## Registration",
-      "",
-      "This helper keeps your implementation's input and output typed. In the hook entry file, default-export implement(yourHandler); yourHandler must perform the requested work and return the declared output, if any.",
-      "",
-      hookExample(name),
-      "",
-      "The builder discovers the hook entry automatically. Publish the app so its selected deployment advertises this hook to the host. The host controls invocation and retries; a hook does not create a frontend subscription or durable job.",
+        ? "- Output: none."
+        : `- ${hook.outputOptional === true ? "Optional output" : "Required output"}: ${summarize(hook.output)}.`,
       "",
       `Exact contract: [generated bindings](../${bindingsPath}); search for \`PatchsmithHooks\` and ${JSON.stringify(name)}.`,
       "",
