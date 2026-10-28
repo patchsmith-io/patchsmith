@@ -77,20 +77,20 @@ const schema: PatchsmithSchemaFile = {
     },
   },
   hooks: {
-    contactCreated: {
+    notify: {},
+    recordChanged: {
       input: {
         properties: {
-          contact: {
-            properties: { name: { type: "string" } },
-            required: ["name"],
+          record: {
+            properties: { title: { type: "string" } },
+            required: ["title"],
             type: "object",
           },
         },
-        required: ["contact"],
+        required: ["record"],
         type: "object",
       },
     },
-    notify: {},
     "records.created": {
       input: { type: "string" },
       inputOptional: true,
@@ -259,8 +259,8 @@ it("typechecks and bundles examples with scaffold imports and the public SDK", a
     await generateFunctionTypes(root, await discoverFunctionFiles(root));
     expect(await discoverHooks(root)).toEqual([
       {
-        filename: path.join(root, "hooks/contactCreated.hook.ts"),
-        name: "contactCreated",
+        filename: path.join(root, "hooks/recordChanged.hook.ts"),
+        name: "recordChanged",
       },
     ]);
 

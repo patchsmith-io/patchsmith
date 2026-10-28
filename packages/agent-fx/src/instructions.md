@@ -6,7 +6,7 @@ A Patchsmith app adds UI and behavior to an existing product, called the host. `
 
 The host can expose components, tools, hooks, slots (UI locations), and context (such as page or selected-record data). App UI uses Preact and host components, which the host renders. UI callbacks receive declared values rather than DOM events.
 
-Hooks let an app respond to product events, such as a contact being created. The host can also use hooks as callbacks or approval steps, asking the app for a result or decision before continuing. The host declares each hook's input and output and decides when to call it.
+Hooks let an app respond to product events. The host can also use hooks as callbacks or approval steps, asking the app for a result or decision before continuing. The host declares each hook's input and output and decides when to call it.
 
 Tools run host-defined code with declared inputs and results. Client tools run in the host's frontend; server tools run in its backend. App UI can call both; app actions can call server tools.
 

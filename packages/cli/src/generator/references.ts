@@ -375,7 +375,7 @@ const renderHookReferences = (
   const lines = [
     "# Host hooks",
     referenceHeader,
-    "Hooks usually let apps respond to product events, such as a contact being created, including while app UI is closed. The host can also use hooks as callbacks, approval steps, or other extension points, asking the app for a result or decision before continuing.",
+    "Hooks usually let apps respond to product events, including while app UI is closed. The host can also use hooks as callbacks, approval steps, or other extension points, asking the app for a result or decision before continuing.",
     "The host declares each hook's input and output, decides when to invoke it, and controls how its result is used. Host hooks run on the backend, separately from UI callbacks and client hooks. Host tools run in the opposite direction: the app calls the host.",
     "",
   ];

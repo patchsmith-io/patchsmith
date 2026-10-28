@@ -45,20 +45,20 @@ const schema: PatchsmithSchemaFile = {
     },
   },
   hooks: {
-    contactCreated: {
+    notify: {},
+    recordChanged: {
       input: {
         properties: {
-          contact: {
-            properties: { id: { type: "string" }, name: { type: "string" } },
-            required: ["id", "name"],
+          record: {
+            properties: { id: { type: "string" }, title: { type: "string" } },
+            required: ["id", "title"],
             type: "object",
           },
         },
-        required: ["contact"],
+        required: ["record"],
         type: "object",
       },
     },
-    notify: {},
     "records.created": {
       input: { type: "string" },
       inputOptional: true,
@@ -366,10 +366,10 @@ it("exposes every host hook with its payload, output and registration path", () 
   }
 
   expect(files["index.md"]).toContain("](hooks.md)");
-  expect(files["hooks/contactCreated.md"]).toContain("contact (required)");
-  expect(files["hooks/contactCreated.md"]).toContain("id (required): string");
-  expect(files["hooks/contactCreated.md"]).toContain(
-    "hooks/contactCreated.hook.ts"
+  expect(files["hooks/recordChanged.md"]).toContain("record (required)");
+  expect(files["hooks/recordChanged.md"]).toContain("id (required): string");
+  expect(files["hooks/recordChanged.md"]).toContain(
+    "hooks/recordChanged.hook.ts"
   );
   expect(files["hooks/notify.md"]).toContain("Input: no payload");
   expect(files["hooks/notify.md"]).toContain("Output: none");
@@ -482,7 +482,7 @@ it("removes obsolete references on regeneration and preserves unrelated source a
       readFile(path.join(skillDirectory, "references/components/Button.md"))
     ).rejects.toThrow();
     await expect(
-      readFile(path.join(skillDirectory, "references/hooks/contactCreated.md"))
+      readFile(path.join(skillDirectory, "references/hooks/recordChanged.md"))
     ).rejects.toThrow();
     expect(
       await readFile(path.join(root, "patchsmith.gen.ts"), "utf-8")
