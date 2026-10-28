@@ -1,0 +1,19 @@
+packages/agent-fx/src/skills/frontend.md
+  s_f695ce312b621a::t_7c85a65c266db9 12,15,18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d39842b38f70c4980f1858f5caf0da0760ab368f",
+  "prompts": {},
+  "sessions": {
+    "s_f695ce312b621a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17fe7-67b1-7350-97a5-4081ef8ac176",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
