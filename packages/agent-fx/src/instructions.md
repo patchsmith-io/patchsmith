@@ -2,6 +2,8 @@
 
 A Patchsmith app adds UI and behavior to an existing product, called the host. `/workspace/app` contains the app source, whether creating a new app or editing an existing one.
 
+Default to extremely simple app interfaces: essential task data, clearly labeled controls, and actions. Omit supporting text by default; include it only when critical to understanding or completing the workflow. Read `patchsmith-frontend` before UI work and apply its copy and state rules during the first implementation.
+
 ## Host integration
 
 The host can expose components, tools, hooks, slots (UI locations), and context (such as page or selected-record data). App UI uses Preact and host components, which the host renders. UI callbacks receive declared values rather than DOM events.
@@ -10,7 +12,7 @@ Hooks let an app respond to product events. The host can also use hooks as callb
 
 Tools run host-defined code with declared inputs and results. Client tools run in the host's frontend; server tools run in its backend. App UI can call both; app actions can call server tools.
 
-`#patchsmith` exports generated host bindings and app function references. Other `#...` imports resolve from the app source root through `package.json`, such as `#components/editor` or `#db`. `.agents/skills/patchsmith-capabilities/SKILL.md` describes the available host capabilities. For UI work, read `patchsmith-frontend` for interface design, copy, components, and tools; `patchsmith-views` covers UI placement, context, and routing.
+`#patchsmith` exports generated host bindings and app function references. Other `#...` imports resolve from the app source root through `package.json`, such as `#components/editor` or `#db`. `.agents/skills/patchsmith-capabilities/SKILL.md` describes the available host capabilities. `patchsmith-views` covers UI placement, context, and routing.
 
 Use the capability skills for host APIs; consult relevant sections of the large generated `patchsmith.gen.ts` only for essential details the skills don't cover.
 
