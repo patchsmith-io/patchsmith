@@ -387,11 +387,18 @@ const renderHookReferences = (
     const filename = `hooks/${slug}-${digest}.md`;
 
     const entry = `hooks/${name.split(".").join("/")}.hook.ts`;
+    const dottedEntry = `hooks/${name}.hook.ts`;
+
+    const fileEntry =
+      entry === dottedEntry
+        ? `- File: \`${entry}\``
+        : `- File: \`${entry}\` or \`${dottedEntry}\`. Keep only one to avoid duplicate registration.`;
+
     lines.push(`- [${tableCell(name)}](${filename})`);
     files[filename] = [
       `# ${tableCell(name)}`,
       "",
-      `- File: \`${entry}\``,
+      fileEntry,
       `- ${hook.inputOptional === true ? "Optional input" : "Input"}: ${summarize(hook.input)}.`,
       hook.output === undefined
         ? "- Output: none."

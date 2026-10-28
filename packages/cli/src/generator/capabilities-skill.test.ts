@@ -390,7 +390,7 @@ it("exposes every host hook with its payload, output and registration path", () 
     "Optional output: boolean"
   );
   expect(hookReference("records.created")).toContain(
-    "hooks/records/created.hook.ts"
+    "- File: `hooks/records/created.hook.ts` or `hooks/records.created.hook.ts`. Keep only one to avoid duplicate registration."
   );
 });
 
