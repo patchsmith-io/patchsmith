@@ -1,0 +1,34 @@
+playground/README.md
+  h_18044dd1b61a81 39-40
+playground/apps/todo/.agents/skills/patchsmith-capabilities/SKILL.md
+  h_18044dd1b61a81 3,18
+playground/apps/todo/.agents/skills/patchsmith-capabilities/references/hooks.md
+  h_18044dd1b61a81 1-9
+playground/apps/todo/.agents/skills/patchsmith-capabilities/references/hooks/ping.md
+  h_18044dd1b61a81 1-24
+playground/apps/todo/.agents/skills/patchsmith-capabilities/references/index.md
+  h_18044dd1b61a81 8
+playground/apps/todo/src/hooks/ping.hook.ts
+  h_18044dd1b61a81 1-6
+playground/apps/todo/src/patchsmith.gen.ts
+  h_18044dd1b61a81 120-126
+playground/schema.json
+  h_18044dd1b61a81 9230-9238
+playground/shared/src/contracts/arktype.ts
+  h_18044dd1b61a81 2,32
+playground/shared/src/contracts/valibot.ts
+  h_18044dd1b61a81 2,73
+playground/shared/src/contracts/zod.ts
+  h_18044dd1b61a81 1,40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "64d475cfea600d7179a6d8280a3942d4a0aafac3",
+  "prompts": {},
+  "humans": {
+    "h_18044dd1b61a81": {
+      "author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
