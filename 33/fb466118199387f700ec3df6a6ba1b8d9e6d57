@@ -1,0 +1,22 @@
+packages/agent-fx/src/instructions.md
+  h_18044dd1b61a81 9
+packages/agent-fx/src/skills/hooks.md
+  h_18044dd1b61a81 3,9,17,19,27,29
+packages/cli/src/generator/agent-examples.test.ts
+  h_18044dd1b61a81 80-81,84-86,90,262-263
+packages/cli/src/generator/capabilities-skill.test.ts
+  h_18044dd1b61a81 48-49,52-54,58,369-372,485
+packages/cli/src/generator/references.ts
+  h_18044dd1b61a81 378
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "33fb466118199387f700ec3df6a6ba1b8d9e6d57",
+  "prompts": {},
+  "humans": {
+    "h_18044dd1b61a81": {
+      "author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
