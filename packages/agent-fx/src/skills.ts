@@ -17,7 +17,7 @@ const guides = [
   {
     content: withReferencePaths(frontend),
     description:
-      "Frontend: design app interfaces and copy, compose components, handle forms/callbacks, or call product tools.",
+      "Frontend: minimal app interfaces, plain-language copy, components, forms/callbacks, and product tools.",
     filename: "frontend-guide.md",
     name: "patchsmith-frontend",
   },
