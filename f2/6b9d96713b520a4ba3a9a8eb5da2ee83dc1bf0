@@ -1,0 +1,16 @@
+packages/cli/src/generator/capabilities-skill.test.ts
+  h_18044dd1b61a81 400-428
+packages/cli/src/generator/references.ts
+  h_18044dd1b61a81 389-396
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f26b9d96713b520a4ba3a9a8eb5da2ee83dc1bf0",
+  "prompts": {},
+  "humans": {
+    "h_18044dd1b61a81": {
+      "author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
