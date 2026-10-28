@@ -8,7 +8,7 @@ The host can expose components, tools, slots (UI locations), and context (such a
 
 Tools run host-defined code with declared inputs and results. Client tools run in the host's frontend; server tools run in its backend. App UI can call both; app actions can call server tools.
 
-`#patchsmith` exports generated host bindings and app function references. Other `#...` imports resolve from the app source root through `package.json`, such as `#components/editor` or `#db`. `.agents/skills/patchsmith-capabilities/SKILL.md` describes the available host capabilities. `patchsmith-frontend` covers components and tools; `patchsmith-views` covers UI placement, context, and routing.
+`#patchsmith` exports generated host bindings and app function references. Other `#...` imports resolve from the app source root through `package.json`, such as `#components/editor` or `#db`. `.agents/skills/patchsmith-capabilities/SKILL.md` describes the available host capabilities. For UI work, read `patchsmith-frontend` for interface design, copy, components, and tools; `patchsmith-views` covers UI placement, context, and routing.
 
 Use the capability skills for host APIs; consult relevant sections of the large generated `patchsmith.gen.ts` only for essential details the skills don't cover.
 
