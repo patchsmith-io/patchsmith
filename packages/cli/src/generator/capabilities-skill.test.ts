@@ -1,5 +1,12 @@
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -365,22 +372,53 @@ it("exposes every host hook with its payload, output and registration path", () 
     expect(files[target]).toBeDefined();
   }
 
+  const hookReference = (name: string) =>
+    Object.values(files).find((content) => content.startsWith(`# ${name}\n`));
+
   expect(files["index.md"]).toContain("](hooks.md)");
-  expect(files["hooks/recordChanged.md"]).toContain("record (required)");
-  expect(files["hooks/recordChanged.md"]).toContain("id (required): string");
-  expect(files["hooks/recordChanged.md"]).toContain(
+  expect(hookReference("recordChanged")).toContain("record (required)");
+  expect(hookReference("recordChanged")).toContain("id (required): string");
+  expect(hookReference("recordChanged")).toContain(
     "hooks/recordChanged.hook.ts"
   );
-  expect(files["hooks/notify.md"]).toContain("Input: no payload");
-  expect(files["hooks/notify.md"]).toContain("Output: none");
-  expect(files["hooks/sync.md"]).toContain("Input: string");
-  expect(files["hooks/sync.md"]).toContain("Required output: number");
-  expect(files["hooks/records.created.md"]).toContain("Optional input: string");
-  expect(files["hooks/records.created.md"]).toContain(
+  expect(hookReference("notify")).toContain("Input: no payload");
+  expect(hookReference("notify")).toContain("Output: none");
+  expect(hookReference("sync")).toContain("Input: string");
+  expect(hookReference("sync")).toContain("Required output: number");
+  expect(hookReference("records.created")).toContain("Optional input: string");
+  expect(hookReference("records.created")).toContain(
     "Optional output: boolean"
   );
-  expect(files["hooks/records.created.md"]).toContain(
+  expect(hookReference("records.created")).toContain(
     "hooks/records/created.hook.ts"
+  );
+});
+
+it("keeps case-distinct hook references separate on case-insensitive filesystems", () => {
+  const files = renderGeneratedReferences(
+    {
+      hooks: {
+        Foo: { input: { type: "string" } },
+        foo: { input: { type: "number" } },
+      },
+    },
+    { bindingsPath: "../../../patchsmith.gen.ts" }
+  );
+
+  const destinations = new Map(
+    Object.entries(files).flatMap(([filename, content]) =>
+      filename.startsWith("hooks/")
+        ? [[filename.toLowerCase(), content] as const]
+        : []
+    )
+  );
+
+  expect(destinations.size).toBe(2);
+  expect([...destinations.values()]).toEqual(
+    expect.arrayContaining([
+      expect.stringContaining("# Foo\n"),
+      expect.stringContaining("# foo\n"),
+    ])
   );
 });
 
@@ -482,7 +520,7 @@ it("removes obsolete references on regeneration and preserves unrelated source a
       readFile(path.join(skillDirectory, "references/components/Button.md"))
     ).rejects.toThrow();
     await expect(
-      readFile(path.join(skillDirectory, "references/hooks/recordChanged.md"))
+      readdir(path.join(skillDirectory, "references/hooks"))
     ).rejects.toThrow();
     expect(
       await readFile(path.join(root, "patchsmith.gen.ts"), "utf-8")

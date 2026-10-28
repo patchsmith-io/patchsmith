@@ -36,7 +36,7 @@ pnpm playground:todo:build
 
 The host contract exposes these components: the standard `Box`, `Flex`, `Grid`, `Inline`, `Pressable`, and Lucide-backed `Icon` primitives, plus `Button`, `Input`, and the opt-in `experimental_Canvas`. The host maps `Button` and `Input` to `@patchsmith/ui` and uses the standard React renderers for primitives.
 
-All three validator contracts also declare a `ping` hook with no input and the literal output `"pong"`. The Todo app implements it in [src/hooks/ping.hook.ts](apps/todo/src/hooks/ping.hook.ts). After `pnpm playground:generate`, inspect its generated [capability skill](apps/todo/.agents/skills/patchsmith-capabilities/SKILL.md), [hook index](apps/todo/.agents/skills/patchsmith-capabilities/references/hooks.md), and [ping reference](apps/todo/.agents/skills/patchsmith-capabilities/references/hooks/ping.md). Build and publish the app to advertise the handler to the host.
+All three validator contracts also declare a `ping` hook with no input and the literal output `"pong"`. The Todo app implements it in [src/hooks/ping.hook.ts](apps/todo/src/hooks/ping.hook.ts). After `pnpm playground:generate`, inspect its generated [capability skill](apps/todo/.agents/skills/patchsmith-capabilities/SKILL.md), [hook index](apps/todo/.agents/skills/patchsmith-capabilities/references/hooks.md), and [ping reference](apps/todo/.agents/skills/patchsmith-capabilities/references/hooks/ping-758d61f26a444483.md). Build and publish the app to advertise the handler to the host.
 
 The Todo panel includes Pressable examples with inline, box, flex, and grid layouts, an email row with nested layout children, an icon-only action with an explicit name, and a disable toggle. Try hover, hold, Tab / Shift+Tab, Enter, and Space.
 
