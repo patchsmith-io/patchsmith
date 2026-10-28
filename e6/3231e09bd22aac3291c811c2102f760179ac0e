@@ -1,0 +1,23 @@
+packages/agent-fx/src/skills.ts
+  s_f695ce312b621a::t_1573afe36eb2f1 19
+packages/agent-fx/src/skills/frontend.md
+  s_f695ce312b621a::t_1573afe36eb2f1 7-18
+packages/agent-fx/src/instructions.md
+  s_f695ce312b621a::t_1573afe36eb2f1 11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e63231e09bd22aac3291c811c2102f760179ac0e",
+  "prompts": {},
+  "sessions": {
+    "s_f695ce312b621a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17fe7-67b1-7350-97a5-4081ef8ac176",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
