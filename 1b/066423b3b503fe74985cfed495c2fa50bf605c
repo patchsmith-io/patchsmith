@@ -1,0 +1,20 @@
+packages/cli/src/generator/capabilities-skill.test.ts
+  h_18044dd1b61a81 2-9,375-377,379-381,384-389,392,397-424,523
+packages/cli/src/generator/references.ts
+  h_18044dd1b61a81 383,385-387
+playground/README.md
+  h_18044dd1b61a81 39
+playground/apps/todo/.agents/skills/patchsmith-capabilities/references/hooks.md
+  h_18044dd1b61a81 4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1b066423b3b503fe74985cfed495c2fa50bf605c",
+  "prompts": {},
+  "humans": {
+    "h_18044dd1b61a81": {
+      "author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
