@@ -1,0 +1,31 @@
+packages/agent-fx/src/skills/backend.md
+  s_a39e9b7595fc7b::t_0d83438a655c84 1-72
+  s_a39e9b7595fc7b::t_3923d59f3ad8a6 73-78
+packages/agent-fx/src/skills.ts
+  s_a39e9b7595fc7b::t_0d83438a655c84 3,38-43
+  s_a39e9b7595fc7b::t_c4fa893240f54b 44
+packages/agent-fx/src/instructions.md
+  s_a39e9b7595fc7b::t_0d83438a655c84 41-42
+packages/agent-fx/src/skills/functions.md
+  s_a39e9b7595fc7b::t_0d83438a655c84 87-88
+packages/cli/src/generator/agent-examples.test.ts
+  s_a39e9b7595fc7b::t_0d83438a655c84 172
+packages/agent-fx/README.md
+  s_a39e9b7595fc7b::t_0d83438a655c84 3,17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "07870e6a3c99d8ae5919b99eec5f7f94e44ef241",
+  "prompts": {},
+  "sessions": {
+    "s_a39e9b7595fc7b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1800d-2c76-7af0-8516-233dd2f0beee",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
