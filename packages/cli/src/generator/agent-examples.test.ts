@@ -169,6 +169,7 @@ it("typechecks and bundles examples with scaffold imports and the public SDK", a
       [
         "../../../agent-fx/src/skills/database.md",
         "../../../agent-fx/src/skills/functions.md",
+        "../../../agent-fx/src/skills/backend.md",
         "../../../agent-fx/src/skills/hooks.md",
         "../../../agent-fx/src/skills/frontend.md",
         "../../../agent-fx/src/skills/views.md",
