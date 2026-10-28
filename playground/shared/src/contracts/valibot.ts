@@ -1,5 +1,5 @@
 import { toStandardJsonSchema } from "@valibot/to-json-schema";
-import { experimental_canvas, tool, defineContract } from "patchsmith";
+import { experimental_canvas, hook, tool, defineContract } from "patchsmith";
 import { primitives } from "patchsmith/valibot";
 import * as v from "valibot";
 
@@ -70,6 +70,7 @@ export const contract = defineContract({
       ),
     },
   },
+  hooks: { ping: hook().output(json(v.literal("pong"))) },
   scopes: {
     team: json(v.object({ teamId: v.pipe(v.string(), v.minLength(1)) })),
     user: json(v.object({ userId: v.pipe(v.string(), v.minLength(1)) })),

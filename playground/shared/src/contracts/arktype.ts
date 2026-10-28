@@ -1,5 +1,5 @@
 import { type } from "arktype";
-import { experimental_canvas, tool, defineContract } from "patchsmith";
+import { experimental_canvas, hook, tool, defineContract } from "patchsmith";
 import { primitives } from "patchsmith/arktype";
 
 import { theme } from "./theme";
@@ -29,6 +29,7 @@ export const contract = defineContract({
       fields: type({ "placeholder?": "string", value: "string" }),
     },
   },
+  hooks: { ping: hook().output(type("'pong'")) },
   scopes: {
     team: type({ teamId: "string > 0" }),
     user: type({ userId: "string > 0" }),

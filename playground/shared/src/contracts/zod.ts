@@ -1,4 +1,4 @@
-import { experimental_canvas, tool, defineContract } from "patchsmith";
+import { experimental_canvas, hook, tool, defineContract } from "patchsmith";
 import { primitives } from "patchsmith/zod";
 import { z } from "zod";
 
@@ -37,6 +37,7 @@ export const contract = defineContract({
       }),
     },
   },
+  hooks: { ping: hook().output(z.literal("pong")) },
   scopes: {
     team: z.object({ teamId: z.string().min(1) }),
     user: z.object({ userId: z.string().min(1) }),

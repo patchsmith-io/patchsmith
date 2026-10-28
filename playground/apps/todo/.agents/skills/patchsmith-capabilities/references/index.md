@@ -5,6 +5,7 @@ Read this index, then only the component or capability needed for the change. Ke
 
 - [Slots and context](views.md): choose a supported surface and read its context.
 - [Host tools](tools.md): inputs, results, and client/server execution.
+- [Host hooks](hooks.md): product events, callbacks, approval steps, and other host extension points.
 - [Styling](styling.md): token and responsive/state lookup.
 - App functions: `api` references routers discovered in `functions/**/*.router.ts` under the app source root (optionally `src/`); search the [generated bindings](../../../../src/patchsmith.gen.ts) for `AppServerFunctions` and inspect your own function source when needed.
 
