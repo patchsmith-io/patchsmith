@@ -117,6 +117,13 @@ export type AriaLabel = string;
 export type Disabled = boolean;
 export type Layout = "inline" | "box" | "flex" | "grid";
 
+import type {} from "patchsmith/server";
+declare module "patchsmith/server" {
+  interface PatchsmithHooks {
+    "ping": { input: undefined; output: "pong" };
+  }
+}
+
 export interface experimental_CanvasProps {
   ariaLabel: string;
   height: number;

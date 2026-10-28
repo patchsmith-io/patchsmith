@@ -14,7 +14,7 @@ No runtime code is imported from `@patchsmith/agent`. Configure `AI_GATEWAY_API_
 
 ## Instructions, skills, and examples
 
-`src/instructions.md` favors the smallest working app and routes tasks to the five skills registered in `src/skills.ts`. App-specific UI, callback, styling, view, and tool contracts come from the CLI-generated `.agents/skills/patchsmith-capabilities/` skill in the app workspace.
+`src/instructions.md` routes tasks to the five skills registered in `src/skills.ts`, including `patchsmith-hooks` for host-triggered backend work. App-specific UI, callback, styling, view, tool, and hook contracts come from the CLI-generated `.agents/skills/patchsmith-capabilities/` skill in the app workspace. Its `references/hooks.md` index links to each host hook's input, output, and registration path; shared implementation guidance lives in `patchsmith-hooks`.
 
 Skill guides and small workflow, form, function, and view examples are provisioned under `/workspace/.patchsmith-agent/references/`. Skill content contains only a pointer to its guide; the model reads the guide and any linked recipe when needed. Keep guide bodies and recipes out of both `HarnessAgentSkill.content` and `.files`: FX embeds those in the prompt. Tests verify the reference graph and that recipes remain outside the prompt.
 

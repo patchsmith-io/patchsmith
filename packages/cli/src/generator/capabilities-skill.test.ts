@@ -1,5 +1,12 @@
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -46,6 +53,25 @@ const schema: PatchsmithSchemaFile = {
   },
   hooks: {
     notify: {},
+    recordChanged: {
+      input: {
+        properties: {
+          record: {
+            properties: { id: { type: "string" }, title: { type: "string" } },
+            required: ["id", "title"],
+            type: "object",
+          },
+        },
+        required: ["record"],
+        type: "object",
+      },
+    },
+    "records.created": {
+      input: { type: "string" },
+      inputOptional: true,
+      output: { type: "boolean" },
+      outputOptional: true,
+    },
     sync: { input: { type: "string" }, output: { type: "number" } },
   },
   slots: {
@@ -105,7 +131,7 @@ it("generates a discoverable skill with working reference links, including custo
       );
       expect(skill.length).toBeLessThan(2200);
       const links = [...skill.matchAll(markdownLink)];
-      expect(links).toHaveLength(4);
+      expect(links).toHaveLength(5);
       // oxlint-disable-next-line no-await-in-loop -- Check this generation before the next generation replaces its references.
       await Promise.all(
         links.map(async (link) => {
@@ -327,6 +353,117 @@ it("carries component and slot descriptions from a host contract into skill refe
   expect(files["components/Input.md"]).not.toContain("undefined");
 });
 
+it("exposes every host hook with its payload, output and registration path", () => {
+  const files = renderGeneratedReferences(schema, {
+    bindingsPath: "../../../src/patchsmith.gen.ts",
+  });
+
+  const hookIndex = files["hooks.md"] ?? "";
+
+  const targets = [...hookIndex.matchAll(markdownLink)].flatMap((link) => {
+    const target = link.groups?.target;
+
+    return target?.startsWith("hooks/") === true ? [target] : [];
+  });
+
+  expect(targets).toHaveLength(Object.keys(schema.hooks ?? {}).length);
+
+  for (const target of targets) {
+    expect(files[target]).toBeDefined();
+  }
+
+  const hookReference = (name: string) =>
+    Object.values(files).find((content) => content.startsWith(`# ${name}\n`));
+
+  expect(files["index.md"]).toContain("](hooks.md)");
+  expect(hookReference("recordChanged")).toContain("record (required)");
+  expect(hookReference("recordChanged")).toContain("id (required): string");
+  expect(hookReference("recordChanged")).toContain(
+    "hooks/recordChanged.hook.ts"
+  );
+  expect(hookReference("notify")).toContain("Input: no payload");
+  expect(hookReference("notify")).toContain("Output: none");
+  expect(hookReference("sync")).toContain("Input: string");
+  expect(hookReference("sync")).toContain("Required output: number");
+  expect(hookReference("records.created")).toContain("Optional input: string");
+  expect(hookReference("records.created")).toContain(
+    "Optional output: boolean"
+  );
+  expect(hookReference("records.created")).toContain(
+    "hooks/records/created.hook.ts"
+  );
+});
+
+it("keeps case-distinct hook references separate on case-insensitive filesystems", () => {
+  const files = renderGeneratedReferences(
+    {
+      hooks: {
+        Foo: { input: { type: "string" } },
+        foo: { input: { type: "number" } },
+      },
+    },
+    { bindingsPath: "../../../patchsmith.gen.ts" }
+  );
+
+  const destinations = new Map(
+    Object.entries(files).flatMap(([filename, content]) =>
+      filename.startsWith("hooks/")
+        ? [[filename.toLowerCase(), content] as const]
+        : []
+    )
+  );
+
+  expect(destinations.size).toBe(2);
+  expect([...destinations.values()]).toEqual(
+    expect.arrayContaining([
+      expect.stringContaining("# Foo\n"),
+      expect.stringContaining("# foo\n"),
+    ])
+  );
+});
+
+it("distinguishes a host without hooks from a host with unimplemented hooks", () => {
+  for (const contract of [{}, { hooks: {} }]) {
+    const files = renderGeneratedReferences(contract, {
+      bindingsPath: "../../../patchsmith.gen.ts",
+    });
+
+    expect(files["hooks.md"]).toContain("declares no hooks");
+    expect(
+      Object.keys(files).filter((filename) => filename.startsWith("hooks/"))
+    ).toEqual([]);
+  }
+});
+
+it("keeps references writable and distinct for long host hook names", () => {
+  const prefix = ["a".repeat(64), "b".repeat(64), "c".repeat(64)].join(".");
+  const names = [`${prefix}.created`, `${prefix}.updated`];
+
+  const files = renderGeneratedReferences(
+    { hooks: Object.fromEntries(names.map((name) => [name, {}])) },
+    { bindingsPath: "../../../patchsmith.gen.ts" }
+  );
+
+  const references = Object.keys(files).filter((filename) =>
+    filename.startsWith("hooks/")
+  );
+
+  expect(references).toHaveLength(2);
+
+  for (const filename of references) {
+    expect(path.basename(filename).length).toBeLessThanOrEqual(255);
+    expect(files["hooks.md"]).toContain(`](${filename})`);
+  }
+
+  for (const name of names) {
+    expect(
+      references.some(
+        (filename) => files[filename]?.includes(`# ${name}\n`) === true
+      )
+    ).toBe(true);
+  }
+});
+
 it("keeps responsive primitive references small without dropping the host's keys or tokens", () => {
   const contract = createPatchsmithSchema({
     components: primitives({
@@ -375,9 +512,15 @@ it("removes obsolete references on regeneration and preserves unrelated source a
     expect(await readFile(extensionless, "utf-8")).toContain(
       "export const Button"
     );
-    await generateTypes({ cwd: root, schema: { ...schema, components: {} } });
+    await generateTypes({
+      cwd: root,
+      schema: { ...schema, components: {}, hooks: {} },
+    });
     await expect(
       readFile(path.join(skillDirectory, "references/components/Button.md"))
+    ).rejects.toThrow();
+    await expect(
+      readdir(path.join(skillDirectory, "references/hooks"))
     ).rejects.toThrow();
     expect(
       await readFile(path.join(root, "patchsmith.gen.ts"), "utf-8")

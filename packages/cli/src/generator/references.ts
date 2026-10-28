@@ -366,6 +366,51 @@ const renderViewsReference = (
   return `${views.join("\n").trimEnd()}\n`;
 };
 
+const renderHookReferences = (
+  schema: PatchsmithSchemaFile,
+  files: GeneratedFiles,
+  bindingsPath: string
+): string => {
+  const lines = ["# Host hooks", referenceHeader];
+
+  const hooks = Object.entries(schema.hooks ?? {});
+
+  if (hooks.length === 0) {
+    lines.push("This host contract declares no hooks.", "");
+  }
+
+  for (const [name, hook] of hooks) {
+    const slug = encodeURIComponent(name).slice(0, 180);
+
+    const digest = createHash("sha256").update(name).digest("hex").slice(0, 16);
+
+    const filename = `hooks/${slug}-${digest}.md`;
+
+    const entry = `hooks/${name.split(".").join("/")}.hook.ts`;
+    lines.push(`- [${tableCell(name)}](${filename})`);
+    files[filename] = [
+      `# ${tableCell(name)}`,
+      "",
+      `- File: \`${entry}\``,
+      `- ${hook.inputOptional === true ? "Optional input" : "Input"}: ${summarize(hook.input)}.`,
+      hook.output === undefined
+        ? "- Output: none."
+        : `- ${hook.outputOptional === true ? "Optional output" : "Required output"}: ${summarize(hook.output)}.`,
+      "",
+      `Exact contract: [generated bindings](../${bindingsPath}); search for \`PatchsmithHooks\` and ${JSON.stringify(name)}.`,
+      "",
+    ].join("\n");
+  }
+
+  lines.push(
+    "",
+    `Exact contracts: [generated bindings](${bindingsPath}); search for \`PatchsmithHooks\`.`,
+    ""
+  );
+
+  return lines.join("\n");
+};
+
 export const renderReferences = (
   schema: PatchsmithSchemaFile,
   components: ReferenceComponent[],
@@ -381,6 +426,7 @@ export const renderReferences = (
     "",
     "- [Slots and context](views.md): choose a supported surface and read its context.",
     "- [Host tools](tools.md): inputs, results, and client/server execution.",
+    "- [Host hooks](hooks.md): product events, callbacks, approval steps, and other host extension points.",
     "- [Styling](styling.md): token and responsive/state lookup.",
     `- App functions: \`api\` references routers discovered in \`functions/**/*.router.ts\` under the app source root (optionally \`src/\`); search the [generated bindings](${bindingsPath}) for \`AppServerFunctions\` and inspect your own function source when needed.`,
     "",
@@ -401,6 +447,7 @@ export const renderReferences = (
 
   files["index.md"] = `${index.join("\n")}\n`;
   files["views.md"] = renderViewsReference(schema, bindingsPath);
+  files["hooks.md"] = renderHookReferences(schema, files, bindingsPath);
   files["tools.md"] = [
     "# Host tools",
     referenceHeader,
