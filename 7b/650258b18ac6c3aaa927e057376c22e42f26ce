@@ -1,0 +1,29 @@
+.changeset/agent-hook-discovery.md
+  s_f695ce312b621a::t_b66d1b021c08bc 1-5
+packages/agent-fx/README.md
+  s_f695ce312b621a::t_3d9fecd15d98bf 17
+packages/agent-fx/src/instructions.md
+  s_f695ce312b621a::t_4b2777f68e6690 7,15-16,48
+packages/agent-fx/src/skills.ts
+  s_f695ce312b621a::t_5b4ef783ac2224 6,37-43
+packages/cli/src/generator/reference-examples.ts
+  s_f695ce312b621a::t_de3ad57473bde6 141-152
+packages/cli/src/generator/skill.ts
+  s_f695ce312b621a::t_b22bac39944cc9 79,94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7b650258b18ac6c3aaa927e057376c22e42f26ce",
+  "prompts": {},
+  "sessions": {
+    "s_f695ce312b621a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17fe7-67b1-7350-97a5-4081ef8ac176",
+        "model": "unknown"
+      },
+      "human_author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
