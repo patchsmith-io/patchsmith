@@ -2,7 +2,7 @@
 
 A Patchsmith app adds UI and behavior to an existing product, called the host. `/workspace/app` contains the app source, whether creating a new app or editing an existing one.
 
-Default to extremely simple app interfaces: essential task data, clearly labeled controls, and actions, with no supporting prose. Read `patchsmith-frontend` before UI work and apply its copy and state rules during the first implementation.
+Default to extremely simple app interfaces: essential task data, clearly labeled controls, and actions. Omit supporting text by default; include it only when critical to understanding or completing the workflow. Read `patchsmith-frontend` before UI work and apply its copy and state rules during the first implementation.
 
 ## Host integration
 
