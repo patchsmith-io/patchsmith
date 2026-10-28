@@ -1,0 +1,18 @@
+packages/agent-fx/README.md
+  h_18044dd1b61a81 17
+packages/cli/src/generator/references.ts
+  h_18044dd1b61a81 374,396-400
+playground/apps/todo/.agents/skills/patchsmith-capabilities/references/hooks/ping.md
+  h_18044dd1b61a81 3-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "555978a6efbaf4e4abf506b6895853aa2927b83d",
+  "prompts": {},
+  "humans": {
+    "h_18044dd1b61a81": {
+      "author": "Alfie Jones <alfie.jones@hotmail.co.uk>"
+    }
+  }
+}
